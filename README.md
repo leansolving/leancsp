@@ -133,8 +133,6 @@ Convenience functions:
 ```lean
 translateTo my_csp BackendType.MiniZinc     -- Returns MiniZinc string
 translateTo my_csp BackendType.SMTLIB       -- Returns SMT-LIB string
-translateToMiniZinc my_csp                  -- Shorthand for MiniZinc
-CSP.L2S.Z3.translateToSMTLIB my_csp         -- Shorthand for SMT-LIB
 ```
 
 ### Solving
