@@ -59,12 +59,29 @@ CSP/
 | **Z3** | SMT solver (optional) | [github.com/Z3Prover/z3](https://github.com/Z3Prover/z3/releases) |
 | **CVC5** | SMT solver (optional) | [github.com/cvc5/cvc5](https://github.com/cvc5/cvc5/releases) |
 
+It is very recommended to have [elan](https://lean-lang.org/install/manual/) installed to avoid building Mathlib. You can install it this way:
+
+```bash
+# Install git and curl
+sudo apt install git curl
+
+# Install elan (choose 1 to accept the default install option)
+curl https://elan.lean-lang.org/elan-init.sh -sSf | sh
+
+# Add the elan executables to the PATH
+source $HOME/.elan/env
+```
+
+Once `elan` is installed, it will manage all Lean versions for you automatically.
+
 ## Building the Project
+
+Even if you have installed Lean and `elan` with using the VS Code extension, you will need to build the project using the following commands to avoid building Mathlib from source:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/YOUR_USERNAME/lean-csp.git
-cd lean-csp/projects/CSP
+git clone https://github.com/leansolving/leancsp.git
+cd leancsp
 
 # 2. Download pre-built Mathlib cache (IMPORTANT: saves 30+ min build time)
 lake exe cache get
@@ -73,10 +90,7 @@ lake exe cache get
 lake build
 ```
 
-**Troubleshooting:**
-- If `lake exe cache get` shows warnings about missing files, ensure your Lean toolchain matches the project's `lean-toolchain` file
-- On minimal Linux systems, install `xz-utils` if you see tar/extraction errors
-- If Mathlib still rebuilds from source, try `lake clean && lake exe cache get`
+Once the project is built, you will be able to open it in your editor (VS Code recommended) and do not wait for Mathlib to build.
 
 ## Usage
 
