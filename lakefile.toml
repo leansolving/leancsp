@@ -1,0 +1,14 @@
+name = "CSP"
+version = "0.1.0"
+defaultTargets = ["csp"]
+
+[[lean_lib]]
+name = "CSP"
+
+[[lean_exe]]
+name = "csp"
+root = "Main"
+
+[[require]]
+name = "Canonical"
+scope = "chasenorman"

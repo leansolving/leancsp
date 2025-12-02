@@ -1,0 +1,6 @@
+.lake/
+*.olean
+build/
+
+.claude/
+.mcp.json
