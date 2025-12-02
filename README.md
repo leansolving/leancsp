@@ -59,7 +59,7 @@ CSP/
 | **Z3** | SMT solver (optional) | [github.com/Z3Prover/z3](https://github.com/Z3Prover/z3/releases) |
 | **CVC5** | SMT solver (optional) | [github.com/cvc5/cvc5](https://github.com/cvc5/cvc5/releases) |
 
-It is very recommended to have [elan](https://lean-lang.org/install/manual/) installed to avoid building Mathlib. You can install it this way:
+Make sure to have [elan](https://lean-lang.org/install/manual/) installed to avoid building the Mathlib dependencies. Elan auto-downloads the correct Lean version. You can install it this way:
 
 ```bash
 # Install git and curl
@@ -90,7 +90,7 @@ lake exe cache get
 lake build
 ```
 
-Once the project is built, you will be able to open it in your editor (VS Code recommended) and do not wait for Mathlib to build.
+Once the project is built, you should see the message `Build completed successfully (7277 jobs)`, which confirms that everything worked fine. Then, you will be able to open it in your editor (VS Code recommended) and do not wait for Mathlib to build.
 
 ## Usage
 
