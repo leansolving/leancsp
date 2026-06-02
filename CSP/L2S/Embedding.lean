@@ -151,7 +151,7 @@ def extractDynamicConstraints (csp : HomogeneousCSP) :
 theorem extractDynamicConstraints_correct (csp : HomogeneousCSP) :
     extractDynamicConstraints csp =
     (embed csp).constraints := by
-  simp [extractDynamicConstraints, embed, toHeterogeneous]
+  rfl
 
 -- ============================================================================
 -- Foundational Lemmas

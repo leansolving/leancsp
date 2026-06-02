@@ -265,13 +265,14 @@ lemma matrix_one_hot (x : HomogeneousAssignment (vertices * colors))
         exact Eq.symm (Int.le_antisymm h_pos h_ub)
       exact this
   have h_sum_matrixIndex : (List.ofFn fun c : Fin colors => x (matrixIndex vertices colors v c)).sum = 1 := by
-    have h_def : (fun i => x ((vertex_colors vertices colors v).get i)) =
-                 (fun i => x (matrixIndex vertices colors v i)) := by
-      funext i
-      unfold vertex_colors _root_.Vector.get _root_.Vector.ofFn matrixIndex
-      simp
-    rw [h_def] at h_sat
-    exact h_sat
+    have vget : ∀ {α : Type} {m : ℕ} (f : Fin m → α) (k : Fin m),
+        (_root_.Vector.ofFn f).get k = f k := by
+      intro α m f k
+      simp only [_root_.Vector.get, _root_.Vector.toArray_ofFn, Array.getElem_ofFn,
+        Fin.val_cast, Fin.eta]
+    convert h_sat using 3 with i
+    funext i
+    exact congrArg x (vget (fun c => matrixIndex vertices colors v c) i).symm
 
   have h_exists : ∃ c : Fin colors, x (matrixIndex vertices colors v c) = 1 := by
     by_contra h_none
@@ -430,15 +431,12 @@ theorem forward (sol₂ : HomogeneousAssignment (vertices * colors))
       have h_sat := h_sol₂ _ h_constr
       unfold HomogeneousCSP.satisfiesConstraint sum_le sum_rel at h_sat
       simp only [CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat, extractValues, decide_eq_true_iff] at h_sat
-      have h_sum : (List.ofFn fun i => CSP.map_assignment sol₂ ⟨#[matrixIndex vertices colors u c_u, matrixIndex vertices colors v c_u], rfl⟩ i).sum = 2 := by
-        simp only [List.ofFn, CSP.map_assignment, _root_.Vector.get]
-        show ([sol₂ (matrixIndex vertices colors u c_u), sol₂ (matrixIndex vertices colors v c_u)]).sum = 2
-        rw [List.sum_cons, List.sum_cons, List.sum_nil]
-        rw [h_u_wit]
-        norm_num
-        rw [h_c_eq, h_v_wit]
-        simp
-      rw [h_sum] at h_sat
+      -- Reduce h_sat's sum directly to a numeric value, then derive 2 ≤ 1.
+      simp only [List.ofFn, CSP.map_assignment, _root_.Vector.get] at h_sat
+      change ([sol₂ (matrixIndex vertices colors u c_u),
+          sol₂ (matrixIndex vertices colors v c_u)]).sum ≤ 1 at h_sat
+      rw [List.sum_cons, List.sum_cons, List.sum_nil, add_zero] at h_sat
+      rw [h_u_wit, h_c_eq, h_v_wit] at h_sat
       linarith
     unfold π at h_eq
     apply h_c_ne
@@ -479,27 +477,18 @@ theorem forward (sol₂ : HomogeneousAssignment (vertices * colors))
         have h_eq : c' = c_v := h_v_unique c' h_c'_sat
         rw [h_eq] at h_c'_lt
         exact Nat.lt_irrefl c_v.val h_c'_lt
-    have h_num_vars : (graph_coloring_vertex vertices colors edges).num_vars = vertices := rfl
-
-    have h_find_u_simp : List.find? (fun c => decide (sol₂ (matrixIndex (graph_coloring_vertex vertices colors edges).num_vars colors u c) = 1)) (List.finRange colors) = some c_u := by
-      have : (fun c => decide (sol₂ (matrixIndex (graph_coloring_vertex vertices colors edges).num_vars colors u c) = 1)) =
-             (fun c => decide (sol₂ (matrixIndex vertices colors u c) = 1)) := by
-        funext c
-        rfl
-      rw [this, h_find_u]
-
-    have h_find_v_simp : List.find? (fun c => decide (sol₂ (matrixIndex (graph_coloring_vertex vertices colors edges).num_vars colors v c) = 1)) (List.finRange colors) = some c_v := by
-      have : (fun c => decide (sol₂ (matrixIndex (graph_coloring_vertex vertices colors edges).num_vars colors v c) = 1)) =
-             (fun c => decide (sol₂ (matrixIndex vertices colors v c) = 1)) := by
-        funext c
-        rfl
-      rw [this, h_find_v]
-
-    simp only [h_find_u_simp, h_find_v_simp] at h_eq
-    have : c_u.val = c_v.val := by
-      have h_cast : (c_u.val : ℤ) = (c_v.val : ℤ) := h_eq
-      exact Nat.cast_injective h_cast
-    exact this
+    -- Compute the projection of each endpoint from its unique winning color.
+    have h_pi_u : π sol₂ u = (c_u.val : ℤ) := by
+      unfold π
+      simp [h_find_u]
+    have h_pi_v : π sol₂ v = (c_v.val : ℤ) := by
+      unfold π
+      simp [h_find_v]
+    -- The second endpoint `#[u, v][1 % #[u, v].size]` is definitionally `v`.
+    have h_eq' : π sol₂ u = π sol₂ v := h_eq
+    rw [h_pi_u, h_pi_v] at h_eq'
+    have h_cast : (c_u.val : ℤ) = (c_v.val : ℤ) := h_eq'
+    exact Nat.cast_injective h_cast
 
 /-- Backward direction: vertex solution lifts to matrix solution -/
 theorem backward (h_pos : 0 < colors) (sol₁ : HomogeneousAssignment vertices)

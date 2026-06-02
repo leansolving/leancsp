@@ -280,8 +280,8 @@ theorem sb_constraint_is_domain_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
     constructor
     · exact DomainSymmetry.identity_is_symmetry _
     · intro tc h_tc_mem
-      simp only [HomogeneousCSP.addConstraint, List.mem_cons] at h_tc_mem
-      obtain h_sbc | h_orig := h_tc_mem
+      simp only [HomogeneousCSP.addConstraint] at h_tc_mem
+      obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
       · rw [h_sbc]
         unfold HomogeneousCSP.satisfiesConstraint sb_constraint less_than_const
         unfold CSP.satisfies_dynamic_constraint CSP.unary_dynamic_constraint
@@ -296,8 +296,8 @@ theorem sb_constraint_is_domain_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
     constructor
     · exact horizontal_reflection_is_symmetry n
     · intro tc h_tc_mem
-      simp only [HomogeneousCSP.addConstraint, List.mem_cons] at h_tc_mem
-      obtain h_sbc | h_orig := h_tc_mem
+      simp only [HomogeneousCSP.addConstraint] at h_tc_mem
+      obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
       · rw [h_sbc]
         unfold HomogeneousCSP.satisfiesConstraint sb_constraint less_than_const
         unfold CSP.satisfies_dynamic_constraint CSP.unary_dynamic_constraint
@@ -311,7 +311,7 @@ theorem sb_constraint_is_domain_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
           unfold nqueens_csp bound_constraints
           simp [List.mem_append, List.mem_map, List.mem_finRange]
 
-        have h_bound_sat := h_sol (bound ⟨0, h_n⟩ 0 (↑n - 1)) h_bound_mem
+        have h_bound_sat := h_sol _ h_bound_mem
 
         have h_upper : assignment ⟨0, h_n⟩ ≤ ↑n - 1 := by
           unfold HomogeneousCSP.satisfiesConstraint bound at h_bound_sat

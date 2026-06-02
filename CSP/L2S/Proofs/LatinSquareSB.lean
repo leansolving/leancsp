@@ -390,8 +390,8 @@ theorem sb_constraint_is_variable_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
   · exact column_permutation_is_variable_symmetry n h_n σ
 
   · intro tc h_tc_mem
-    simp only [HomogeneousCSP.addConstraint, List.mem_cons] at h_tc_mem
-    obtain h_sbc | h_orig := h_tc_mem
+    simp only [HomogeneousCSP.addConstraint] at h_tc_mem
+    obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
     · rw [h_sbc]
       unfold HomogeneousCSP.satisfiesConstraint sb_constraint increasing
       unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat
@@ -401,63 +401,30 @@ theorem sb_constraint_is_variable_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
         unfold sorting_permutation at σ
         exact Tuple.monotone_sort first_row
 
-      rw [List.sorted_le_ofFn_iff]
+      rw [← List.sortedLE_iff_pairwise, List.sortedLE_ofFn_iff]
 
       intro i1 i2 h_le
-      simp only [Function.comp_apply, row_variables, _root_.Vector.get, _root_.Vector.ofFn, Array.getElem_ofFn]
-
-      have h_i1_bound : 0 * n + i1.val < n * n := by
-        calc 0 * n + i1.val = i1.val := by simp
-          _ < n := i1.isLt
-          _ ≤ n * n := Nat.le_mul_of_pos_right n h_n
-
-      have h_i2_bound : 0 * n + i2.val < n * n := by
-        calc 0 * n + i2.val = i2.val := by simp
-          _ < n := i2.isLt
-          _ ≤ n * n := Nat.le_mul_of_pos_right n h_n
-
-      have h_σi1_bound : 0 * n + (σ i1).val < n * n := by
-        have : (σ i1).val < n := (σ i1).isLt
-        calc 0 * n + (σ i1).val = (σ i1).val := by simp
-          _ < n := this
-          _ ≤ n * n := Nat.le_mul_of_pos_right n h_n
-
-      have h_σi2_bound : 0 * n + (σ i2).val < n * n := by
-        have : (σ i2).val < n := (σ i2).isLt
-        calc 0 * n + (σ i2).val = (σ i2).val := by simp
-          _ < n := this
-          _ ≤ n * n := Nat.le_mul_of_pos_right n h_n
-
-      have h_cp_i1 : column_permutation n h_n σ ⟨0 * n + i1.val, h_i1_bound⟩ =
-                     ⟨0 * n + (σ i1).val, h_σi1_bound⟩ := by
-        ext
-        simp only [column_permutation, Nat.zero_mul, Nat.zero_add]
-        have : i1.val / n = 0 := Nat.div_eq_of_lt i1.isLt
-        have : i1.val % n = i1.val := Nat.mod_eq_of_lt i1.isLt
-        simp [*]
-
-      have h_cp_i2 : column_permutation n h_n σ ⟨0 * n + i2.val, h_i2_bound⟩ =
-                     ⟨0 * n + (σ i2).val, h_σi2_bound⟩ := by
-        ext
-        simp only [column_permutation, Nat.zero_mul, Nat.zero_add]
-        have : i2.val / n = 0 := Nat.div_eq_of_lt i2.isLt
-        have : i2.val % n = i2.val := Nat.mod_eq_of_lt i2.isLt
-        simp [*]
-
-      calc assignment (column_permutation n h_n σ ⟨0 * n + i1.val, h_i1_bound⟩)
-          = assignment ⟨0 * n + (σ i1).val, h_σi1_bound⟩ := by rw [h_cp_i1]
-        _ = assignment ((row_variables ⟨0, h_n⟩).get (σ i1)) := by
-            congr 1
-            simp only [row_variables, _root_.Vector.get, _root_.Vector.ofFn, Array.getElem_ofFn, Nat.zero_mul, Nat.zero_add]
-            rfl
+      simp only [Function.comp_apply]
+      -- Lean 4.30 core `Vector`: reduce `.get` of `ofFn` directly.  The old
+      -- `Vector.get`→`Array.getElem` simp path no longer normalises in context.
+      have vget : ∀ {α : Type} {m : ℕ} (f : Fin m → α) (k : Fin m),
+          (Vector.ofFn f).get k = f k := by
+        intro α m f k
+        simp only [Vector.get, Vector.toArray_ofFn, Array.getElem_ofFn, Fin.val_cast, Fin.eta]
+      -- The column permutation sends the row-0 variable for column k to that for σ k.
+      have hperm : ∀ (k : Fin n),
+          column_permutation n h_n σ ((row_variables ⟨0, h_n⟩).get k)
+            = (row_variables ⟨0, h_n⟩).get (σ k) := by
+        intro k
+        apply Fin.ext
+        simp [column_permutation, row_variables, vget, Nat.div_eq_of_lt, Nat.mod_eq_of_lt]
+      calc assignment (column_permutation n h_n σ ((row_variables ⟨0, h_n⟩).get i1))
+          = assignment ((row_variables ⟨0, h_n⟩).get (σ i1)) := by rw [hperm i1]
         _ = first_row (σ i1) := rfl
-        _ ≤ first_row (σ i2) := h_mono h_le
+        _ ≤ first_row (σ i2) := by simpa [Function.comp_apply] using h_mono h_le
         _ = assignment ((row_variables ⟨0, h_n⟩).get (σ i2)) := rfl
-        _ = assignment ⟨0 * n + (σ i2).val, h_σi2_bound⟩ := by
-            congr 1
-            simp only [row_variables, _root_.Vector.get, _root_.Vector.ofFn, Array.getElem_ofFn, Nat.zero_mul, Nat.zero_add]
-            rfl
-        _ = assignment (column_permutation n h_n σ ⟨0 * n + i2.val, h_i2_bound⟩) := by rw [h_cp_i2]
+        _ = assignment (column_permutation n h_n σ ((row_variables ⟨0, h_n⟩).get i2)) := by
+              rw [hperm i2]
 
     · have h_sym := column_permutation_is_variable_symmetry n h_n σ
       unfold VariableSymmetry at h_sym

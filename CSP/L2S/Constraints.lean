@@ -71,7 +71,7 @@ def increasing {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n
     scope := scope
     check := fun values =>
       let valueList := extractValues values
-      decide (List.Sorted (· ≤ ·) valueList)
+      decide (List.Pairwise (· ≤ ·) valueList)
   }
   { pattern := ConstraintPattern.increasing (scope.toList.map (·.val))
     dynamic := DynamicConstraint.mk n checker }

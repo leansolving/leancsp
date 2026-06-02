@@ -1493,8 +1493,8 @@ theorem input_ordering_is_variable_symmetry_breaking
 
   · -- assignment ∘ β satisfies extended CSP
     intro tc h_tc_mem
-    simp only [HomogeneousCSP.addConstraint, List.mem_cons] at h_tc_mem
-    obtain h_sbc | h_orig := h_tc_mem
+    simp only [HomogeneousCSP.addConstraint] at h_tc_mem
+    obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
     · -- The SBC constraint: prove sorted inputs satisfy increasing
       rw [h_sbc]
       unfold HomogeneousCSP.satisfiesConstraint input_ordering_constraint increasing

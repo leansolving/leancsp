@@ -63,7 +63,7 @@ def enrichedCSVHeader : String :=
 
 /-- Parse a CSV row into a RawTimingRecord -/
 def parseRawCSVRow (row : String) : Option RawTimingRecord := do
-  let fields := row.split (· == ',')
+  let fields := row.splitOn ","
   if fields.length != 6 then
     none
   else

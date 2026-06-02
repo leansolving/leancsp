@@ -145,8 +145,8 @@ theorem sb_constraint_is_domain_symmetry_breaking (nodes colors : ℕ)
     constructor
     · exact DomainSymmetry.identity_is_symmetry _
     · intro tc h_tc_mem
-      simp only [HomogeneousCSP.addConstraint, List.mem_cons] at h_tc_mem
-      obtain h_sbc | h_orig := h_tc_mem
+      simp only [HomogeneousCSP.addConstraint] at h_tc_mem
+      obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
       · rw [h_sbc]
         unfold HomogeneousCSP.satisfiesConstraint sb_constraint equals_const
         unfold CSP.satisfies_dynamic_constraint CSP.unary_dynamic_constraint
@@ -178,8 +178,8 @@ theorem sb_constraint_is_domain_symmetry_breaking (nodes colors : ℕ)
     constructor
     · exact color_swap_is_symmetry nodes colors edges c h_colors h_c_in_bounds
     · intro tc h_tc_mem
-      simp only [HomogeneousCSP.addConstraint, List.mem_cons] at h_tc_mem
-      obtain h_sbc | h_orig := h_tc_mem
+      simp only [HomogeneousCSP.addConstraint] at h_tc_mem
+      obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
       · rw [h_sbc]
         unfold HomogeneousCSP.satisfiesConstraint sb_constraint equals_const
         unfold CSP.satisfies_dynamic_constraint CSP.unary_dynamic_constraint
