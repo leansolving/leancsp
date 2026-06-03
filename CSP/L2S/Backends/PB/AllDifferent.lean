@@ -251,6 +251,28 @@ theorem encodeAllDifferent_sound (v : Valuation S) (hv : v.orderConsistent)
   rw [List.map_map] at hcount
   exact perValueConstr_sound v hv vars val hcount
 
+/-! ### `xⱼ ≠ val` — the aux-free `≠` special case (PLAN §6.4)
+
+The general linear `Σ aᵢ xᵢ ≠ b` needs a fresh selector variable (Big-M), but the
+common `xⱼ ≠ val` (variable ≠ constant) case is aux-free: it is exactly
+`[xⱼ = val] ≤ 0`, i.e. `−[xⱼ = val] ≥ 0`, reusing the per-variable indicator
+`adContrib`.  (The `xᵢ ≠ xⱼ` case is `encodeAllDifferent [i, j] _`.)
+-/
+
+/-- Encode `xⱼ ≠ val` (variable ≠ constant) as `−[xⱼ = val] ≥ 0`. -/
+def encodeNeConst (j : Fin S.nInt) (val : Int) : SignedPBConstr (PBVar S) where
+  terms := (adContrib j val).1
+  rhs := -(adContrib j val).2
+
+/-- **Soundness.** If the recovered value of `xⱼ` is not `val`, the constraint holds. -/
+theorem encodeNeConst_sound (v : Valuation S) (hv : v.orderConsistent)
+    (j : Fin S.nInt) (val : Int) (h : v.intValue j ≠ val) :
+    (encodeNeConst j val).sat v := by
+  have he := adContrib_eval v hv j val
+  rw [if_neg h] at he
+  simp only [SignedPBConstr.sat, encodeNeConst]
+  linarith [he]
+
 /-! ### Unit test: two variables over `{0,1}` with distinct values -/
 
 namespace AllDifferentTest
