@@ -148,4 +148,80 @@ theorem php_3_2_unsat : ¬ php_3_2.isSatisfiable := by
     · exact php_formulaUnsat
   exact key ⟨a, fun _ => false, hdom, hnodup⟩
 
+/-! ### A larger instance: `php_5_4` (five pigeons, four holes)
+
+Same `alldifferent` recipe as `php_3_2`, scaled up: five pigeons over the
+four-hole domain `{1,2,3,4}` (width 3, so `monotonicity` is non-empty). Reuses the
+`alldifferent_sat` / `extend_sat_encodeAllDifferent` bridges verbatim. -/
+
+/-- The PB signature for `php_5_4`: five integer variables over `{1,2,3,4}`. -/
+def php5Sig : CSPSig where
+  nInt := 5
+  nBool := 0
+  nAux := 0
+  values := fun _ => domainValues 1 4
+  sorted := fun _ => domainValues_sorted 1 4
+  nonempty := fun _ => domainValues_nonempty (by norm_num)
+
+/-- The pigeon variables as the scope of the corpus `alldifferent`. -/
+def php5Scope : _root_.Vector (HomogeneousVarIndex 5) 5 := _root_.Vector.ofFn id
+
+/-- The pigeon variable list (the `alldifferent` scope as a `List`). -/
+def php5Vars : List (Fin php5Sig.nInt) := php5Scope.toList
+
+/-- The PB encoding of `php_5_4`: staircase clauses plus the normalized
+    `alldifferent` per-value constraints over the shared domain `{1,2,3,4}`. -/
+def php5Encoded : List (PBConstr (PBVar php5Sig)) :=
+  php5Sig.monotonicity ++ (encodeAllDifferent php5Vars [1, 2, 3, 4]).filterMap normalize
+
+/-- The veripb-elaborated kernel proof of UNSAT for `php5Encoded`'s OPB
+    serialization (RoundingSat + veripb; both untrusted). The 15 thresholds map to
+    OPB `x1,…,x15`. -/
+def php5KernelProof : String :=
+"pseudo-Boolean proof version 3.0
+f 14;
+rup >= 0 : ~ ;
+pol 15 11 1000000000000000 * + 12 1000000000000000 * + 13 1000000000000000 * + 14 1000000000000000 * +;
+output NONE ;
+conclusion UNSAT : 16;
+end pseudo-Boolean proof;
+"
+
+/-- The PB encoding of `php_5_4` is unsatisfiable — kernel-checked through PBLean's
+    verified reflection checker (`native_decide`; RoundingSat / veripb / serializer
+    untrusted). -/
+theorem php5_formulaUnsat :
+    VeriPB.Reflect.formulaUnsat (php5Encoded.toArray.map PBConstr.toNatConstr) :=
+  VeriPB.Reflect.checkProof_sound _ 15 php5KernelProof (by native_decide)
+
+/-- **End-to-end pigeonhole UNSAT (larger instance).** The corpus CSP `php_5_4`
+    (five pigeons into four holes, `alldifferent`) is unsatisfiable, via the same
+    verified PB pipeline as `php_3_2` — only the instance size and certificate
+    differ. -/
+theorem php_5_4_unsat : ¬ php_5_4.isSatisfiable := by
+  rintro ⟨a, hsol⟩
+  have hdom : ∀ i : Fin php5Sig.nInt, a i ∈ php5Sig.values i := by
+    intro i
+    have hb : HomogeneousCSP.satisfiesConstraint (bound i 1 (4 : ℕ)) a := by
+      apply hsol
+      exact List.mem_append_left _ (List.mem_map.mpr ⟨i, List.mem_finRange i, rfl⟩)
+    obtain ⟨h1, h2⟩ := bound_sat i 1 (4 : ℕ) a hb
+    have h2' : a i ≤ 4 := by exact_mod_cast h2
+    show a i ∈ domainValues 1 4
+    exact mem_domainValues.mpr ⟨h1, h2'⟩
+  have hnodup : (php5Vars.map a).Nodup := by
+    have ha : HomogeneousCSP.satisfiesConstraint (php_alldiff 5) a :=
+      hsol _ (List.mem_append_right _ (List.mem_singleton.mpr rfl))
+    exact alldifferent_sat php5Scope a ha
+  have key : ¬ ∃ (a : Fin php5Sig.nInt → Int) (_ : Fin php5Sig.nBool → Bool),
+      (∀ i, a i ∈ php5Sig.values i) ∧ (php5Vars.map a).Nodup := by
+    apply csp_unsat_generic php5Sig
+      ((encodeAllDifferent php5Vars [1, 2, 3, 4]).filterMap normalize)
+      (fun a _ => (php5Vars.map a).Nodup)
+      (fun _ _ _ => false)
+    · intro a' bA hdom' hnodup' c hc
+      exact extend_sat_encodeAllDifferent a' bA _ hdom' php5Vars [1, 2, 3, 4] c hc hnodup'
+    · exact php5_formulaUnsat
+  exact key ⟨a, fun _ => false, hdom, hnodup⟩
+
 end CSP.L2S.PB.Pigeonhole
