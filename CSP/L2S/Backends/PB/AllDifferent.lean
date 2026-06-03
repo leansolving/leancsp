@@ -203,13 +203,16 @@ theorem adContrib_eval (v : Valuation S) (hv : v.orderConsistent) (j : Fin S.nIn
   unfold eqIndicator at heq
   linarith [hlo, hhi, heq]
 
-/-- The per-value constraint `Σⱼ [xⱼ = val] ≤ 1`, in signed-PB `≥` form. -/
-def perValueConstr (vars : List (Fin S.nInt)) (val : Int) : SignedPBConstr (PBVar S) where
+/-- The per-value cardinality constraint `Σⱼ [xⱼ = val] ≤ k`, in signed-PB `≥`
+    form.  `alldifferent` uses `k = 1` (`perValueConstr` below); multi-valued
+    not-all-equal uses `k = |vars| − 1`. -/
+def perValueConstrLe (vars : List (Fin S.nInt)) (val : Int) (k : Int) :
+    SignedPBConstr (PBVar S) where
   terms := (vars.map (fun j => adContrib j val)).flatMap Prod.fst
-  rhs := -1 - ((vars.map (fun j => adContrib j val)).map Prod.snd).sum
+  rhs := -k - ((vars.map (fun j => adContrib j val)).map Prod.snd).sum
 
 /-- The folded terms + constant of a per-value constraint sum to `−Σⱼ [intValue j = val]`. -/
-private theorem perValueConstr_key (v : Valuation S) (hv : v.orderConsistent)
+private theorem perValueConstrLe_key (v : Valuation S) (hv : v.orderConsistent)
     (vars : List (Fin S.nInt)) (val : Int) :
     signedEval v ((vars.map (fun j => adContrib j val)).flatMap Prod.fst)
       + ((vars.map (fun j => adContrib j val)).map Prod.snd).sum
@@ -222,15 +225,27 @@ private theorem perValueConstr_key (v : Valuation S) (hv : v.orderConsistent)
     have hj := adContrib_eval v hv j val
     linarith [hj, ih]
 
-/-- **Per-value soundness.** If at most one variable's recovered value is `val`
-    (`Σⱼ [intValue j = val] ≤ 1`), the per-value constraint holds. -/
+/-- **Per-value soundness.** If at most `k` variables recover the value `val`
+    (`Σⱼ [intValue j = val] ≤ k`), the per-value constraint holds. -/
+theorem perValueConstrLe_sound (v : Valuation S) (hv : v.orderConsistent)
+    (vars : List (Fin S.nInt)) (val : Int) (k : Int)
+    (h1 : (vars.map (fun j => if v.intValue j = val then (1 : Int) else 0)).sum ≤ k) :
+    (perValueConstrLe vars val k).sat v := by
+  have hkey := perValueConstrLe_key v hv vars val
+  simp only [SignedPBConstr.sat, perValueConstrLe]
+  linarith [hkey, h1]
+
+/-- The `alldifferent` per-value constraint `Σⱼ [xⱼ = val] ≤ 1` (the `k = 1` case). -/
+def perValueConstr (vars : List (Fin S.nInt)) (val : Int) : SignedPBConstr (PBVar S) :=
+  perValueConstrLe vars val 1
+
+/-- **Per-value soundness (`alldifferent`).** If at most one variable's recovered
+    value is `val` (`Σⱼ [intValue j = val] ≤ 1`), the per-value constraint holds. -/
 theorem perValueConstr_sound (v : Valuation S) (hv : v.orderConsistent)
     (vars : List (Fin S.nInt)) (val : Int)
     (h1 : (vars.map (fun j => if v.intValue j = val then (1 : Int) else 0)).sum ≤ 1) :
-    (perValueConstr vars val).sat v := by
-  have hkey := perValueConstr_key v hv vars val
-  simp only [SignedPBConstr.sat, perValueConstr]
-  linarith [hkey, h1]
+    (perValueConstr vars val).sat v :=
+  perValueConstrLe_sound v hv vars val 1 h1
 
 /-- The `alldifferent` encoding over a value list `D` (the union of the variables'
     domains): one `Σⱼ [xⱼ = val] ≤ 1` constraint per value. -/
@@ -250,6 +265,80 @@ theorem encodeAllDifferent_sound (v : Valuation S) (hv : v.orderConsistent)
   have hcount := nodup_indicator_sum_le_one (vars.map v.intValue) val hd
   rw [List.map_map] at hcount
   exact perValueConstr_sound v hv vars val hcount
+
+/-! ### Multi-valued not-all-equal (PLAN §6.8, the k>2-colour case)
+
+`schur_triple` and its k-ary generalization over a domain `{1..k}` with `k > 2`
+(3-colour Schur, …) cannot use the binary bottom-threshold reduction of
+`NotAllEqual.lean`.  But not-all-equal is exactly a **per-value cardinality**
+statement, reusing the `alldifferent` machinery with a relaxed bound:
+
+  `x₁,…,x_m` are not all equal  ⟺  ∀ val : at most `m−1` of them equal `val`
+                                ⟺  ∀ val : `Σⱼ [xⱼ = val] ≤ m − 1`.
+
+(⟸: if all equalled some `w`, the `val = w` constraint would force `m ≤ m−1`.
+⟹: if all `m` equalled a fixed `val` they would be all equal.)  This is aux-free
+— no reified disequality is needed — so, like `alldifferent`, it rides on the
+generic spine through `extend_intValue`.
+-/
+
+/-- Each `[· = val]` indicator is `≤ 1`, so a length-`n` list has indicator sum
+    `≤ n`. -/
+private theorem indicator_sum_le_length (L : List Int) (val : Int) :
+    (L.map (fun x => if x = val then (1 : Int) else 0)).sum ≤ (L.length : Int) := by
+  induction L with
+  | nil => simp
+  | cons a t ih =>
+    simp only [List.map_cons, List.sum_cons, List.length_cons, Nat.cast_add, Nat.cast_one]
+    have h1 : (if a = val then (1 : Int) else 0) ≤ 1 := by split <;> norm_num
+    linarith
+
+/-- If some element of `L` differs from `val`, at most `|L| − 1` elements equal
+    `val`. -/
+private theorem indicator_sum_le_length_sub_one (L : List Int) (val : Int)
+    (h : ∃ x ∈ L, x ≠ val) :
+    (L.map (fun x => if x = val then (1 : Int) else 0)).sum ≤ (L.length : Int) - 1 := by
+  induction L with
+  | nil => obtain ⟨x, hx, _⟩ := h; simp at hx
+  | cons a t ih =>
+    simp only [List.map_cons, List.sum_cons, List.length_cons, Nat.cast_add, Nat.cast_one]
+    by_cases ha : a = val
+    · -- `a` equals `val`; the differing witness lies in the tail.
+      rw [if_pos ha]
+      have ht : ∃ x ∈ t, x ≠ val := by
+        obtain ⟨x, hx, hxv⟩ := h
+        rcases List.mem_cons.mp hx with rfl | hx_t
+        · exact absurd ha hxv
+        · exact ⟨x, hx_t, hxv⟩
+      linarith [ih ht]
+    · rw [if_neg ha]; linarith [indicator_sum_le_length t val]
+
+/-- The multi-valued not-all-equal encoding over a value list `D` (the shared
+    domain): one `Σⱼ [xⱼ = val] ≤ |vars| − 1` constraint per value. -/
+def encodeNotAllEqualMulti (vars : List (Fin S.nInt)) (D : List Int) :
+    List (SignedPBConstr (PBVar S)) :=
+  D.map (fun val => perValueConstrLe vars val ((vars.length : Int) - 1))
+
+/-- **Multi-valued not-all-equal soundness.** If two of the variables' recovered
+    values differ (the tuple is not all equal), every per-value constraint of the
+    encoding holds: for each `val`, one of the two differing values is `≠ val`, so
+    at most `|vars| − 1` variables recover `val`. -/
+theorem encodeNotAllEqualMulti_sound (v : Valuation S) (hv : v.orderConsistent)
+    (vars : List (Fin S.nInt)) (D : List Int)
+    (hne : ∃ i ∈ vars, ∃ i' ∈ vars, v.intValue i ≠ v.intValue i') :
+    ∀ c ∈ encodeNotAllEqualMulti vars D, c.sat v := by
+  intro c hc
+  simp only [encodeNotAllEqualMulti, List.mem_map] at hc
+  obtain ⟨val, _, rfl⟩ := hc
+  apply perValueConstrLe_sound v hv vars val _
+  -- Reduce the `Fin`-indexed indicator sum to one over `vars.map v.intValue`.
+  have key := indicator_sum_le_length_sub_one (vars.map v.intValue) val ?_
+  · rw [List.map_map, List.length_map] at key; exact key
+  · -- Some recovered value differs from `val`: one of the two differing values.
+    obtain ⟨i, hi, i', hi', hii⟩ := hne
+    by_cases h : v.intValue i = val
+    · exact ⟨v.intValue i', List.mem_map.mpr ⟨i', hi', rfl⟩, fun hc => hii (h.trans hc.symm)⟩
+    · exact ⟨v.intValue i, List.mem_map.mpr ⟨i, hi, rfl⟩, h⟩
 
 /-! ### `xⱼ ≠ val` — the aux-free `≠` special case (PLAN §6.4)
 

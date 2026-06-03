@@ -1,5 +1,6 @@
 import CSP.L2S.Backends.PB.Adapter
 import CSP.L2S.Backends.PB.NotAllEqual
+import CSP.L2S.Backends.PB.AllDifferent
 
 namespace CSP.L2S.PB
 
@@ -22,6 +23,11 @@ two reusable bridges, the analogues of `bound_sat` / `extend_sat_encodeLinearLe`
 
 These power the end-to-end UNSAT proofs for the binary-domain colouring showcase
 CSPs `vdw_2_3_9` (`VanDerWaerden.lean`) and `ramsey_3_3_K6` (`Ramsey.lean`).
+
+The multi-valued (`k > 2`-colour) analogue `extend_sat_encodeNotAllEqualMulti`
+mirrors `extend_sat_encodeNotAllEqualBin` but composes `encodeNotAllEqualMulti_sound`
+(`AllDifferent.lean`, the per-value cardinality form) — it powers the end-to-end
+3-colour Schur UNSAT proof `schur_3_14` (`Schur3.lean`).
 -/
 
 /-- **Bridge.** A satisfied corpus `schur_triple v1 v2 v3` constraint makes the
@@ -53,6 +59,28 @@ theorem extend_sat_encodeNotAllEqualBin {S : CSPSig} (a : Fin S.nInt → Int)
   obtain ⟨sc, hsc_mem, hnorm⟩ := hc
   rw [← normalize_sat_iff _ _ hnorm]
   refine encodeNotAllEqualBin_sound (extend a bA auxA) vars c0 c1 hw hdomvals ?_ sc hsc_mem
+  obtain ⟨i, hi, i', hi', hii⟩ := hne
+  refine ⟨i, hi, i', hi', ?_⟩
+  rw [extend_intValue a bA auxA hdom i, extend_intValue a bA auxA hdom i']
+  exact hii
+
+/-- **Bridge (multi-valued).** A normalized `encodeNotAllEqualMulti` constraint is
+    modelled by `extend a bA auxA` (it mentions only thresholds — the encoding is
+    aux-free) whenever two of the recovered values differ.  Composes
+    `encodeNotAllEqualMulti_sound` with `extend_intValue`; the multi-valued
+    (k>2-colour) analogue of `extend_sat_encodeNotAllEqualBin`. -/
+theorem extend_sat_encodeNotAllEqualMulti {S : CSPSig} (a : Fin S.nInt → Int)
+    (bA : Fin S.nBool → Bool) (auxA : Fin S.nAux → Bool) (hdom : ∀ i, a i ∈ S.values i)
+    (vars : List (Fin S.nInt)) (D : List Int)
+    (hne : ∃ i ∈ vars, ∃ i' ∈ vars, a i ≠ a i')
+    (c' : PBConstr (PBVar S))
+    (hc : c' ∈ (encodeNotAllEqualMulti vars D).filterMap normalize) :
+    c'.sat (extend a bA auxA) := by
+  rw [List.mem_filterMap] at hc
+  obtain ⟨sc, hsc_mem, hnorm⟩ := hc
+  rw [← normalize_sat_iff _ _ hnorm]
+  refine encodeNotAllEqualMulti_sound (extend a bA auxA) (extend_orderConsistent a bA auxA)
+    vars D ?_ sc hsc_mem
   obtain ⟨i, hi, i', hi', hii⟩ := hne
   refine ⟨i, hi, i', hi', ?_⟩
   rw [extend_intValue a bA auxA hdom i, extend_intValue a bA auxA hdom i']
