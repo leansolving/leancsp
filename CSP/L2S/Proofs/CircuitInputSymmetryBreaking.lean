@@ -630,13 +630,15 @@ lemma gate_using_all_inputs_has_only_circuit_inputs
     (circuit : Circuit) (gate : Gate)
     (h_wf : circuit_well_formed circuit)
     (h_gate_mem : gate ∈ circuit.gates)
+    (h_pos : 0 < circuit.num_inputs)
     (h_all_in : ∀ i < circuit.num_inputs, i ∈ gate.inputs) :
     ∀ a ∈ gate.inputs, a < circuit.num_inputs := by
-  -- This property states that gates using all circuit inputs don't mix them with gate outputs
-  -- It's a structural property that holds in well-formed circuits with identical fanout
-  -- The formal proof requires additional well-formedness conditions about layering
-  -- For now we leave it as an axiom, as it holds in all practical examples
-  sorry
+  -- By the no-mixing conjunct of well-formedness, the gate uses only circuit inputs
+  -- or only gate outputs; since it uses input 0 (h_all_in, h_pos), it is the former.
+  obtain ⟨_, _, _, h_nomix⟩ := h_wf
+  rcases h_nomix gate h_gate_mem with h_lt | h_ge
+  · exact h_lt
+  · exact absurd (h_ge 0 (h_all_in 0 h_pos)) (by omega)
 
 /-- When a gate uses all circuit inputs, gate.inputs has no duplicates -/
 lemma gate_inputs_nodup_when_all
@@ -653,10 +655,11 @@ lemma gate_inputs_perm_range_when_all
     (circuit : Circuit) (gate : Gate)
     (h_wf : circuit_well_formed circuit)
     (h_gate_mem : gate ∈ circuit.gates)
+    (h_pos : 0 < circuit.num_inputs)
     (h_all_in : ∀ i < circuit.num_inputs, i ∈ gate.inputs) :
     List.Perm gate.inputs (List.range circuit.num_inputs) := by
   -- Use Finset approach: show gate.inputs.toFinset = Finset.range circuit.num_inputs
-  have h_bounded := gate_using_all_inputs_has_only_circuit_inputs circuit gate h_wf h_gate_mem h_all_in
+  have h_bounded := gate_using_all_inputs_has_only_circuit_inputs circuit gate h_wf h_gate_mem h_pos h_all_in
 
   -- Show finset equality
   have h_finset_eq : gate.inputs.toFinset = Finset.range circuit.num_inputs := by
@@ -1168,6 +1171,58 @@ lemma not_gate_preserved_when_fixed
   exact h_orig
 
 
+/-- Under well-formedness and all-inputs-symmetric, applying β to a gate's input
+    vector permutes the extracted input values. Two cases (no-mixing conjunct of
+    well-formedness): the gate uses only circuit inputs — permuted by σ, so the
+    values are a permutation — or only fixed gate-output wires — so the values are
+    literally unchanged. This unifies the AND/OR/XOR gate cases below. -/
+lemma gate_input_values_perm
+    (circuit : Circuit) (k : ℕ) (σ : Equiv.Perm (Fin circuit.num_inputs))
+    (h_wf : circuit_well_formed circuit)
+    (h_all_sym : all_inputs_symmetric circuit (get_circuit_inputs circuit))
+    (gate : Gate) (h_gate_mem : gate ∈ circuit.gates)
+    {n : ℕ}
+    (input_vec : _root_.Vector (HomogeneousVarIndex
+      (circuit_requires_k_inputs_base_csp circuit k).num_vars) n)
+    (heq_split : HomogeneousCSP.listToFinVector gate.inputs
+      (circuit_requires_k_inputs_base_csp circuit k).num_vars = some ⟨n, input_vec⟩)
+    (assignment : HomogeneousAssignment (circuit_requires_k_inputs_base_csp circuit k).num_vars) :
+    List.Perm
+      (extractValues (map_assignment assignment input_vec))
+      (extractValues (map_assignment
+        (assignment ∘ (extend_input_permutation circuit k σ)) input_vec)) := by
+  set β := extend_input_permutation circuit k σ with hβdef
+  have h_vec_matches : input_vec.toList.map (·.val) = gate.inputs :=
+    listToFinVector_toList_val heq_split
+  have h_ne : gate.inputs ≠ [] := by
+    intro hnil; rw [hnil] at heq_split
+    simp [HomogeneousCSP.listToFinVector] at heq_split
+  have ⟨_, _, _, h_nomix⟩ := h_wf
+  rcases h_nomix gate h_gate_mem with h_lt | h_ge
+  · -- gate uses only circuit inputs: σ permutes them, so values are permuted
+    obtain ⟨a, ha⟩ := List.exists_mem_of_ne_nil gate.inputs h_ne
+    have h_pos : 0 < circuit.num_inputs := lt_of_le_of_lt (Nat.zero_le a) (h_lt a ha)
+    have h_uses_all : ∀ i < circuit.num_inputs, i ∈ gate.inputs := by
+      rcases gate_uses_all_or_none_inputs circuit gate h_all_sym h_gate_mem with h | h
+      · exact h
+      · exact absurd ha (h a (h_lt a ha))
+    have h_perm : List.Perm gate.inputs (List.range circuit.num_inputs) :=
+      gate_inputs_perm_range_when_all circuit gate h_wf h_gate_mem h_pos h_uses_all
+    exact beta_permutes_gate_input_values circuit k σ input_vec gate.inputs
+      h_vec_matches h_lt h_perm assignment
+  · -- gate uses only gate-output wires: β fixes them all, so values are unchanged
+    have key : extractValues (map_assignment (assignment ∘ β) input_vec)
+             = extractValues (map_assignment assignment input_vec) := by
+      simp only [extractValues_map_assignment_eq_toList_map]
+      apply List.map_congr_left
+      intro x hx
+      have hxge : circuit.num_inputs ≤ x.val :=
+        h_ge _ (by rw [← h_vec_matches]; exact List.mem_map_of_mem hx)
+      have hbx : β x = x := beta_fixes_gate_output circuit k σ x.val hxge x.isLt
+      show assignment (β x) = assignment x
+      rw [hbx]
+    exact key ▸ List.Perm.refl _
+
 -- ============================================================================
 -- Result 1: Input Permutation is a Variable Symmetry
 -- ============================================================================
@@ -1289,7 +1344,7 @@ theorem input_permutation_is_variable_symmetry
         -- Prove that β fixes the gate output (it's >= num_inputs)
         have h_output_fixed : β ⟨gate.output, h_output_valid⟩ = ⟨gate.output, h_output_valid⟩ := by
           -- Gate outputs are >= circuit.num_inputs by well-formedness
-          obtain ⟨h_nonempty, h_wf_outputs, _, _⟩ := h_wf
+          have ⟨h_nonempty, h_wf_outputs, _, _⟩ := h_wf
           have h_output_ge : gate.output ≥ circuit.num_inputs := h_wf_outputs gate h_gate_mem
 
           -- β is extend_input_permutation, which fixes indices >= num_inputs
@@ -1303,52 +1358,8 @@ theorem input_permutation_is_variable_symmetry
           rw [dif_neg (not_lt.mpr h_output_ge)]
 
         -- Prove that input values are permuted by β
-        have h_inputs_perm : List.Perm
-            (extractValues (map_assignment assignment input_vec))
-            (extractValues (map_assignment (assignment ∘ β) input_vec)) := by
-          -- Use beta_permutes_gate_input_values lemma
-          -- Need to establish its preconditions:
-
-          -- First, gate uses all circuit inputs
-          have h_all_or_none := gate_uses_all_or_none_inputs circuit gate h_all_sym h_gate_mem
-          cases h_all_or_none with
-          | inl h_uses_all =>
-            -- h_uses_all : ∀ i < circuit.num_inputs, i ∈ gate.inputs
-
-            -- Show input_vec.toList.map (·.val) = gate.inputs
-            have h_vec_matches : input_vec.toList.map (·.val) = gate.inputs := by
-              -- From heq_split: listToFinVector gate.inputs total_nodes = some ⟨n_inputs, input_vec⟩
-              -- This proof requires establishing the relationship between the filterMapped list
-              -- and the original gate.inputs. Since all elements were valid (no filtering occurred),
-              -- mapping back to .val reconstructs gate.inputs
-              -- This is a technical lemma that would require unfolding Vector.toList, Array structure, etc.
-              sorry
-
-            -- Show all gate inputs are circuit inputs
-            have h_all_circuit_inputs : ∀ i ∈ gate.inputs, i < circuit.num_inputs :=
-              gate_using_all_inputs_has_only_circuit_inputs circuit gate h_wf h_gate_mem h_uses_all
-
-            -- Show gate.inputs is a permutation of List.range circuit.num_inputs
-            have h_perm : List.Perm gate.inputs (List.range circuit.num_inputs) := by
-              -- From h_uses_all: ∀ i < circuit.num_inputs, i ∈ gate.inputs
-              -- From h_all_circuit_inputs: ∀ i ∈ gate.inputs, i < circuit.num_inputs
-              -- This means gate.inputs and List.range circuit.num_inputs have the same elements
-              -- Need a lemma like: if two lists have the same elements and are both nodup, they're permutations
-              -- Or: use Finset.toList and show gate.inputs.toFinset = (List.range circuit.num_inputs).toFinset
-              sorry
-
-            -- Apply the lemma
-            convert beta_permutes_gate_input_values circuit k σ input_vec gate.inputs
-              h_vec_matches h_all_circuit_inputs h_perm assignment
-
-          | inr h_uses_none =>
-            -- Gate uses no circuit inputs - contradiction
-            -- AND gates must have inputs, and we successfully created input_vec from gate.inputs
-            -- But if gate uses no circuit inputs and only gate outputs, then for the gate to use
-            -- ALL circuit inputs (needed for all_inputs_symmetric), we'd need num_inputs = 0
-            -- However, this contradicts the well-formedness of the circuit
-            exfalso
-            sorry
+        have h_inputs_perm := gate_input_values_perm circuit k σ h_wf h_all_sym
+          gate h_gate_mem input_vec heq_split assignment
 
         -- Apply our preservation lemma!
         exact and_all_preserved_under_input_permutation input_vec ⟨gate.output, h_output_valid⟩
@@ -1409,7 +1420,7 @@ theorem input_permutation_is_variable_symmetry
                   -- Strategy: Show β fixes both in1 and gate.output
 
                   -- First, show gate.output ≥ num_inputs (by well-formedness)
-                  obtain ⟨h_nonempty, h_wf_outputs, _, _⟩ := h_wf
+                  have ⟨h_nonempty, h_wf_outputs, _, _⟩ := h_wf
                   have h_output_ge : gate.output ≥ circuit.num_inputs := h_wf_outputs gate h_gate_mem
 
                   -- Now case split on whether in1 < num_inputs or not
