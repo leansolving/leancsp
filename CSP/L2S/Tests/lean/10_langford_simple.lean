@@ -66,5 +66,28 @@ def langford_2_3 : HomogeneousCSP :=
    langford_2_3_spacing ++
    [langford_2_3_alldifferent]⟩
 
+-- General L(2,n): 2n positions, digits 1..n each placed twice.
+-- Digit d (1-indexed) uses variables 2(d-1) and 2(d-1)+1; the spacing constraint
+-- forces its two copies to be exactly d+1 positions apart, and all positions differ.
+-- L(2,n) is solvable iff n ≡ 0 or 3 (mod 4); n = 6 and n = 9 are UNSAT.
+def langford_2n_csp (n : ℕ) : HomogeneousCSP :=
+  let nv := n * 2
+  let spacing := (List.range n).filterMap fun d0 =>
+    let v1 := d0 * 2
+    let v2 := d0 * 2 + 1
+    if h1 : v1 < nv then
+      if h2 : v2 < nv then
+        some (make_spacing_constraint nv v1 v2 (d0 + 1) h1 h2)
+      else none
+    else none
+  let alldiff : TaggedConstraint nv := alldifferent (_root_.Vector.ofFn id)
+  ⟨nv, langford_bounds n 2 ++ spacing ++ [alldiff]⟩
+
+-- L(2,6): UNSAT (6 ≡ 2 mod 4). veripb benchmark `langford6`.
+def langford_2_6 : HomogeneousCSP := langford_2n_csp 6
+
+-- L(2,9): UNSAT (9 ≡ 1 mod 4). veripb benchmark `langford9`.
+def langford_2_9 : HomogeneousCSP := langford_2n_csp 9
+
 def main : IO Unit := do
   saveAllBackendsAutoTimed langford_2_3

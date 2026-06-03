@@ -534,6 +534,30 @@ def tseitin (S : CSPSig) (e : BoolExpr S) :
   sorry
 ```
 
+### 6.8 Not-all-equal / forbidden monochromatic tuple (`schur_triple` and its k-ary generalization)
+
+**Empirically surfaced** by encoding the PBLean showcase problems as CSPs (`Tests/lean/{11_schur,33_van_der_waerden,34_ramsey}.lean`): three of the six showcase UNSAT families (Schur, Van der Waerden, Ramsey R(3,3)) reduce to a single pattern — `schur_triple v₁ v₂ v₃`, i.e. *the three variables are not all equal* — which has **no subsection in §6 and no line in the M4 milestone**. It is the highest-frequency PB-encoding gap the corpus reveals, so it belongs ahead of the §6.4/§6.6 items in priority.
+
+It is **not a monolithic primitive**; the encoding splits on domain width:
+
+- **Boolean domains** (`{0,1}` — vdW, Ramsey edge colours): not-all-equal over `b₁…bₘ` is exactly two cardinality constraints — `Σ bᵢ ≥ 1` (not all false) **and** `Σ ¬bᵢ ≥ 1` (not all true). So once §6.6 lands, the binary case is free; the encoder just dispatches to `encodeAtLeastK` twice.
+- **Multi-valued domains** (`{1..k}`, k>2 — Schur 3-colouring, and the same machinery equitable colouring needs): not-all-equal = `(x_a ≠ x_b) ∨ (x_b ≠ x_c)`, a **disjunction of disequalities**. This needs a *reified* version of the §6.4 `≠` selector (a fresh Boolean witnessing each `≠`, combinable in a clause) — strictly more than the hard `≠` of §6.4. **This reified (dis)equality of order-encoded variables is the one genuinely new piece** the showcase set demands.
+
+```lean
+-- Binary case: reuse cardinality (§6.6).
+def encodeNotAllEqualBool (S : CSPSig) (vars : List (Fin S.nBool)) :
+    List (SignedPBConstr (PBVar S)) :=
+  [encodeAtLeastK S vars 1,                 -- not all false
+   encodeAtMostK  S vars (vars.length - 1)] -- not all true
+
+-- Multi-valued case: needs reified ≠ (extends §6.4), then OR the selectors.
+def encodeNotAllEqual (S : CSPSig) (vars : List (Fin S.nInt)) :
+    StateM Nat (List (SignedPBConstr (PBVar S))) :=
+  sorry  -- fresh sᵢ ↔ (xᵢ ≠ xᵢ₊₁) via reified order-encoding; emit clause Σ sᵢ ≥ 1
+```
+
+The k-ary not-all-equal (vdW W(2,4) 4-APs, Ramsey R(3,4) cliques) is the same with a longer scope; the two remaining showcase gaps that are *not* not-all-equal are **count-in-range / global cardinality** (equitable-colouring balance — the catalog's `count` is exact-only) and **conditional/bin-load sums** (bin packing over an assignment variable — needs a global or a one-hot reformulation).
+
 ---
 
 ## 7. The soundness theorem and bridge to PBLean

@@ -87,5 +87,11 @@ def schur_3_13 : HomogeneousCSP := schur_csp 13 3
 -- Small test: n=3, c=2 (definitely solvable, only one triple: (0,1,2))
 def schur_small : HomogeneousCSP := schur_csp 3 2
 
+-- S(2) = 4: {1,…,5} cannot be 2-coloured sum-free (UNSAT). veripb benchmark `schur5`.
+def schur_2_5 : HomogeneousCSP := schur_csp 5 2
+
+-- S(3) = 13: {1,…,14} cannot be 3-coloured sum-free (UNSAT). veripb benchmark `schur14_3`.
+def schur_3_14 : HomogeneousCSP := schur_csp 14 3
+
 def main : IO Unit := do
   saveAllBackendsAutoTimed schur_3_13
