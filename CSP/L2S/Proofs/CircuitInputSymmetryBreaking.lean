@@ -1879,12 +1879,51 @@ theorem input_ordering_is_variable_symmetry_breaking
 
       -- The i-th input variable, after β, holds the value `input_values (σ i)`, and
       -- `input_values ∘ σ = input_values ∘ Tuple.sort input_values` is `Monotone`
-      -- (`Tuple.monotone_sort`), hence the value list is sorted. The math is complete;
-      -- the remaining step is reducing `(Vector.ofFn fun i => ⟨i.val, _⟩).get a` to
-      -- `⟨a.val, _⟩` so `beta_acts_as_sigma_on_inputs` applies — the array-backed
-      -- `Vector.get`/`Array.getElem_ofFn` reduction flagged in MEM_002.
+      -- (`Tuple.monotone_sort`), hence the value list is sorted.
       rw [← List.sortedLE_iff_pairwise, List.sortedLE_ofFn_iff]
-      sorry
+      intro a b hab
+      simp only [Function.comp_apply]
+      -- Reduce `.get` of `ofFn` directly.  Core's array-backed `Vector.get` only
+      -- normalises under `respectTransparency false` (see MEM_002).
+      set_option backward.isDefEq.respectTransparency false in
+        simp only [_root_.Vector.get, _root_.Vector.toArray_ofFn, Array.getElem_ofFn, Fin.coe_cast]
+      rw [show β = extend_input_permutation circuit k σ from rfl]
+      -- After β, the i-th input variable holds `input_values (σ i)`.  We expose the
+      -- RHS as `assignment` of a Fin (proof-irrelevant in its bound) and reduce the
+      -- value equality through `extend_input_permutation`'s definition.
+      have key : ∀ (c : Fin circuit.num_inputs)
+          (hc : c.val < (circuit_requires_k_inputs_base_csp circuit k).num_vars),
+          assignment (extend_input_permutation circuit k σ ⟨c.val, hc⟩) = input_values (σ c) := by
+        intro c hc
+        show assignment (extend_input_permutation circuit k σ ⟨c.val, hc⟩)
+            = assignment ⟨(σ c).val, by
+                have h_σ := (σ c).isLt
+                have h_foldl := foldl_max_ge_init circuit.gates circuit.num_inputs
+                have h_nv : (circuit_requires_k_inputs_base_csp circuit k).num_vars
+                  = circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1 := rfl
+                omega⟩
+        congr 1
+        apply Fin.ext
+        unfold extend_input_permutation
+        simp only [Equiv.coe_fn_mk]
+        split_ifs with h
+        · rfl
+        · exact absurd c.isLt h
+      -- Close by `calc`: its final `isDefEq` runs at default transparency and so
+      -- reconciles the goal's Fin (whose bound is `foldl+1`) with `key`'s
+      -- (`num_vars`), unlike `rw`/`kabstract`, which refuses to unfold the def.
+      have h_nv : (circuit_requires_k_inputs_base_csp circuit k).num_vars
+        = circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1 := rfl
+      have h_foldl := foldl_max_ge_init circuit.gates circuit.num_inputs
+      have ha : a.val < (circuit_requires_k_inputs_base_csp circuit k).num_vars := by
+        have := a.isLt; omega
+      have hb : b.val < (circuit_requires_k_inputs_base_csp circuit k).num_vars := by
+        have := b.isLt; omega
+      calc assignment (extend_input_permutation circuit k σ ⟨a.val, ha⟩)
+          = input_values (σ a) := key a ha
+        _ ≤ input_values (σ b) := by
+            simpa only [Function.comp_apply] using Tuple.monotone_sort input_values hab
+        _ = assignment (extend_input_permutation circuit k σ ⟨b.val, hb⟩) := (key b hb).symm
 
     · -- Original constraints preserved by Result 1
       have h_sym := input_permutation_is_variable_symmetry circuit k σ h_wf h_all_sym
