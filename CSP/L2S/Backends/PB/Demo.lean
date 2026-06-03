@@ -60,22 +60,9 @@ def demoEncoding : Array Constr :=
 
 /-! ### OPB serializer (untrusted; produced the `.opb` fed to RoundingSat)
 
-`#eval IO.print (toOPBString demoEncoding 9)` emitted the `.opb` that RoundingSat
-and veripb turned into `kernelProof` below.  It is outside the trust base. -/
-
-/-- Serialize one term (0-based Lean var `i` ↦ 1-based OPB `x{i+1}`). -/
-def termToOPB : Nat × Literal → String
-  | (a, .pos i) => s!"+{a} x{i + 1}"
-  | (a, .neg i) => s!"+{a} ~x{i + 1}"
-
-/-- Serialize one constraint to a line `+a x… … >= d ;`. -/
-def constrToOPB (c : Constr) : String :=
-  String.intercalate " " (c.terms.map termToOPB) ++ s!" >= {c.degree} ;"
-
-/-- Serialize a constraint array to OPB text (with RoundingSat's header). -/
-def toOPBString (cs : Array Constr) (numVars : Nat) : String :=
-  let header := s!"* #variable= {numVars} #constraint= {cs.size} #equal= 0 intsize= 6"
-  String.intercalate "\n" (header :: cs.toList.map constrToOPB) ++ "\n"
+`#eval IO.print (toOPBString demoEncoding 9)` (serializer now in `Serialize.lean`,
+namespace `CSP.L2S.PB`) emitted the `.opb` that RoundingSat and veripb turned into
+`kernelProof` below.  It is outside the trust base. -/
 
 /-! ### The verified PB certificate
 
