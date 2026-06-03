@@ -1367,16 +1367,72 @@ theorem input_permutation_is_variable_symmetry
       · -- Case: listToFinVector returned none - contradiction since h_constraint_eq shows we got some tc
         contradiction
 
-    · -- OR case
-      -- OR gate: output = OR(inputs) = max(inputs) for Boolean values
-      -- Key: OR is a symmetric function, so permuting inputs preserves the result
-      sorry
+    · -- OR case (output = max(inputs); OR is symmetric, mirrors the AND case)
+      split_ifs at h_constraint_eq with h_output_valid <;> try contradiction
+      split at h_constraint_eq
+      · rename_i n_inputs input_vec heq_split
+        simp only [Option.some.injEq] at h_constraint_eq
+        rw [← h_constraint_eq]
+        have h_tc_in_csp : tc ∈ (circuit_requires_k_inputs_base_csp circuit k).constraints := by
+          unfold circuit_requires_k_inputs_base_csp
+          simp only [List.mem_append]
+          left; left; right
+          unfold circuit_to_constraints make_gate_constraints
+          simp only [List.mem_filterMap]
+          use gate, h_gate_mem
+          simp only [heq]
+          rw [dif_pos h_output_valid]
+          simp only [heq_split]
+          simp only [h_constraint_eq]
+        have h_orig : satisfiesConstraint (or_all input_vec ⟨gate.output, h_output_valid⟩) assignment :=
+          h_constraint_eq ▸ h_sol tc h_tc_in_csp
+        have h_output_fixed : β ⟨gate.output, h_output_valid⟩ = ⟨gate.output, h_output_valid⟩ := by
+          have ⟨h_nonempty, h_wf_outputs, _, _⟩ := h_wf
+          have h_output_ge : gate.output ≥ circuit.num_inputs := h_wf_outputs gate h_gate_mem
+          ext
+          show (extend_input_permutation circuit k σ ⟨gate.output, h_output_valid⟩).val = gate.output
+          unfold extend_input_permutation
+          simp only [Equiv.coe_fn_mk]
+          rw [dif_neg (not_lt.mpr h_output_ge)]
+        have h_inputs_perm := gate_input_values_perm circuit k σ h_wf h_all_sym
+          gate h_gate_mem input_vec heq_split assignment
+        exact or_all_preserved_under_input_permutation input_vec ⟨gate.output, h_output_valid⟩
+          assignment β h_inputs_perm h_output_fixed h_orig
+      · contradiction
 
 
-    · -- XOR case
-      -- XOR gate: output = XOR(inputs) = (sum of inputs) mod 2 for Boolean values
-      -- Key: XOR is a symmetric function, so permuting inputs preserves the result
-      sorry
+    · -- XOR case (output = parity of inputs; XOR is symmetric, mirrors the AND case)
+      split_ifs at h_constraint_eq with h_output_valid <;> try contradiction
+      split at h_constraint_eq
+      · rename_i n_inputs input_vec heq_split
+        simp only [Option.some.injEq] at h_constraint_eq
+        rw [← h_constraint_eq]
+        have h_tc_in_csp : tc ∈ (circuit_requires_k_inputs_base_csp circuit k).constraints := by
+          unfold circuit_requires_k_inputs_base_csp
+          simp only [List.mem_append]
+          left; left; right
+          unfold circuit_to_constraints make_gate_constraints
+          simp only [List.mem_filterMap]
+          use gate, h_gate_mem
+          simp only [heq]
+          rw [dif_pos h_output_valid]
+          simp only [heq_split]
+          simp only [h_constraint_eq]
+        have h_orig : satisfiesConstraint (xor_all input_vec ⟨gate.output, h_output_valid⟩) assignment :=
+          h_constraint_eq ▸ h_sol tc h_tc_in_csp
+        have h_output_fixed : β ⟨gate.output, h_output_valid⟩ = ⟨gate.output, h_output_valid⟩ := by
+          have ⟨h_nonempty, h_wf_outputs, _, _⟩ := h_wf
+          have h_output_ge : gate.output ≥ circuit.num_inputs := h_wf_outputs gate h_gate_mem
+          ext
+          show (extend_input_permutation circuit k σ ⟨gate.output, h_output_valid⟩).val = gate.output
+          unfold extend_input_permutation
+          simp only [Equiv.coe_fn_mk]
+          rw [dif_neg (not_lt.mpr h_output_ge)]
+        have h_inputs_perm := gate_input_values_perm circuit k σ h_wf h_all_sym
+          gate h_gate_mem input_vec heq_split assignment
+        exact xor_all_preserved_under_input_permutation input_vec ⟨gate.output, h_output_valid⟩
+          assignment β h_inputs_perm h_output_fixed h_orig
+      · contradiction
 
     · -- NOT case
         -- NOT gate: out = 1 - in
