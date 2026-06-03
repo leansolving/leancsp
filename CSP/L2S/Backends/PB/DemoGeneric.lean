@@ -34,7 +34,7 @@ def demoLin : List (List (Int × Fin 3) × Int) :=
 theorem encode_eq : (encodeLinear demoSig demoLin).toArray.map PBConstr.toNatConstr
     = Demo.demoEncoding := by
   rw [← Array.toList_inj]
-  simp only [Array.toList_map, List.toList_toArray]
+  simp only [Array.toList_map]
   rfl
 
 /-- `Demo.demo_unsat`, re-derived through the **generic** spine: the committed PB
@@ -56,6 +56,6 @@ theorem demo_unsat_generic :
   · -- the two linear constraints hold
     intro c hc
     have hx := x.isLt; have hy := y.isLt; have hz := z.isLt
-    fin_cases hc <;> simp [demoLin] <;> omega
+    fin_cases hc <;> simp <;> omega
 
 end CSP.L2S.PB.DemoGeneric

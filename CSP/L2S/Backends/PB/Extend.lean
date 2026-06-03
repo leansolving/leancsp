@@ -43,6 +43,7 @@ def extend (a : Fin S.nInt → Int) : Valuation S
   | .thr i j => decide (a i ≤ S.nth i j.val)
   | .aux _   => false
 
+/-- Unfolding lemma: the threshold bit `thr i j` of `extend a` is set iff `a i ≤ valuesᵢ[j]`. -/
 @[simp] theorem extend_thr (a : Fin S.nInt → Int) (i : Fin S.nInt) (j : Fin (S.width i)) :
     extend a (.thr i j) = decide (a i ≤ S.nth i j.val) := rfl
 
@@ -74,7 +75,7 @@ theorem extend_sat_monotonicity (a : Fin S.nInt → Int) :
     -- Clause: `t_{i,j+1} + ¬t_{i,j} ≥ 1`.
     show (1 : Nat) ≤ evalSum (extend a)
       [(1, .pos (.thr i ⟨j.val + 1, h⟩)), (1, .neg (.thr i j))]
-    simp only [evalSum, evalLit, extend_thr, Nat.add_zero, Nat.one_mul, Nat.mul_one]
+    simp only [evalSum, evalLit, extend_thr, Nat.add_zero, Nat.one_mul]
     by_cases hj : a i ≤ S.nth i j.val
     · have hq : (j.val + 1) < (S.values i).length := by
         have : S.width i = (S.values i).length - 1 := rfl
@@ -89,7 +90,6 @@ theorem extend_sat_monotonicity (a : Fin S.nInt → Int) :
     exactly `a i` (when `a i` lies in the declared domain). -/
 theorem extend_intValue (a : Fin S.nInt → Int) (hdom : ∀ i, a i ∈ S.values i)
     (i : Fin S.nInt) : (extend a).intValue i = a i := by
-  classical
   -- `m` = the index of `a i` in the (strictly sorted) domain.
   obtain ⟨m, hm_len, hm_eq⟩ := List.getElem_of_mem (hdom i)
   have hai : a i = S.nth i m := by
@@ -111,7 +111,7 @@ theorem extend_intValue (a : Fin S.nInt → Int) (hdom : ∀ i, a i ∈ S.values
       constructor
       · intro hle
         by_contra hmj
-        push_neg at hmj
+        rw [not_le] at hmj
         exact absurd hle (not_le.mpr (nth_lt_nth i hm_len hmj))
       · intro hmj
         rcases eq_or_lt_of_le hmj with he | hlt
