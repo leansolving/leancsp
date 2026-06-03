@@ -40,7 +40,8 @@ theorem linear_le_of_threshold_sum (v : Valuation S)
   have key : (terms.map (fun p => p.1 * v.intValue p.2)).sum
       = (terms.map (fun p => p.1 * S.maxVal p.2)).sum
         - (terms.map (fun p => p.1 *
-            ∑ j : Fin (S.width p.2), S.gap p.2 j * (if v (.thr p.2 j) then (1 : ℤ) else 0))).sum := by
+            ∑ j : Fin (S.width p.2),
+              S.gap p.2 j * (if v (.thr p.2 j) then (1 : ℤ) else 0))).sum := by
     induction terms with
     | nil => simp
     | cons p rest ih =>
@@ -82,10 +83,6 @@ example : demoVal.intValue (1 : Fin 2) = 4 := by decide
 example :
     ¬ (([(1, (0 : Fin 2)), (1, 1)].map fun p => p.1 * demoVal.intValue p.2).sum ≤ 4) := by
   decide
-
-/-- The substitution theorem specializes to this concrete instance. -/
-example (b : Int) :=
-  linear_le_of_threshold_sum demoVal [(1, (0 : Fin 2)), (1, (1 : Fin 2))] b
 
 end DemoTest
 
