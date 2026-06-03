@@ -809,6 +809,81 @@ lemma and_all_preserved_under_input_permutation
   · -- Empty case: both sides are false
     simp [h_empty] at h_orig ⊢
 
+-- Max-fold counterparts of the min-fold lemmas above (mirror of `foldl_if_min_*`),
+-- used by the OR-gate preservation proof since `or_all` computes `max(inputs)`.
+
+/-- `foldl` with if-max computes the same result on permuted lists. -/
+lemma foldl_if_max_perm (l1 l2 : List ℤ) (init : ℤ) (h_perm : List.Perm l1 l2) :
+    List.foldl (fun acc x => if x > acc then x else acc) init l1 =
+    List.foldl (fun acc x => if x > acc then x else acc) init l2 := by
+  induction h_perm generalizing init with
+  | nil => rfl
+  | cons x hp IH =>
+    simp only [List.foldl_cons]
+    apply IH
+  | swap x y l =>
+    simp only [List.foldl_cons]
+    have h_comm : ∀ (a b c : ℤ),
+        (if b > (if c > a then c else a) then b else (if c > a then c else a)) =
+        (if c > (if b > a then b else a) then c else (if b > a then b else a)) := by
+      intros a b c
+      by_cases hb : b > a
+      · by_cases hc : c > a
+        · simp [hb, hc]
+          by_cases hbc : b > c
+          · simp [hbc]; omega
+          · simp [hbc]; omega
+        · simp [hb, hc]
+          omega
+      · by_cases hc : c > a
+        · simp [hb, hc]
+          omega
+        · simp [hb, hc]
+    rw [h_comm init x y]
+  | trans hp1 hp2 IH1 IH2 =>
+    exact Eq.trans (IH1 init) (IH2 init)
+
+/-- Folding with max when the init is in the list. -/
+lemma foldl_max_mem_eq_cons_erase (l : List ℤ) (a : ℤ) (ha : a ∈ l) :
+    List.foldl (fun acc x => if x > acc then x else acc) a l =
+    List.foldl (fun acc x => if x > acc then x else acc) a (a :: l.erase a) :=
+  foldl_if_max_perm _ _ _ (List.perm_cons_erase ha)
+
+/-- When both initial values are members of the list, foldl-max agrees (both compute the max). -/
+lemma foldl_if_max_mem_eq (l : List ℤ) (a b : ℤ)
+    (ha : a ∈ l) (hb : b ∈ l) :
+    List.foldl (fun acc x => if x > acc then x else acc) a l =
+    List.foldl (fun acc x => if x > acc then x else acc) b l := by
+  by_cases hab : a = b
+  · simp [hab]
+  · rw [foldl_max_mem_eq_cons_erase l a ha]
+    rw [foldl_max_mem_eq_cons_erase l b hb]
+    have h_perm_a := List.perm_cons_erase ha
+    have h_perm_b := List.perm_cons_erase hb
+    have h_perm_ab : (a :: l.erase a).Perm (b :: l.erase b) :=
+      h_perm_a.symm.trans h_perm_b
+    rw [foldl_if_max_perm _ _ a h_perm_ab]
+    simp only [List.foldl_cons]
+    simp only [if_neg (lt_irrefl b)]
+    by_cases h : b > a
+    · simp [if_pos h]
+    · simp [if_neg h]
+      have ha_gt_b : a > b := by omega
+      have ha_erase : a ∈ l.erase b := by
+        have ha_cons : a ∈ (a :: l.erase a) := List.mem_cons_self
+        have ha_perm : a ∈ (b :: l.erase b) := h_perm_ab.mem_iff.mp ha_cons
+        simp [List.mem_cons] at ha_perm
+        cases ha_perm with
+        | inl h_eq => exact absurd h_eq hab
+        | inr h_mem => exact h_mem
+      have h_perm_a_erase : (l.erase b).Perm (a :: (l.erase b).erase a) :=
+        List.perm_cons_erase ha_erase
+      rw [foldl_if_max_perm _ _ _ h_perm_a_erase]
+      simp only [List.foldl_cons, if_neg (lt_irrefl a)]
+      rw [foldl_if_max_perm _ _ _ h_perm_a_erase]
+      simp only [List.foldl_cons]
+      simp only [if_pos ha_gt_b]
+
 /-- OR gate constraint preserved under input permutation -/
 lemma or_all_preserved_under_input_permutation
     {num_vars n : ℕ}
@@ -822,7 +897,77 @@ lemma or_all_preserved_under_input_permutation
     (h_output_fixed : β output = output)
     (h_orig : satisfiesConstraint (or_all input_vec output) assignment) :
     satisfiesConstraint (or_all input_vec output) (assignment ∘ β) := by
-  sorry
+  unfold satisfiesConstraint or_all at h_orig ⊢
+  unfold satisfies_dynamic_constraint satisfies_constraint sat at h_orig ⊢
+  simp only at h_orig ⊢
+  have h_output_eq : (assignment ∘ β) output = assignment output := by
+    simp only [Function.comp_apply]
+    rw [h_output_fixed]
+  have h_extract_append : ∀ (a : HomogeneousVarIndex num_vars → ℤ),
+      extractValues (map_assignment a (input_vec.append #v[output])) =
+      extractValues (map_assignment a input_vec) ++ [a output] := by
+    intro a
+    unfold extractValues map_assignment
+    rw [List.ofFn_succ', List.concat_eq_append]
+    congr 1
+    · congr
+      ext i
+      simp only [_root_.Vector.get, _root_.Vector.append, Fin.castSucc, Fin.cast, Fin.castAdd]
+      have h_size : input_vec.toArray.size = n := by simp
+      rw [Array.getElem_append_left]
+      refine congrFun rfl input_vec.toArray[↑(Fin.castLE (Nat.le_add_right n 1) i)]
+    · congr
+      simp only [_root_.Vector.get, _root_.Vector.append, Fin.last, Fin.cast, Fin.val_mk]
+      have h_size : input_vec.toArray.size = n := by simp
+      rw [Array.getElem_append_right]
+      · simp [h_size]
+      · simp [h_size]
+  have h_orig_vals := h_extract_append assignment
+  have h_perm_vals := h_extract_append (assignment ∘ β)
+  rw [h_orig_vals] at h_orig
+  rw [h_perm_vals]
+  simp only [List.getLast?_concat, List.dropLast_concat] at h_orig ⊢
+  cases h_empty : (extractValues (map_assignment assignment input_vec)).isEmpty
+  · simp [h_empty] at h_orig ⊢
+    constructor
+    · intro h_contra
+      have h_perm_empty := List.Perm.length_eq h_inputs_perm
+      rw [h_contra, List.length_nil] at h_perm_empty
+      have h_orig_nonempty : (extractValues (map_assignment assignment input_vec)) ≠ [] := by
+        exact List.isEmpty_eq_false_iff.mp h_empty
+      have h_orig_len : (extractValues (map_assignment assignment input_vec)).length = 0 := by
+        rw [← h_perm_empty]
+      simp only [List.length_eq_zero_iff] at h_orig_len
+      contradiction
+    · rw [h_output_fixed]
+      calc assignment output
+        = List.foldl (fun acc x => if x > acc then x else acc)
+            (extractValues (map_assignment assignment input_vec)).head!
+            (extractValues (map_assignment assignment input_vec)) := h_orig
+      _ = List.foldl (fun acc x => if x > acc then x else acc)
+            (extractValues (map_assignment assignment input_vec)).head!
+            (extractValues (map_assignment (assignment ∘ β) input_vec)) :=
+          foldl_if_max_perm _ _ _ h_inputs_perm
+      _ = List.foldl (fun acc x => if x > acc then x else acc)
+            (extractValues (map_assignment (assignment ∘ β) input_vec)).head!
+            (extractValues (map_assignment (assignment ∘ β) input_vec)) := by
+          have h_nonempty_orig : extractValues (map_assignment assignment input_vec) ≠ [] := by
+            exact List.isEmpty_eq_false_iff.mp h_empty
+          have h_nonempty_perm : extractValues (map_assignment (assignment ∘ β) input_vec) ≠ [] := by
+            have h_len := List.Perm.length_eq h_inputs_perm
+            intro h_contra
+            rw [h_contra, List.length_nil] at h_len
+            simp at h_len
+            contradiction
+          have h_orig_head_mem : (extractValues (map_assignment assignment input_vec)).head! ∈
+              extractValues (map_assignment (assignment ∘ β) input_vec) := by
+            rw [← h_inputs_perm.mem_iff]
+            exact List.head!_mem_self h_nonempty_orig
+          have h_perm_head_mem : (extractValues (map_assignment (assignment ∘ β) input_vec)).head! ∈
+              extractValues (map_assignment (assignment ∘ β) input_vec) :=
+            List.head!_mem_self h_nonempty_perm
+          exact foldl_if_max_mem_eq _ _ _ h_orig_head_mem h_perm_head_mem
+  · simp [h_empty] at h_orig ⊢
 
 /-- XOR gate constraint preserved under input permutation -/
 lemma xor_all_preserved_under_input_permutation
@@ -842,13 +987,38 @@ lemma xor_all_preserved_under_input_permutation
   unfold satisfies_dynamic_constraint satisfies_constraint sat at h_orig ⊢
   simp only at h_orig ⊢
 
-  -- Sum is preserved by permutation
-  have h_sum_perm : ∀ (l1 l2 : List ℤ),
-      List.Perm l1 l2 → l1.sum = l2.sum := by
-    intros l1 l2 hp
-    exact List.Perm.sum_eq hp
-
-  sorry
+  -- Output value is unchanged since β fixes it
+  have h_output_eq : (assignment ∘ β) output = assignment output := by
+    simp only [Function.comp_apply]
+    rw [h_output_fixed]
+  -- extractValues of the input ++ output vector splits as inputs ++ [output]
+  have h_extract_append : ∀ (a : HomogeneousVarIndex num_vars → ℤ),
+      extractValues (map_assignment a (input_vec.append #v[output])) =
+      extractValues (map_assignment a input_vec) ++ [a output] := by
+    intro a
+    unfold extractValues map_assignment
+    rw [List.ofFn_succ', List.concat_eq_append]
+    congr 1
+    · congr
+      ext i
+      simp only [_root_.Vector.get, _root_.Vector.append, Fin.castSucc, Fin.cast, Fin.castAdd]
+      have h_size : input_vec.toArray.size = n := by simp
+      rw [Array.getElem_append_left]
+      refine congrFun rfl input_vec.toArray[↑(Fin.castLE (Nat.le_add_right n 1) i)]
+    · congr
+      simp only [_root_.Vector.get, _root_.Vector.append, Fin.last, Fin.cast, Fin.val_mk]
+      have h_size : input_vec.toArray.size = n := by simp
+      rw [Array.getElem_append_right]
+      · simp [h_size]
+      · simp [h_size]
+  have h_orig_vals := h_extract_append assignment
+  have h_perm_vals := h_extract_append (assignment ∘ β)
+  rw [h_orig_vals] at h_orig
+  rw [h_perm_vals]
+  simp only [List.getLast?_concat, List.dropLast_concat] at h_orig ⊢
+  -- XOR check is `(inputs).sum % 2 = output`; sum is permutation-invariant, output is fixed.
+  rw [h_output_eq, ← List.Perm.sum_eq h_inputs_perm]
+  exact h_orig
 
 /-- NOT gate constraint preserved when both variables fixed -/
 lemma not_gate_preserved_when_fixed
