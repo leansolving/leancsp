@@ -57,8 +57,9 @@ def gateIff (z x y : Lit V) : List (SignedPBConstr V) :=
 Each lemma: if `z`'s bit equals the connective of `x`/`y`'s bits, all clauses hold.
 -/
 
-/-- A satisfied clause is a bit-sum `≥ 1`; the shared reduction the gate proofs use. -/
-private theorem clause_sat_eq (v : V → Bool) (lits : List (Lit V)) :
+/-- A satisfied clause is a bit-sum `≥ 1`; the shared reduction the gate proofs use
+    (also consumed by the recursive `BoolExpr` compiler's constant unit-clauses). -/
+theorem clause_sat_eq (v : V → Bool) (lits : List (Lit V)) :
     (clause lits).sat v ↔ (1 : Int) ≤ (lits.map (fun ℓ => (evalLit v ℓ : Int))).sum := by
   simp only [clause, SignedPBConstr.sat, signedEval, List.map_map, Function.comp_def, one_mul]
 
