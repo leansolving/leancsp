@@ -94,7 +94,7 @@ theorem normalize_sat_iff (c : SignedPBConstr V) (c' : PBConstr V)
   have hkey := signed_eq v c.terms
   simp only [normalize] at h
   split at h
-  · exact Option.noConfusion h
+  · simp at h
   · rename_i hpos
     rw [Option.some.injEq] at h
     subst h
@@ -111,6 +111,6 @@ theorem normalize_none_tautology (c : SignedPBConstr V)
   · rename_i hle
     simp only [SignedPBConstr.sat, hkey]
     omega
-  · exact Option.noConfusion h
+  · simp at h
 
 end CSP.L2S.PB
