@@ -1,5 +1,11 @@
-/-
-PB backend — signed-coefficient intermediate constraints and normalization.
+import CSP.L2S.Backends.PB.PBConstr
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.Linarith
+
+namespace CSP.L2S.PB
+
+/-!
+# PB backend — signed-coefficient intermediate constraints and normalization
 
 The per-constraint encoders naturally produce **signed** linear constraints
 `Σ aᵢ·⟦ℓᵢ⟧ ≥ rhs` (the substitution theorem's gap-weighted coefficients and the
@@ -12,11 +18,6 @@ equivalent natural-coefficient `PBConstr` (`some`), or reports a tautology
 Like-term merging and complementary-pair cancellation (PBLean kernel
 normalizations) are intentionally *not* performed here — they are not needed for
 soundness; the PB solver consumes the un-merged form. -/
-import CSP.L2S.Backends.PB.PBConstr
-import Mathlib.Tactic.Ring
-import Mathlib.Tactic.Linarith
-
-namespace CSP.L2S.PB
 
 variable {V : Type}
 
@@ -93,7 +94,7 @@ theorem normalize_sat_iff (c : SignedPBConstr V) (c' : PBConstr V)
   have hkey := signed_eq v c.terms
   simp only [normalize] at h
   split at h
-  · exact absurd h (by simp)
+  · exact Option.noConfusion h
   · rename_i hpos
     rw [Option.some.injEq] at h
     subst h
@@ -110,6 +111,6 @@ theorem normalize_none_tautology (c : SignedPBConstr V)
   · rename_i hle
     simp only [SignedPBConstr.sat, hkey]
     omega
-  · exact absurd h (by simp)
+  · exact Option.noConfusion h
 
 end CSP.L2S.PB

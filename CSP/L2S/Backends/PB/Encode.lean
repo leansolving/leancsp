@@ -1,5 +1,12 @@
-/-
-PB backend — the linear-`≤` encoder (PLAN.md §6.2).
+import CSP.L2S.Backends.PB.SignedPB
+import CSP.L2S.Backends.PB.Substitution
+
+namespace CSP.L2S.PB
+
+open scoped BigOperators
+
+/-!
+# PB backend — the linear-`≤` encoder (PLAN.md §6.2)
 
 `encodeLinearLe terms b` turns a linear arithmetic constraint `Σ aᵢ·xᵢ ≤ b` over
 CSP integer variables into a single **signed** PB constraint over the threshold
@@ -8,12 +15,6 @@ is exactly the forward direction of the substitution theorem (M2,
 `linear_le_of_threshold_sum`): the heavy lifting is bridging the encoder's
 `flatMap`/`finRange` term list to the theorem's `Finset`-over-`Fin` sums.
 -/
-import CSP.L2S.Backends.PB.SignedPB
-import CSP.L2S.Backends.PB.Substitution
-
-namespace CSP.L2S.PB
-
-open scoped BigOperators
 
 variable {V : Type} {S : CSPSig}
 
@@ -57,7 +58,7 @@ theorem signedEval_encode (v : Valuation S) (terms : List (Int × Fin S.nInt)) (
     signedEval v (encodeLinearLe terms b).terms
       = (terms.map (fun p => p.1 *
           ∑ j : Fin (S.width p.2), S.gap p.2 j * (if v (.thr p.2 j) then (1 : ℤ) else 0))).sum := by
-  show signedEval v (terms.flatMap _) = _
+  unfold encodeLinearLe
   rw [signedEval_flatMap]
   refine congrArg List.sum (List.map_congr_left (fun p _ => ?_))
   exact signedEval_inner v p.1 p.2

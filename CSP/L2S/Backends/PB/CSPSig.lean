@@ -1,13 +1,14 @@
-/-
-PB backend — the encoder's variable signature (`CSPSig`).
+import Mathlib.Data.List.Basic
+
+namespace CSP.L2S.PB
+
+/-!
+# PB backend — the encoder's variable signature (`CSPSig`)
 
 A PB encoding has a fixed set of integer variables (each with a per-variable
 finite integer domain given as a sorted list), Boolean variables, and auxiliary
 variables (for Tseitin/reification).  See PLAN.md §4.1.
 -/
-import Mathlib.Data.List.Sort
-
-namespace CSP.L2S.PB
 
 /-- Signature of a PB encoding: variable counts and per-variable domains. -/
 structure CSPSig where

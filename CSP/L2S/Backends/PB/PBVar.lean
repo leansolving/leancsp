@@ -1,13 +1,16 @@
-/-
-PB backend — the typed propositional variable `PBVar S` and the smart
-threshold-literal constructor `mkLeLit`.
--/
 import CSP.L2S.Backends.PB.CSPSig
 import CSP.L2S.Backends.PB.PBConstr
 
 namespace CSP.L2S.PB
 
 open CSPSig
+
+/-!
+# PB backend — typed variables `PBVar` and the `mkLeLit` constructor
+
+The typed propositional variable `PBVar S` and the smart threshold-literal
+constructor `mkLeLit`.
+-/
 
 /-- Propositional variables of the PB (order-)encoding of a signature `S`:
 

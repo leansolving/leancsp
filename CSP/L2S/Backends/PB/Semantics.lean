@@ -1,12 +1,3 @@
-/-
-PB backend — semantics of the order encoding.
-
-Recovers the integer value of each CSP variable from a Boolean valuation of the
-threshold variables (`intValue`), states the monotonicity ("staircase")
-constraints that make the threshold bits order-consistent, and proves the
-foundational lemma that an order-consistent valuation always recovers a value
-inside the declared finite domain (`intValue_mem_values`).
--/
 import CSP.L2S.Backends.PB.PBVar
 import Mathlib.Algebra.BigOperators.Fin
 import Mathlib.Algebra.BigOperators.Intervals
@@ -16,6 +7,16 @@ namespace CSP.L2S.PB
 
 open CSPSig
 open scoped BigOperators
+
+/-!
+# PB backend — semantics of the order encoding
+
+Recovers the integer value of each CSP variable from a Boolean valuation of the
+threshold variables (`intValue`), states the monotonicity ("staircase")
+constraints that make the threshold bits order-consistent, and proves the
+foundational lemma that an order-consistent valuation always recovers a value
+inside the declared finite domain (`intValue_mem_values`).
+-/
 
 variable {S : CSPSig}
 

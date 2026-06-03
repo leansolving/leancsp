@@ -1,5 +1,11 @@
-/-
-PB backend — smallest end-to-end UNSAT demo (PLAN.md M3, Appendix A).
+import CSP.L2S.Backends.PB.Core
+
+namespace CSP.L2S.PB.Demo
+
+open Sat.PB
+
+/-!
+# PB backend — smallest end-to-end UNSAT demo (PLAN.md M3, Appendix A)
 
 This is the thin vertical slice through the *entire* pipeline, proving a real
 Lean theorem from a real pseudo-Boolean certificate:
@@ -34,11 +40,6 @@ fails to elaborate.  Only PBLean's checker and the soundness lemmas below are
 trusted (and Lean's kernel).  The encoding here is hand-wired; the generic
 `HomogeneousCSP` encoder that produces it is the next milestone (M3/M5).
 -/
-import CSP.L2S.Backends.PB.Core
-
-namespace CSP.L2S.PB.Demo
-
-open Sat.PB
 
 /-! ### The order encoding (`Array Constr`) -/
 
@@ -110,14 +111,17 @@ def demoVal (x y z : Fin 4) : Valuation := fun k =>
   else if k < 6 then decide (y.val ≤ k - 3)
   else decide (z.val ≤ k - 6)
 
+/-- The threshold-monotonicity clauses hold under the induced valuation. -/
 theorem mono_sat (x y z : Fin 4) :
     ∀ c ∈ (mono 0 ++ mono 3 ++ mono 6 : List Constr), c.sat (demoVal x y z) := by
   simp only [Constr.sat]; revert x y z; decide
 
+/-- The encoded `x + y + z ≤ 2` clause holds whenever the integer inequality does. -/
 theorem le_sat (x y z : Fin 4) (h : x.val + y.val + z.val ≤ 2) :
     (Constr.mk thrPos 7).sat (demoVal x y z) := by
   simp only [Constr.sat]; revert x y z; decide
 
+/-- The encoded `x + y + z ≥ 5` clause holds whenever the integer inequality does. -/
 theorem ge_sat (x y z : Fin 4) (h : x.val + y.val + z.val ≥ 5) :
     (Constr.mk thrNeg 5).sat (demoVal x y z) := by
   simp only [Constr.sat]; revert x y z; decide
@@ -136,7 +140,7 @@ theorem demo_unsat :
   apply hnc
   have hlist : demoEncoding.toList
       = mono 0 ++ mono 3 ++ mono 6 ++ [Constr.mk thrPos 7, Constr.mk thrNeg 5] := by
-    simp [demoEncoding]
+    simp only [demoEncoding, List.toList_toArray]
   rw [hlist] at hc
   rcases List.mem_append.1 hc with hm | hc2
   · exact mono_sat x y z c hm

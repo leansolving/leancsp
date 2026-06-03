@@ -1,5 +1,11 @@
-/-
-PB backend — the substitution theorem (the technical core, PLAN.md §5).
+import CSP.L2S.Backends.PB.Semantics
+
+namespace CSP.L2S.PB
+
+open scoped BigOperators
+
+/-!
+# PB backend — the substitution theorem (the technical core, PLAN.md §5)
 
 Under the order encoding, a linear arithmetic constraint `Σ aᵢ·xᵢ ≤ b` over CSP
 integer variables converts to a single linear PB constraint over the threshold
@@ -15,11 +21,6 @@ by distributing the sum and rearranging; order consistency (`orderConsistent`) i
 Note on notation: PLAN.md writes `∑ p ∈ terms` with `terms : List …`, but the
 `∑ … ∈ …` big-operator notation is `Finset`-only; we use `(terms.map …).sum`.
 -/
-import CSP.L2S.Backends.PB.Semantics
-
-namespace CSP.L2S.PB
-
-open scoped BigOperators
 
 variable {S : CSPSig}
 

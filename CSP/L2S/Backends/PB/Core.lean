@@ -1,5 +1,12 @@
-/-
-PB (pseudo-Boolean) verified backend — umbrella / bridge-API anchor.
+import CSP.L2S.Core
+import VeriPB.Tactic.Sat.Reflect
+
+namespace CSP.L2S.PB
+
+open Sat.PB (Constr Literal)
+
+/-!
+# PB (pseudo-Boolean) verified backend — umbrella / bridge-API anchor
 
 Confirms that leancsp (`HomogeneousCSP`, with Mathlib) and PBLean
 (`VeriPB.*`, Mathlib-free) co-compile on the shared Lean 4.30.0 toolchain,
@@ -13,12 +20,6 @@ and pins down the exact PBLean symbols the UNSAT bridge composes with:
 
 The encoder (PLAN.md M2/M3) targets `formulaUnsat (Array Sat.PB.Constr)`.
 -/
-import CSP.L2S.Core
-import VeriPB.Tactic.Sat.Reflect
-
-namespace CSP.L2S.PB
-
-open Sat.PB (Constr Literal)
 
 /-- The bridge contract we build on: a verified VeriPB proof string makes the
     Lean-side PB constraint array unsatisfiable. -/

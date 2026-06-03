@@ -1,6 +1,12 @@
-/-
-PB backend — the `csp_reflect_unsat` command (PLAN.md §9, the CI-reproducible
-`_from_files` variant).
+import Lean
+import CSP.L2S.Backends.PB.Core
+
+namespace CSP.L2S.PB
+
+/-!
+# PB backend — the `csp_reflect_unsat` command
+
+PLAN.md §9, the CI-reproducible `_from_files` variant.
 
 Given a constraint array `cs : Array Sat.PB.Constr`, a variable count, and the
 path to a pre-generated VeriPB **kernel** proof, this command registers a
@@ -16,10 +22,6 @@ stay outside it — a wrong proof makes `checkProofBool` return `false` and the
 command fails to elaborate.
 
 Adapted from PBLean's `independent_set_reflect`. -/
-import Lean
-import CSP.L2S.Backends.PB.Core
-
-namespace CSP.L2S.PB
 
 open Lean Lean.Elab Lean.Elab.Command Lean.Meta
 
@@ -38,7 +40,8 @@ elab "csp_reflect_unsat " name:ident ppSpace cs:term:max ppSpace
     let proofStr ← IO.FS.readFile proofPath
     let proofStrExpr := mkStrLit proofStr
     -- the Boolean check, compiled for native evaluation
-    let checkExpr := mkApp3 (mkConst ``VeriPB.Reflect.checkProofBool) csExpr numVarsExpr proofStrExpr
+    let checkExpr := mkApp3 (mkConst ``VeriPB.Reflect.checkProofBool)
+      csExpr numVarsExpr proofStrExpr
     let auxName := declName ++ `check
     addAndCompile <| .defnDecl {
       name := auxName, levelParams := [], type := mkConst ``Bool,

@@ -1,5 +1,9 @@
-/-
-PB backend — polymorphic pseudo-Boolean constraint mirror.
+import Mathlib.Data.List.Basic
+
+namespace CSP.L2S.PB
+
+/-!
+# PB backend — polymorphic pseudo-Boolean constraint mirror
 
 PBLean's kernel constraint type `Sat.PB.Constr` is **monomorphic** over `Nat`
 variables.  The encoder, however, builds constraints over the *typed* variable
@@ -10,9 +14,6 @@ same `Σ aᵢ·lᵢ ≥ degree` semantics.  The `ToOPB` bridge (PLAN §8) later 
 `Sat.PB.Constr`; because the two types are structurally identical, that map and
 its `sat`-preservation are mechanical.
 -/
-import Mathlib.Data.List.Basic
-
-namespace CSP.L2S.PB
 
 variable {V : Type}
 

@@ -1,5 +1,11 @@
-/-
-PB backend — the `PBVar → Nat` bridge (PLAN.md §8).
+import CSP.L2S.Backends.PB.PBVar
+import CSP.L2S.Backends.PB.Core
+import Mathlib.Order.Monotone.Basic
+
+namespace CSP.L2S.PB
+
+/-!
+# PB backend — the `PBVar → Nat` bridge (PLAN.md §8)
 
 The encoder builds constraints over the typed variable `PBVar S`; PBLean's kernel
 (`Sat.PB.Constr`) is monomorphic over `Nat`.  This file injects `PBVar S` into
@@ -10,11 +16,6 @@ typed `PBConstr (PBVar S)` to a `Sat.PB.Constr`, and proves the bridge: if the
 all the typed constraints.  This is the generic analogue of PBLean's per-problem
 `no_X_of_unsat` lemmas.
 -/
-import CSP.L2S.Backends.PB.PBVar
-import CSP.L2S.Backends.PB.Core
-import Mathlib.Order.Monotone.Basic
-
-namespace CSP.L2S.PB
 
 variable {S : CSPSig}
 
@@ -33,9 +34,11 @@ def offsetThr (i : Nat) : Nat := ((List.range i).map S.widthN).sum
 /-- Total number of threshold variables. -/
 def totalThr : Nat := S.offsetThr S.nInt
 
+/-- The offset for `i + 1` extends the offset for `i` by the width of variable `i`. -/
 theorem offsetThr_succ (i : Nat) : S.offsetThr (i + 1) = S.offsetThr i + S.widthN i := by
   simp [offsetThr, List.range_succ]
 
+/-- Threshold offsets are monotone in the variable index. -/
 theorem offsetThr_mono : Monotone S.offsetThr := by
   apply monotone_nat_of_le_succ
   intro n; rw [offsetThr_succ]; omega
@@ -62,6 +65,7 @@ theorem PBVar.thr_offset_lt (i : Fin S.nInt) (j : Fin (S.width i)) :
   unfold CSPSig.totalThr
   omega
 
+/-- The `Nat` index map on PB variables is injective. -/
 theorem PBVar.toNat_injective : Function.Injective (@PBVar.toNat S) := by
   intro x y hxy
   cases x with
@@ -120,12 +124,14 @@ def PBConstr.toNatConstr (c : PBConstr (PBVar S)) : Sat.PB.Constr :=
 
 variable {w : Sat.PB.Valuation} {v : PBVar S → Bool}
 
+/-- The `Nat`-mapped literal evaluates identically to the typed literal. -/
 theorem evalLit_toNatLit (hw : ∀ x : PBVar S, w x.toNat = v x) (ℓ : Lit (PBVar S)) :
     Sat.PB.evalLit w ℓ.toNatLit = evalLit v ℓ := by
   cases ℓ with
   | pos x => simp [Lit.toNatLit, Sat.PB.evalLit, evalLit, hw x]
   | neg x => simp [Lit.toNatLit, Sat.PB.evalLit, evalLit, hw x]
 
+/-- The `Nat`-mapped term sum evaluates identically to the typed term sum. -/
 theorem evalSum_toNatConstr (hw : ∀ x : PBVar S, w x.toNat = v x)
     (ts : List (Term (PBVar S))) :
     Sat.PB.evalSum w (ts.map (fun p => (p.1, p.2.toNatLit))) = evalSum v ts := by
@@ -135,6 +141,7 @@ theorem evalSum_toNatConstr (hw : ∀ x : PBVar S, w x.toNat = v x)
     obtain ⟨a, ℓ⟩ := hd
     simp [Sat.PB.evalSum, evalSum, evalLit_toNatLit hw, ih]
 
+/-- The `Nat`-mapped constraint is satisfied by `w` iff the typed one is by `v`. -/
 theorem toNatConstr_sat (hw : ∀ x : PBVar S, w x.toNat = v x) (c : PBConstr (PBVar S)) :
     (c.toNatConstr).sat w ↔ c.sat v := by
   simp only [Sat.PB.Constr.sat, PBConstr.sat, PBConstr.toNatConstr, evalSum_toNatConstr hw]
