@@ -14,7 +14,10 @@ require veripb from git
 
 @[default_target]
 lean_lib "CSP" where
-  -- add library configuration options here
+  -- Compile the CSP root *and all submodules* (proofs, L2S, PB backend, tests) on a
+  -- bare `lake build` — the default single-root glob would build only `CSP.lean`
+  -- (which merely imports Mathlib), silently skipping the actual source. (#28)
+  globs := #[.andSubmodules `CSP]
 
 require "Canonical" from git
   "https://github.com/chasenorman/CanonicalLean" @ "v4.30.0"
