@@ -74,4 +74,71 @@ theorem encodeLinearLe_sound (v : Valuation S) (terms : List (Int × Fin S.nInt)
   rw [signedEval_encode]
   exact hsub
 
+/-! ### Derived comparisons `≥, <, >, =` (PLAN.md §6.3)
+
+Thin wrappers over `encodeLinearLe`, each reusing `encodeLinearLe_sound`:
+
+* `≥` encodes `Σ (−aᵢ)·xᵢ ≤ −b`;
+* `<` (integer-strict) encodes `Σ aᵢ·xᵢ ≤ b − 1`;
+* `>` (integer-strict) encodes `Σ (−aᵢ)·xᵢ ≤ −b − 1`;
+* `=` emits both the `≤` and the `≥` halves.
+
+The `<`/`>` lowerings rely on the variables being integer-valued (`intValue : … → Int`),
+so `s < b ↔ s ≤ b − 1`. -/
+
+/-- Evaluating the coefficient-negated term list negates the linear sum.
+    (Private helper for `encodeLinearGe_sound` / `encodeLinearGt_sound`.) -/
+private theorem map_neg_coeff_sum (v : Valuation S) (terms : List (Int × Fin S.nInt)) :
+    ((terms.map (fun p => ((-p.1 : Int), p.2))).map (fun p => p.1 * v.intValue p.2)).sum
+      = -((terms.map (fun p => p.1 * v.intValue p.2)).sum) := by
+  induction terms with
+  | nil => simp
+  | cons p t ih => simp only [List.map_cons, List.sum_cons, ih]; ring
+
+/-- Encode `Σ aᵢ·xᵢ ≥ b` as `Σ (−aᵢ)·xᵢ ≤ −b`. -/
+def encodeLinearGe (terms : List (Int × Fin S.nInt)) (b : Int) : SignedPBConstr (PBVar S) :=
+  encodeLinearLe (terms.map (fun p => ((-p.1 : Int), p.2))) (-b)
+
+theorem encodeLinearGe_sound (v : Valuation S) (terms : List (Int × Fin S.nInt)) (b : Int)
+    (h : b ≤ (terms.map (fun p => p.1 * v.intValue p.2)).sum) :
+    (encodeLinearGe terms b).sat v := by
+  unfold encodeLinearGe
+  apply encodeLinearLe_sound
+  rw [map_neg_coeff_sum]; omega
+
+/-- Encode `Σ aᵢ·xᵢ < b` (integer-strict) as `Σ aᵢ·xᵢ ≤ b − 1`. -/
+def encodeLinearLt (terms : List (Int × Fin S.nInt)) (b : Int) : SignedPBConstr (PBVar S) :=
+  encodeLinearLe terms (b - 1)
+
+theorem encodeLinearLt_sound (v : Valuation S) (terms : List (Int × Fin S.nInt)) (b : Int)
+    (h : (terms.map (fun p => p.1 * v.intValue p.2)).sum < b) :
+    (encodeLinearLt terms b).sat v := by
+  unfold encodeLinearLt
+  apply encodeLinearLe_sound; omega
+
+/-- Encode `Σ aᵢ·xᵢ > b` (integer-strict) as `Σ (−aᵢ)·xᵢ ≤ −b − 1`. -/
+def encodeLinearGt (terms : List (Int × Fin S.nInt)) (b : Int) : SignedPBConstr (PBVar S) :=
+  encodeLinearLe (terms.map (fun p => ((-p.1 : Int), p.2))) (-b - 1)
+
+theorem encodeLinearGt_sound (v : Valuation S) (terms : List (Int × Fin S.nInt)) (b : Int)
+    (h : b < (terms.map (fun p => p.1 * v.intValue p.2)).sum) :
+    (encodeLinearGt terms b).sat v := by
+  unfold encodeLinearGt
+  apply encodeLinearLe_sound
+  rw [map_neg_coeff_sum]; omega
+
+/-- Encode `Σ aᵢ·xᵢ = b` as the pair `[≤ b, ≥ b]`. -/
+def encodeLinearEq (terms : List (Int × Fin S.nInt)) (b : Int) :
+    List (SignedPBConstr (PBVar S)) :=
+  [encodeLinearLe terms b, encodeLinearGe terms b]
+
+theorem encodeLinearEq_sound (v : Valuation S) (terms : List (Int × Fin S.nInt)) (b : Int)
+    (h : (terms.map (fun p => p.1 * v.intValue p.2)).sum = b) :
+    ∀ c ∈ encodeLinearEq terms b, c.sat v := by
+  intro c hc
+  simp only [encodeLinearEq, List.mem_cons, List.not_mem_nil, or_false] at hc
+  rcases hc with rfl | rfl
+  · exact encodeLinearLe_sound v terms b h.le
+  · exact encodeLinearGe_sound v terms b h.ge
+
 end CSP.L2S.PB
