@@ -251,4 +251,40 @@ theorem encodeAllDifferent_sound (v : Valuation S) (hv : v.orderConsistent)
   rw [List.map_map] at hcount
   exact perValueConstr_sound v hv vars val hcount
 
+/-! ### Unit test: two variables over `{0,1}` with distinct values -/
+
+namespace AllDifferentTest
+
+/-- Two integer variables, shared binary domain `{0, 1}`. -/
+def sigAD : CSPSig where
+  nInt := 2
+  nBool := 0
+  nAux := 0
+  values := fun _ => [0, 1]
+  sorted := by intro _; decide
+  nonempty := by intro _; decide
+
+/-- The valuation `x₀ = 0` (its `≤ 0` threshold set), `x₁ = 1` (threshold unset). -/
+def vAD : Valuation sigAD
+  | .thr i _ => decide (i.val = 0)
+  | _        => false
+
+/-- The two variables (raw `Fin.mk` dodges the projection-`OfNat` friction, MEM_002 #12). -/
+def varsAD : List (Fin sigAD.nInt) := [⟨0, by decide⟩, ⟨1, by decide⟩]
+
+/-- `vAD` is order-consistent (each variable has a single threshold, so the
+    adjacency premise is vacuous). -/
+theorem vAD_orderConsistent : vAD.orderConsistent := by
+  intro i j j' hj' _
+  have hw : sigAD.width i = 1 := rfl
+  have := j.isLt; have := j'.isLt; omega
+
+-- The recovered values are `0` and `1` — distinct, so `alldifferent` holds.
+example : vAD.intValue ⟨0, by decide⟩ = 0 ∧ vAD.intValue ⟨1, by decide⟩ = 1 := by decide
+
+example : ∀ c ∈ encodeAllDifferent varsAD [0, 1], c.sat vAD :=
+  encodeAllDifferent_sound vAD vAD_orderConsistent varsAD [0, 1] (by decide)
+
+end AllDifferentTest
+
 end CSP.L2S.PB
