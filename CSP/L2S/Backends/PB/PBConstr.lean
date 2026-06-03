@@ -62,4 +62,20 @@ structure PBConstr (V : Type) where
 def PBConstr.sat (v : V → Bool) (c : PBConstr V) : Prop :=
   c.degree ≤ evalSum v c.terms
 
+/-- A literal evaluates to at most `1`. -/
+theorem evalLit_le_one (v : V → Bool) (ℓ : Lit V) : evalLit v ℓ ≤ 1 := by
+  cases ℓ <;> simp only [evalLit] <;> split <;> omega
+
+/-- A literal and its negation evaluate to `1` together. -/
+theorem evalLit_negate_add (v : V → Bool) (ℓ : Lit V) :
+    evalLit v ℓ + evalLit v ℓ.negate = 1 := by
+  cases ℓ <;> simp only [evalLit, Lit.negate] <;> split <;> simp
+
+/-- `evalSum` distributes over list append. -/
+theorem evalSum_append (v : V → Bool) (a b : List (Term V)) :
+    evalSum v (a ++ b) = evalSum v a + evalSum v b := by
+  induction a with
+  | nil => simp [evalSum]
+  | cons hd tl ih => obtain ⟨c, ℓ⟩ := hd; simp only [List.cons_append, evalSum, ih, Nat.add_assoc]
+
 end CSP.L2S.PB
