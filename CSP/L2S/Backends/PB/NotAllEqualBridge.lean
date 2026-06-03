@@ -135,4 +135,32 @@ theorem extend_sat_encodeNotAllEqualMulti {S : CSPSig} (a : Fin S.nInt → Int)
   rw [extend_intValue a bA auxA hdom i, extend_intValue a bA auxA hdom i']
   exact hii
 
+/-- **Bridge.** A satisfied `alldifferent scope` constraint makes the assigned values
+    along the scope pairwise distinct (`Nodup`).  Mirrors `bound_sat` / `linear_le_sat`. -/
+theorem alldifferent_sat {n m : ℕ} (scope : _root_.Vector (HomogeneousVarIndex n) m)
+    (a : HomogeneousAssignment n)
+    (h : HomogeneousCSP.satisfiesConstraint (alldifferent scope) a) :
+    (scope.toList.map a).Nodup := by
+  simp only [HomogeneousCSP.satisfiesConstraint, alldifferent,
+    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
+    decide_eq_true_eq] at h
+  rwa [extractValues_map_assignment] at h
+
+/-- **Bridge.** A normalized `encodeAllDifferent` constraint is modelled by
+    `extend a bA auxA` (`alldifferent` is aux-free) whenever the recovered values are
+    pairwise distinct.  Composes `encodeAllDifferent_sound` with `extend_intValue`. -/
+theorem extend_sat_encodeAllDifferent {S : CSPSig} (a : Fin S.nInt → Int)
+    (bA : Fin S.nBool → Bool) (auxA : Fin S.nAux → Bool) (hdom : ∀ i, a i ∈ S.values i)
+    (vars : List (Fin S.nInt)) (D : List Int) (c' : PBConstr (PBVar S))
+    (hc : c' ∈ (encodeAllDifferent vars D).filterMap normalize)
+    (hnodup : (vars.map a).Nodup) :
+    c'.sat (extend a bA auxA) := by
+  rw [List.mem_filterMap] at hc
+  obtain ⟨sc, hsc_mem, hnorm⟩ := hc
+  rw [← normalize_sat_iff _ _ hnorm]
+  have hmap : vars.map (extend a bA auxA).intValue = vars.map a :=
+    List.map_congr_left (fun i _ => extend_intValue a bA auxA hdom i)
+  exact encodeAllDifferent_sound (extend a bA auxA) (extend_orderConsistent a bA auxA)
+    vars D (by rw [hmap]; exact hnodup) sc hsc_mem
+
 end CSP.L2S.PB

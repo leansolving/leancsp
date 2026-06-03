@@ -1,6 +1,7 @@
 import CSP.L2S.Backends.PB.Adapter
 import CSP.L2S.Backends.PB.AllDifferent
 import CSP.L2S.Backends.PB.Extend
+import CSP.L2S.Backends.PB.NotAllEqualBridge
 import CSP.L2S.Tests.lean.«35_pigeonhole»
 
 namespace CSP.L2S.PB.Pigeonhole
@@ -36,39 +37,11 @@ is empty and the encoding is the two-clause UNSAT core
 `Σⱼ ⟦pigeonⱼ = 1⟧ ≤ 1` and `Σⱼ ⟦pigeonⱼ = 2⟧ ≤ 1` over three pigeons.
 -/
 
-/-! ### Reusable bridge: `alldifferent` satisfaction ⇒ recovered values `Nodup` -/
+/-! ### The pigeonhole signature, encoding, and certificate
 
-/-- A satisfied `alldifferent scope` constraint makes the assigned values along the
-    scope pairwise distinct (`Nodup`).  Mirrors `bound_sat` / `linear_le_sat`. -/
-theorem alldifferent_sat {n m : ℕ} (scope : _root_.Vector (HomogeneousVarIndex n) m)
-    (a : HomogeneousAssignment n)
-    (h : HomogeneousCSP.satisfiesConstraint (alldifferent scope) a) :
-    (scope.toList.map a).Nodup := by
-  simp only [HomogeneousCSP.satisfiesConstraint, alldifferent,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    decide_eq_true_eq] at h
-  rwa [extractValues_map_assignment] at h
-
-/-! ### Reusable `extend`-soundness for normalized `alldifferent` constraints -/
-
-/-- A normalized `encodeAllDifferent` constraint is modelled by `extend a bA auxA`
-    (`alldifferent` is aux-free) whenever the recovered values are pairwise distinct.
-    Composes `encodeAllDifferent_sound` with `extend_intValue`. -/
-theorem extend_sat_encodeAllDifferent {S : CSPSig} (a : Fin S.nInt → Int)
-    (bA : Fin S.nBool → Bool) (auxA : Fin S.nAux → Bool) (hdom : ∀ i, a i ∈ S.values i)
-    (vars : List (Fin S.nInt)) (D : List Int) (c' : PBConstr (PBVar S))
-    (hc : c' ∈ (encodeAllDifferent vars D).filterMap normalize)
-    (hnodup : (vars.map a).Nodup) :
-    c'.sat (extend a bA auxA) := by
-  rw [List.mem_filterMap] at hc
-  obtain ⟨sc, hsc_mem, hnorm⟩ := hc
-  rw [← normalize_sat_iff _ _ hnorm]
-  have hmap : vars.map (extend a bA auxA).intValue = vars.map a :=
-    List.map_congr_left (fun i _ => extend_intValue a bA auxA hdom i)
-  exact encodeAllDifferent_sound (extend a bA auxA) (extend_orderConsistent a bA auxA)
-    vars D (by rw [hmap]; exact hnodup) sc hsc_mem
-
-/-! ### The pigeonhole signature, encoding, and certificate -/
+The reusable bridges `alldifferent_sat` / `extend_sat_encodeAllDifferent` now live
+in `NotAllEqualBridge.lean` (shared, test-file-free) so they can also serve the
+graph-colouring proofs. -/
 
 /-- The PB signature for `php_3_2`: three integer variables (pigeons), each over
     the two-element hole domain `{1,2}`, no Boolean or auxiliary variables. -/

@@ -42,6 +42,13 @@ def k3Edges : List (Fin 3 × Fin 3) := [(0, 1), (1, 2), (0, 2)]
     Drives the verified PB UNSAT proof `k3_2col_unsat`. -/
 def k3_2col : HomogeneousCSP := graph_coloring_csp 3 k3Edges 2
 
+/-- The complete graph K₄ (all six edges). -/
+def k4Edges : List (Fin 4 × Fin 4) := [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]
+
+/-- Colour K₄ with three colours: unsatisfiable (χ(K₄) = 4).  Drives `k4_3col_unsat`,
+    which exercises `encodeAllDifferent` on the multi-valued domain {1,2,3}. -/
+def k4_3col : HomogeneousCSP := graph_coloring_csp 4 k4Edges 3
+
 /-- The single edge K₂ (vertices 0–1). -/
 def k2Edges : List (Fin 2 × Fin 2) := [(0, 1)]
 
