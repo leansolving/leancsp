@@ -93,14 +93,16 @@ private theorem exists_switch (t : ℕ → Bool) (w : ℕ)
     | base => exact Nat.find_spec hex
     | succ n _ ih => exact hmono n ih
 
-/-- Under order consistency, the gap-weighted threshold sum telescopes: it equals
-    `valuesᵢ[width] − valuesᵢ[m]` for the switch point `m ≤ width` (the index of
-    the recovered domain value). -/
-private theorem gap_fin_sum_eq (i : Fin S.nInt) (v : Valuation S)
+/-- **Switch-point characterization of the order encoding.** Under order
+    consistency, variable `i`'s recovered value is `nth i m` for a switch point
+    `m ≤ width i`, and each threshold bit reads off `m`: `thr i j` is set iff
+    `m ≤ j`.  (Internally, the gap-weighted sum telescopes to `nth (width) − nth m`,
+    which is what yields the value.)  The per-bit reading is the extra fact the
+    `alldifferent` value-indicator encoding needs. -/
+theorem intValue_switch (i : Fin S.nInt) (v : Valuation S)
     (hv : v.orderConsistent) :
-    ∃ m, m ≤ S.width i ∧
-      (∑ j : Fin (S.width i), S.gap i j * (if v (.thr i j) then (1 : ℤ) else 0))
-        = S.nth i (S.width i) - S.nth i m := by
+    ∃ m, m ≤ S.width i ∧ v.intValue i = S.nth i m ∧
+      ∀ j : Fin (S.width i), v (.thr i j) = decide (m ≤ j.val) := by
   classical
   -- ℕ-indexed view of the threshold bits, defaulting to `true` past the top.
   let t : ℕ → Bool := fun k => if h : k < S.width i then v (.thr i ⟨k, h⟩) else true
@@ -117,32 +119,44 @@ private theorem gap_fin_sum_eq (i : Fin S.nInt) (v : Valuation S)
     · rw [htge (k + 1) hk1]
   have htw : t (S.width i) = true := htge (S.width i) (lt_irrefl _)
   obtain ⟨m, hmw, hlt, hge⟩ := exists_switch t (S.width i) hmono htw
-  refine ⟨m, hmw, ?_⟩
-  -- Reindex the `Fin (width i)` sum to a `range (width i)` sum over ℕ.
-  have hreindex :
-      (∑ j : Fin (S.width i), S.gap i j * (if v (.thr i j) then (1 : ℤ) else 0))
-        = ∑ k ∈ Finset.range (S.width i),
-            (S.nth i (k + 1) - S.nth i k) * (if t k then (1 : ℤ) else 0) := by
-    rw [← Fin.sum_univ_eq_sum_range]
-    refine Finset.sum_congr rfl (fun j _ => ?_)
-    have hg : S.gap i j = S.nth i (↑j + 1) - S.nth i ↑j := rfl
-    have hvj : v (.thr i j) = t ↑j := (htlt ↑j j.isLt).symm
-    rw [hg, hvj]
-  rw [hreindex]
-  -- Replace each threshold bit by the `m`-threshold, then telescope.
-  have hind : ∀ k ∈ Finset.range (S.width i),
-      (S.nth i (k + 1) - S.nth i k) * (if t k then (1 : ℤ) else 0)
-        = if m ≤ k then (S.nth i (k + 1) - S.nth i k) else 0 := by
-    intro k _
-    by_cases hmk : m ≤ k
-    · rw [hge k hmk]; simp [hmk]
-    · have hkm : k < m := by omega
-      rw [hlt k hkm]; simp [hmk]
-  rw [Finset.sum_congr rfl hind, ← Finset.sum_filter]
-  have hfilter :
-      (Finset.range (S.width i)).filter (fun k => m ≤ k) = Finset.Ico m (S.width i) := by
-    ext k; simp only [Finset.mem_filter, Finset.mem_range, Finset.mem_Ico]; omega
-  rw [hfilter, Finset.sum_Ico_eq_sub _ hmw, Finset.sum_range_sub, Finset.sum_range_sub]
+  -- Per-bit reading: `thr i j` is set iff `m ≤ j` (directly from the switch).
+  have hbits : ∀ j : Fin (S.width i), v (.thr i j) = decide (m ≤ j.val) := by
+    intro j
+    rw [(htlt j.val j.isLt).symm]
+    by_cases hmj : m ≤ j.val
+    · rw [hge j.val hmj]; simp [hmj]
+    · have hjm : j.val < m := by omega
+      rw [hlt j.val hjm]; simp [hmj]
+  refine ⟨m, hmw, ?_, hbits⟩
+  -- The gap-weighted sum telescopes to `nth (width) − nth m`, giving `intValue = nth m`.
+  have hsum : (∑ j : Fin (S.width i), S.gap i j * (if v (.thr i j) then (1 : ℤ) else 0))
+      = S.nth i (S.width i) - S.nth i m := by
+    have hreindex :
+        (∑ j : Fin (S.width i), S.gap i j * (if v (.thr i j) then (1 : ℤ) else 0))
+          = ∑ k ∈ Finset.range (S.width i),
+              (S.nth i (k + 1) - S.nth i k) * (if t k then (1 : ℤ) else 0) := by
+      rw [← Fin.sum_univ_eq_sum_range]
+      refine Finset.sum_congr rfl (fun j _ => ?_)
+      have hg : S.gap i j = S.nth i (↑j + 1) - S.nth i ↑j := rfl
+      have hvj : v (.thr i j) = t ↑j := (htlt ↑j j.isLt).symm
+      rw [hg, hvj]
+    rw [hreindex]
+    have hind : ∀ k ∈ Finset.range (S.width i),
+        (S.nth i (k + 1) - S.nth i k) * (if t k then (1 : ℤ) else 0)
+          = if m ≤ k then (S.nth i (k + 1) - S.nth i k) else 0 := by
+      intro k _
+      by_cases hmk : m ≤ k
+      · rw [hge k hmk]; simp [hmk]
+      · have hkm : k < m := by omega
+        rw [hlt k hkm]; simp [hmk]
+    rw [Finset.sum_congr rfl hind, ← Finset.sum_filter]
+    have hfilter :
+        (Finset.range (S.width i)).filter (fun k => m ≤ k) = Finset.Ico m (S.width i) := by
+      ext k; simp only [Finset.mem_filter, Finset.mem_range, Finset.mem_Ico]; omega
+    rw [hfilter, Finset.sum_Ico_eq_sub _ hmw, Finset.sum_range_sub, Finset.sum_range_sub]
+    ring
+  unfold Valuation.intValue
+  rw [hsum, show S.maxVal i = S.nth i (S.width i) from rfl]
   ring
 
 namespace Valuation
@@ -152,11 +166,7 @@ namespace Valuation
 theorem intValue_mem_values (v : Valuation S)
     (hv : v.orderConsistent) (i : Fin S.nInt) :
     v.intValue i ∈ S.values i := by
-  obtain ⟨m, hmw, hsum⟩ := gap_fin_sum_eq i v hv
-  have hval : v.intValue i = S.nth i m := by
-    unfold Valuation.intValue
-    rw [hsum, show S.maxVal i = S.nth i (S.width i) from rfl]
-    ring
+  obtain ⟨m, hmw, hval, _⟩ := intValue_switch i v hv
   have hmlt : m < (S.values i).length := by
     have hne := S.nonempty i
     have hwd : S.width i = (S.values i).length - 1 := rfl
