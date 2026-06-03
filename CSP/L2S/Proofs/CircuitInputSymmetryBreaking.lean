@@ -557,11 +557,63 @@ lemma beta_permutes_gate_input_values
     List.Perm
       (extractValues (map_assignment assignment input_vec))
       (extractValues (map_assignment (assignment ∘ β.toFun) input_vec)) := by
-  -- The proof strategy:
-  -- 1. Show that gate_inputs permutes to List.range num_inputs
-  -- 2. β acts as σ on each input
-  -- 3. Therefore the values are permuted according to σ
-  sorry
+  intro β
+  -- Reduce to a permutation of the index list: it suffices that β permutes
+  -- `input_vec.toList`, then `map assignment` preserves the permutation.
+  simp only [extractValues_map_assignment_eq_toList_map]
+  rw [← List.map_map]
+  refine List.Perm.map assignment ?_
+  -- The element-set of input_vec is exactly the circuit inputs, and β bijects it.
+  have hnodup : input_vec.toList.Nodup := by
+    have h1 : (input_vec.toList.map (·.val)).Nodup := by
+      rw [h_vec_matches]; exact (h_perm.nodup_iff).mpr List.nodup_range
+    exact List.Nodup.of_map _ h1
+  have hmem : ∀ x ∈ input_vec.toList, x.val < circuit.num_inputs := by
+    intro x hx
+    apply h_all_circuit_inputs
+    rw [← h_vec_matches]
+    exact List.mem_map_of_mem hx
+  have hcover : ∀ x : Fin (circuit_requires_k_inputs_base_csp circuit k).num_vars,
+      x.val < circuit.num_inputs → x ∈ input_vec.toList := by
+    intro x hx
+    have hxr : x.val ∈ gate_inputs := by
+      rw [h_perm.mem_iff]; exact List.mem_range.mpr hx
+    rw [← h_vec_matches, List.mem_map] at hxr
+    obtain ⟨y, hy_mem, hy_val⟩ := hxr
+    rwa [← (Fin.ext hy_val : y = x)]
+  have hβfix : ∀ x : Fin (circuit_requires_k_inputs_base_csp circuit k).num_vars,
+      circuit.num_inputs ≤ x.val → β x = x := fun x hx =>
+    beta_fixes_gate_output circuit k σ x.val hx x.isLt
+  have hβlow : ∀ x : Fin (circuit_requires_k_inputs_base_csp circuit k).num_vars,
+      x.val < circuit.num_inputs → (β x).val < circuit.num_inputs := by
+    intro x hx
+    show (extend_input_permutation circuit k σ x).val < circuit.num_inputs
+    unfold extend_input_permutation
+    simp only [Equiv.coe_fn_mk]
+    rw [dif_pos hx]
+    exact (σ ⟨x.val, hx⟩).isLt
+  have hβsurj : ∀ y : Fin (circuit_requires_k_inputs_base_csp circuit k).num_vars,
+      y.val < circuit.num_inputs → ∃ x, x.val < circuit.num_inputs ∧ β x = y := by
+    intro y hy
+    refine ⟨β.symm y, ?_, β.apply_symm_apply y⟩
+    by_contra hxnot
+    have hge : circuit.num_inputs ≤ (β.symm y).val := Nat.le_of_not_lt hxnot
+    have hfix : β (β.symm y) = β.symm y := hβfix (β.symm y) hge
+    rw [β.apply_symm_apply] at hfix
+    rw [← hfix] at hge
+    omega
+  have hnodup_map : (input_vec.toList.map β.toFun).Nodup := hnodup.map β.injective
+  have hfinset : input_vec.toList.toFinset = (input_vec.toList.map β.toFun).toFinset := by
+    apply Finset.ext
+    intro y
+    simp only [List.mem_toFinset, List.mem_map]
+    constructor
+    · intro hy
+      obtain ⟨x, hxlow, hxy⟩ := hβsurj y (hmem y hy)
+      exact ⟨x, hcover x hxlow, hxy⟩
+    · rintro ⟨x, hx_mem, rfl⟩
+      exact hcover _ (hβlow x (hmem x hx_mem))
+  exact List.perm_of_nodup_nodup_toFinset_eq hnodup hnodup_map hfinset
 
 /-- When a gate uses all circuit inputs, all its inputs are circuit inputs (< num_inputs).
     This is a structural property of circuits with identical fanout. -/
