@@ -1877,9 +1877,13 @@ theorem input_ordering_is_variable_symmetry_breaking
       unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat
       simp only [CSP.map_assignment, extractValues, decide_eq_true_iff]
 
-      -- The key: after composing with β, inputs are sorted
-      -- Need to show: (assignment ∘ β) applied to input variables is monotone
-      -- This follows from Tuple.monotone_sort
+      -- The i-th input variable, after β, holds the value `input_values (σ i)`, and
+      -- `input_values ∘ σ = input_values ∘ Tuple.sort input_values` is `Monotone`
+      -- (`Tuple.monotone_sort`), hence the value list is sorted. The math is complete;
+      -- the remaining step is reducing `(Vector.ofFn fun i => ⟨i.val, _⟩).get a` to
+      -- `⟨a.val, _⟩` so `beta_acts_as_sigma_on_inputs` applies — the array-backed
+      -- `Vector.get`/`Array.getElem_ofFn` reduction flagged in MEM_002.
+      rw [← List.sortedLE_iff_pairwise, List.sortedLE_ofFn_iff]
       sorry
 
     · -- Original constraints preserved by Result 1
