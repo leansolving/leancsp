@@ -1171,6 +1171,22 @@ lemma not_gate_preserved_when_fixed
   exact h_orig
 
 
+/-- An at-most-k cardinality constraint is preserved when the variables' values
+    are permuted (the sum is permutation-invariant). -/
+lemma at_most_k_preserved_under_input_permutation {num_vars n : ℕ}
+    (input_vec : _root_.Vector (HomogeneousVarIndex num_vars) n) (k : ℕ)
+    (assignment : HomogeneousVarIndex num_vars → ℤ) (β : Equiv.Perm (Fin num_vars))
+    (h_inputs_perm : List.Perm
+      (extractValues (map_assignment assignment input_vec))
+      (extractValues (map_assignment (assignment ∘ β) input_vec)))
+    (h_orig : satisfiesConstraint (at_most_k input_vec k) assignment) :
+    satisfiesConstraint (at_most_k input_vec k) (assignment ∘ β) := by
+  unfold satisfiesConstraint at_most_k at h_orig ⊢
+  unfold satisfies_dynamic_constraint satisfies_constraint sat at h_orig ⊢
+  simp only at h_orig ⊢
+  rw [← List.Perm.sum_eq h_inputs_perm]
+  exact h_orig
+
 /-- Under well-formedness and all-inputs-symmetric, applying β to a gate's input
     vector permutes the extracted input values. Two cases (no-mixing conjunct of
     well-formedness): the gate uses only circuit inputs — permuted by σ, so the
@@ -1792,10 +1808,20 @@ theorem input_permutation_is_variable_symmetry
         simp only [List.mem_singleton] at h_at_most
         rw [h_at_most]
 
-        -- Goal: (assignment ∘ β) satisfies (at_most_k input_vec (k - 1))
-        -- Strategy: Show that β permutes the input variables, so the sum is unchanged
-
-        sorry  -- Complete the cardinality preservation proof
+        -- β permutes the circuit-input variables (gate_inputs := range num_inputs),
+        -- so the sum is unchanged and the at-most-k bound is preserved.
+        have h_perm_vals := beta_permutes_gate_input_values circuit k σ input_vec
+          (List.range circuit.num_inputs) (listToFinVector_toList_val h_vec)
+          (fun i hi => List.mem_range.mp hi) (List.Perm.refl _) assignment
+        have h_mem : at_most_k input_vec (k - 1)
+            ∈ (circuit_requires_k_inputs_base_csp circuit k).constraints := by
+          unfold circuit_requires_k_inputs_base_csp
+          simp only [List.mem_append]
+          right
+          rw [h_vec]
+          simp
+        exact at_most_k_preserved_under_input_permutation input_vec (k - 1) assignment β
+          h_perm_vals (h_sol _ h_mem)
 
 -- ============================================================================
 -- Result 2: Input Ordering is a Variable Symmetry Breaking Constraint
