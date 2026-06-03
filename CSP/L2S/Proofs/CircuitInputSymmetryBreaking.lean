@@ -487,6 +487,60 @@ lemma extractValue_beta_on_input (circuit : Circuit) (k : ℕ)
   congr 1
   exact beta_acts_as_sigma_on_inputs circuit k σ i h_i
 
+/-- `extractValues (map_assignment a v)` is just `v.toList.map a`. -/
+lemma extractValues_map_assignment_eq_toList_map {num_vars m : ℕ}
+    (a : HomogeneousVarIndex num_vars → ℤ)
+    (scope : _root_.Vector (HomogeneousVarIndex num_vars) m) :
+    extractValues (map_assignment a scope) = scope.toList.map a := by
+  unfold extractValues map_assignment
+  apply List.ext_getElem
+  · simp
+  · intro i h1 h2
+    rw [List.getElem_ofFn, List.getElem_map]
+    congr 1
+
+/-- Round-trip: when `listToFinVector` succeeds (no element dropped), mapping the
+    resulting Fin-vector back through `.val` recovers the original index list. -/
+lemma listToFinVector_toList_val {inputs : List ℕ} {N m : ℕ}
+    {vec : _root_.Vector (Fin N) m}
+    (h : HomogeneousCSP.listToFinVector inputs N = some ⟨m, vec⟩) :
+    vec.toList.map (·.val) = inputs := by
+  -- The dependent filterMap drops nothing exactly when its length is preserved.
+  have key : ∀ (l : List ℕ),
+      ((l.filterMap fun inp => if hh : inp < N then some (⟨inp, hh⟩ : Fin N) else none).length
+        = l.length) →
+      (l.filterMap fun inp => if hh : inp < N then some (⟨inp, hh⟩ : Fin N) else none).map
+          (·.val) = l := by
+    intro l
+    induction l with
+    | nil => intro _; simp
+    | cons a t ih =>
+      intro hlen
+      by_cases ha : a < N
+      · have htail :
+            (t.filterMap fun inp => if hh : inp < N then some (⟨inp, hh⟩ : Fin N) else none).length
+              = t.length := by
+          simp only [List.filterMap_cons, ha, dif_pos, List.length_cons] at hlen
+          omega
+        simp only [List.filterMap_cons, ha, dif_pos, List.map_cons, ih htail]
+      · exfalso
+        have hle :
+            (t.filterMap fun inp => if hh : inp < N then some (⟨inp, hh⟩ : Fin N) else none).length
+              ≤ t.length := List.length_filterMap_le _ _
+        simp only [List.filterMap_cons, ha, dif_neg, not_false_eq_true, List.length_cons] at hlen
+        omega
+  simp only [HomogeneousCSP.listToFinVector] at h
+  by_cases hcond :
+      (inputs.filterMap fun inp => if hh : inp < N then some (⟨inp, hh⟩ : Fin N) else none).length
+        = inputs.length ∧ inputs.length > 0
+  · rw [if_pos hcond, Option.some.injEq, Sigma.mk.injEq] at h
+    obtain ⟨hm, hv⟩ := h
+    subst hm
+    rw [← eq_of_heq hv]
+    simpa [_root_.Vector.toList] using key inputs hcond.1
+  · rw [if_neg hcond] at h
+    simp at h
+
 /-- When a gate uses all circuit inputs, applying β to the gate's input vector
     permutes the extracted values according to σ -/
 lemma beta_permutes_gate_input_values
