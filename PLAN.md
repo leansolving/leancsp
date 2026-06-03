@@ -543,20 +543,23 @@ It is **not a monolithic primitive**; the encoding splits on domain width:
 - **Boolean domains** (`{0,1}` — vdW, Ramsey edge colours): not-all-equal over `b₁…bₘ` is exactly two cardinality constraints — `Σ bᵢ ≥ 1` (not all false) **and** `Σ ¬bᵢ ≥ 1` (not all true). So once §6.6 lands, the binary case is free; the encoder just dispatches to `encodeAtLeastK` twice.
 - **Multi-valued domains** (`{1..k}`, k>2 — Schur 3-colouring, and the same machinery equitable colouring needs): not-all-equal = `(x_a ≠ x_b) ∨ (x_b ≠ x_c)`, a **disjunction of disequalities**. This needs a *reified* version of the §6.4 `≠` selector (a fresh Boolean witnessing each `≠`, combinable in a clause) — strictly more than the hard `≠` of §6.4. **This reified (dis)equality of order-encoded variables is the one genuinely new piece** the showcase set demands.
 
-```lean
--- Binary case: reuse cardinality (§6.6).
-def encodeNotAllEqualBool (S : CSPSig) (vars : List (Fin S.nBool)) :
-    List (SignedPBConstr (PBVar S)) :=
-  [encodeAtLeastK S vars 1,                 -- not all false
-   encodeAtMostK  S vars (vars.length - 1)] -- not all true
+**Implemented (`Backends/PB/NotAllEqual.lean`, verified, zero `sorry`):**
 
--- Multi-valued case: needs reified ≠ (extends §6.4), then OR the selectors.
-def encodeNotAllEqual (S : CSPSig) (vars : List (Fin S.nInt)) :
-    StateM Nat (List (SignedPBConstr (PBVar S))) :=
-  sorry  -- fresh sᵢ ↔ (xᵢ ≠ xᵢ₊₁) via reified order-encoding; emit clause Σ sᵢ ≥ 1
+```lean
+-- General literal-level primitive: "the literals are not all equal as bits".
+def encodeNotAllEqual (lits : List (Lit V)) : List (SignedPBConstr V) :=
+  [ { terms := lits.map (fun ℓ => ((1 : Int), ℓ)),        rhs := 1 },   -- ≥1 true
+    { terms := lits.map (fun ℓ => ((1 : Int), ℓ.negate)), rhs := 1 } ]  -- ≥1 false
+theorem encodeNotAllEqual_sound …            -- (some-true ∧ some-false) → both clauses hold
+
+-- Binary integer variables (shared domain [c0,c1]) via the bottom threshold bit.
+theorem intValue_binary … : v.intValue i = if v (.thr i ⟨0,hw⟩) then c0 else c1
+def encodeNotAllEqualBin (vars : List (Fin S.nInt)) (hw : ∀ i ∈ vars, 0 < S.width i) … :=
+  encodeNotAllEqual (notAllEqualLits vars hw)
+theorem encodeNotAllEqualBin_sound …         -- not-all-equal intValues → every clause holds
 ```
 
-The k-ary not-all-equal (vdW W(2,4) 4-APs, Ramsey R(3,4) cliques) is the same with a longer scope; the two remaining showcase gaps that are *not* not-all-equal are **count-in-range / global cardinality** (equitable-colouring balance — the catalog's `count` is exact-only) and **conditional/bin-load sums** (bin packing over an assignment variable — needs a global or a one-hot reformulation).
+This covers Ramsey R(3,3), vdW W(2,3), and 2-colour Schur. **Still open** — the **multi-valued** case (k>2 colours: 3-colour Schur, equitable colouring), where not-all-equal = `(x_a ≠ x_b) ∨ (x_b ≠ x_c)` needs a *reified* version of the §6.4 `≠` selector (`sᵢ ↔ (xᵢ ≠ xⱼ)`, then clause `Σ sᵢ ≥ 1`) — the one genuinely new primitive. The k-ary not-all-equal (vdW W(2,4) 4-APs, Ramsey R(3,4) cliques) is the same with a longer scope; the two remaining showcase gaps that are *not* not-all-equal are **count-in-range / global cardinality** (equitable-colouring balance — the catalog's `count` is exact-only) and **conditional/bin-load sums** (bin packing over an assignment variable — needs a global or a one-hot reformulation).
 
 ---
 
