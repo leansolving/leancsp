@@ -19,7 +19,8 @@ a sum triple {x, y, z} where x + y = z.
 ## CSP Formulation
 - **Variables**: n balls, each assigned to one of c boxes (colors)
 - **Domain**: Each variable ranges from 1..c
-- **Constraint**: For each triple (i, j, i+j) where 1 ≤ i < j and i+j ≤ n:
+- **Constraint**: For each triple (i, j, i+j) where 1 ≤ i ≤ j and i+j ≤ n
+  (including the diagonal i = j, i.e. x+x=2x such as 1+1=2, 2+2=4):
   - Not all three variables have the same value
   - Translates to: box[i] ≠ box[j] ∨ box[i] ≠ box[i+j] ∨ box[j] ≠ box[i+j]
 
@@ -44,18 +45,20 @@ CSPLib Problem #015
 def schur_bounds (n c : ℕ) : List (TaggedConstraint n) :=
   List.finRange n |>.map (fun i => bound i 1 c)
 
--- Generate all valid sum triples (i, j, k) where i < j and labels satisfy: (i+1)+(j+1)=(k+1)
+-- Generate all valid sum triples (i, j, k) where i ≤ j and labels satisfy: (i+1)+(j+1)=(k+1)
 -- Variables are 0-indexed, but represent balls labeled 1..n
--- So ball at index i has label i+1, and we need (i+1)+(j+1)=(k+1), which gives k=i+j+1
+-- So ball at index i has label i+1, and we need (i+1)+(j+1)=(k+1), which gives k=i+j+1.
+-- The j = i case is the diagonal x+x=2x triple (e.g. 1+1=2, 2+2=4) and must be included:
+-- omitting it would wrongly make {1,…,5} 2-colourable, breaking S(2)=4.
 def generate_schur_triples (n : ℕ) : List (ℕ × ℕ × ℕ) :=
   let rec aux (i : ℕ) (acc : List (ℕ × ℕ × ℕ)) : List (ℕ × ℕ × ℕ) :=
     if i >= n - 1 then acc
     else
-      -- For each i, j ranges from i+1 to ensure i < j, and i+j+1 < n
-      let triples_for_i := List.range (n - i - 1) |>.filterMap fun j_offset =>
-        let j := i + 1 + j_offset
+      -- For each i, j ranges from i (so x ≤ y), and i+j+1 < n
+      let triples_for_i := List.range (n - i) |>.filterMap fun j_offset =>
+        let j := i + j_offset
         -- Ball at index k represents label k+1, so (i+1)+(j+1)=(k+1) gives k=i+j+1
-      let sum := i + j + 1
+        let sum := i + j + 1
         if sum < n then some (i, j, sum) else none
       aux (i + 1) (acc ++ triples_for_i)
   aux 0 []
