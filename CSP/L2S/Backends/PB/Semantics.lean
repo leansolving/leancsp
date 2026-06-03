@@ -10,7 +10,7 @@ inside the declared finite domain (`intValue_mem_values`).
 import CSP.L2S.Backends.PB.PBVar
 import Mathlib.Algebra.BigOperators.Fin
 import Mathlib.Algebra.BigOperators.Intervals
-import Mathlib.Tactic
+import Mathlib.Tactic.Ring
 
 namespace CSP.L2S.PB
 
@@ -74,7 +74,7 @@ theorem orderConsistent_of_monotonicity (v : Valuation S)
   rw [hjj]
   by_contra hbb
   rw [if_neg hbb, if_pos hj] at hsat
-  simp at hsat
+  omega
 
 /-- A globally monotone (nondecreasing) Boolean sequence that is `true` at `w`
     has a switch point `m ≤ w`: `false` strictly below `m`, `true` from `m` on. -/
