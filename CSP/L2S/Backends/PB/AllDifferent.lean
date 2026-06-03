@@ -1,4 +1,5 @@
 import CSP.L2S.Backends.PB.Semantics
+import CSP.L2S.Backends.PB.SignedPB
 
 namespace CSP.L2S.PB
 
@@ -19,8 +20,11 @@ constructor `mkLeLit`.  This file proves the reusable semantic core:
 * `eqIndicator_eval` — hence the difference indicator evaluates to
   `[intValue j = v]` for any value `v`.
 
-The PB-constraint *assembly* on top (per-value `≤ 1` constraints + the
-distinctness → at-most-one argument) builds on these.
+The PB-constraint *assembly* follows in the second half: `litConstContrib` folds
+each variable's `mkLeLit` indicators into signed terms + a constant, `perValueConstr`
+builds the `Σⱼ [xⱼ = v] ≤ 1` constraint per value, and `encodeAllDifferent` /
+`encodeAllDifferent_sound` close the loop — pairwise-distinct recovered values
+(`Nodup`) satisfy every per-value constraint.
 -/
 
 variable {S : CSPSig}
@@ -127,5 +131,124 @@ theorem eqIndicator_eval (v : Valuation S) (hv : v.orderConsistent) (i : Fin S.n
       rw [if_pos h1, if_pos h2]; ring
     · have h2 : ¬ v.intValue i ≤ val - 1 := by omega
       rw [if_neg h1, if_neg h2]; ring
+
+/-! ### Per-value constraints and the `alldifferent` encoder (common domain, PLAN §6.5)
+
+The PB-constraint assembly: each value `val` in the (shared) domain gets the
+constraint `Σⱼ [xⱼ = val] ≤ 1`, encoded in signed `≥` form by folding each
+variable's two `mkLeLit` indicators into weighted terms + a constant
+(`litConstContrib` absorbs the boundary constants `mkLeLit` produces).  Soundness
+rides on `eqIndicator_eval` plus a `Nodup`-of-recovered-values → at-most-one
+counting argument.
+-/
+
+variable {V : Type}
+
+/-- Signed PB terms (+ folded constant) for `a · ⟦lc⟧`: a literal yields a weighted
+    term; a Boolean constant collapses into the standalone constant. -/
+def litConstContrib (a : Int) : LitConst V → List (Int × Lit V) × Int
+  | .lit ℓ   => ([(a, ℓ)], 0)
+  | .const b => ([], if b then a else 0)
+
+theorem litConstContrib_eval (v : V → Bool) (a : Int) (lc : LitConst V) :
+    signedEval v (litConstContrib a lc).1 + (litConstContrib a lc).2 = a * evalLitConst v lc := by
+  cases lc with
+  | lit ℓ   => simp [litConstContrib, signedEval, evalLitConst]
+  | const b => cases b <;> simp [litConstContrib, signedEval, evalLitConst]
+
+-- A local copy of `Encode.signedEval_append`, re-proved here to keep this file's
+-- imports at `{Semantics, SignedPB}` (importing `Encode` would pull in `Substitution`).
+private theorem signedEval_append (v : V → Bool) (a b : List (Int × Lit V)) :
+    signedEval v (a ++ b) = signedEval v a + signedEval v b := by
+  simp [signedEval, List.sum_append]
+
+/-- A `Nodup` integer list has at most one element equal to any given value, so the
+    `[· = val]` indicator sum is `≤ 1`. -/
+theorem nodup_indicator_sum_le_one (L : List Int) (val : Int) (hd : L.Nodup) :
+    (L.map (fun x => if x = val then (1 : Int) else 0)).sum ≤ 1 := by
+  induction L with
+  | nil => simp
+  | cons a t ih =>
+    rw [List.nodup_cons] at hd
+    obtain ⟨ha, hdt⟩ := hd
+    simp only [List.map_cons, List.sum_cons]
+    by_cases h : a = val
+    · subst h
+      have htail : (t.map (fun x => if x = a then (1 : Int) else 0)).sum = 0 := by
+        have hz : t.map (fun x => if x = a then (1 : Int) else 0) = t.map (fun _ => (0 : Int)) := by
+          apply List.map_congr_left
+          intro x hx
+          rw [if_neg (by rintro rfl; exact ha hx)]
+        rw [hz]; simp
+      rw [if_pos rfl, htail]; omega
+    · rw [if_neg h]; simpa using ih hdt
+
+/-- Per-variable contribution to `Σⱼ −[xⱼ = val]` (signed terms + folded constant),
+    from the two order-encoding thresholds `⟦xⱼ ≤ val⟧` and `⟦xⱼ ≤ val−1⟧`. -/
+def adContrib (j : Fin S.nInt) (val : Int) : List (Int × Lit (PBVar S)) × Int :=
+  ((litConstContrib (1 : Int) (LitConst.mkLeLit S j (val - 1))).1 ++
+     (litConstContrib (-1 : Int) (LitConst.mkLeLit S j val)).1,
+   (litConstContrib (1 : Int) (LitConst.mkLeLit S j (val - 1))).2 +
+     (litConstContrib (-1 : Int) (LitConst.mkLeLit S j val)).2)
+
+/-- Under order consistency, the per-variable contribution evaluates to `−[intValue j = val]`. -/
+theorem adContrib_eval (v : Valuation S) (hv : v.orderConsistent) (j : Fin S.nInt) (val : Int) :
+    signedEval v (adContrib j val).1 + (adContrib j val).2
+      = -(if v.intValue j = val then (1 : Int) else 0) := by
+  simp only [adContrib]
+  rw [signedEval_append]
+  have hlo := litConstContrib_eval v (1 : Int) (LitConst.mkLeLit S j (val - 1))
+  have hhi := litConstContrib_eval v (-1 : Int) (LitConst.mkLeLit S j val)
+  have heq := eqIndicator_eval v hv j val
+  unfold eqIndicator at heq
+  linarith [hlo, hhi, heq]
+
+/-- The per-value constraint `Σⱼ [xⱼ = val] ≤ 1`, in signed-PB `≥` form. -/
+def perValueConstr (vars : List (Fin S.nInt)) (val : Int) : SignedPBConstr (PBVar S) where
+  terms := (vars.map (fun j => adContrib j val)).flatMap Prod.fst
+  rhs := -1 - ((vars.map (fun j => adContrib j val)).map Prod.snd).sum
+
+/-- The folded terms + constant of a per-value constraint sum to `−Σⱼ [intValue j = val]`. -/
+private theorem perValueConstr_key (v : Valuation S) (hv : v.orderConsistent)
+    (vars : List (Fin S.nInt)) (val : Int) :
+    signedEval v ((vars.map (fun j => adContrib j val)).flatMap Prod.fst)
+      + ((vars.map (fun j => adContrib j val)).map Prod.snd).sum
+      = -((vars.map (fun j => if v.intValue j = val then (1 : Int) else 0)).sum) := by
+  induction vars with
+  | nil => simp [signedEval]
+  | cons j t ih =>
+    simp only [List.map_cons, List.flatMap_cons, List.sum_cons]
+    rw [signedEval_append]
+    have hj := adContrib_eval v hv j val
+    linarith [hj, ih]
+
+/-- **Per-value soundness.** If at most one variable's recovered value is `val`
+    (`Σⱼ [intValue j = val] ≤ 1`), the per-value constraint holds. -/
+theorem perValueConstr_sound (v : Valuation S) (hv : v.orderConsistent)
+    (vars : List (Fin S.nInt)) (val : Int)
+    (h1 : (vars.map (fun j => if v.intValue j = val then (1 : Int) else 0)).sum ≤ 1) :
+    (perValueConstr vars val).sat v := by
+  have hkey := perValueConstr_key v hv vars val
+  simp only [SignedPBConstr.sat, perValueConstr]
+  linarith [hkey, h1]
+
+/-- The `alldifferent` encoding over a value list `D` (the union of the variables'
+    domains): one `Σⱼ [xⱼ = val] ≤ 1` constraint per value. -/
+def encodeAllDifferent (vars : List (Fin S.nInt)) (D : List Int) :
+    List (SignedPBConstr (PBVar S)) :=
+  D.map (perValueConstr vars)
+
+/-- **`alldifferent` soundness.** If the variables' recovered values are pairwise
+    distinct (`Nodup`), every per-value constraint of the encoding holds. -/
+theorem encodeAllDifferent_sound (v : Valuation S) (hv : v.orderConsistent)
+    (vars : List (Fin S.nInt)) (D : List Int)
+    (hd : (vars.map v.intValue).Nodup) :
+    ∀ c ∈ encodeAllDifferent vars D, c.sat v := by
+  intro c hc
+  simp only [encodeAllDifferent, List.mem_map] at hc
+  obtain ⟨val, _, rfl⟩ := hc
+  have hcount := nodup_indicator_sum_le_one (vars.map v.intValue) val hd
+  rw [List.map_map] at hcount
+  exact perValueConstr_sound v hv vars val hcount
 
 end CSP.L2S.PB
