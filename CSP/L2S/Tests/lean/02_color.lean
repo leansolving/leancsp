@@ -35,5 +35,26 @@ def graph : HomogeneousCSP :=
   let colors := 4
   graph_coloring_csp nodes edges colors
 
+/-- The triangle K₃ — the smallest non-2-colourable graph (odd cycle C₃). -/
+def k3Edges : List (Fin 3 × Fin 3) := [(0, 1), (1, 2), (0, 2)]
+
+/-- Colour K₃ with two colours: unsatisfiable (a triangle needs three colours).
+    Drives the verified PB UNSAT proof `k3_2col_unsat`. -/
+def k3_2col : HomogeneousCSP := graph_coloring_csp 3 k3Edges 2
+
+/-- The single edge K₂ (vertices 0–1). -/
+def k2Edges : List (Fin 2 × Fin 2) := [(0, 1)]
+
+/-- Colour 1 forbidden at both endpoints (a `not_equals_const` per vertex). -/
+def k2Forbidden : List (Fin 2 × ℤ) := [(0, 1), (1, 1)]
+
+/-- Colour the edge K₂ with two colours, but forbid colour 1 at both endpoints.
+    This forces both vertices to colour 2, contradicting the edge — unsatisfiable.
+    Drives `k2_forbidden_unsat`, the first end-to-end consumer of `encodeNeConst`
+    (the verified `xⱼ ≠ const` encoder), alongside `not_equal`. -/
+def k2_forbidden : HomogeneousCSP :=
+  ⟨2, bound_constraints 2 2 ++ edge_constraints 2 k2Edges
+        ++ k2Forbidden.map (fun p => not_equals_const p.1 p.2)⟩
+
 def main : IO Unit := do
   saveAllBackendsAutoTimed graph
