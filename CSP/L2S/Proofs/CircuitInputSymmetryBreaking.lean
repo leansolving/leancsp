@@ -69,7 +69,16 @@ structure Circuit where
 /-- A circuit is well-formed if all gate outputs have indices ≥ num_inputs.
     This ensures that gate output nodes are disjoint from input nodes. -/
 def circuit_well_formed (circuit : Circuit) : Prop :=
-  circuit.gates ≠ [] ∧ ∀ gate ∈ circuit.gates, gate.output ≥ circuit.num_inputs
+  circuit.gates ≠ [] ∧
+  (∀ gate ∈ circuit.gates, gate.output ≥ circuit.num_inputs) ∧
+  -- Each gate's input list is duplicate-free, and a gate does not *mix* circuit
+  -- inputs with inter-gate wires: it uses either only circuit inputs (indices
+  -- `< num_inputs`) or only gate outputs (indices `≥ num_inputs`). Both hold for
+  -- layered circuits and are needed so that permuting symmetric inputs permutes a
+  -- gate's input list exactly.
+  (∀ gate ∈ circuit.gates, gate.inputs.Nodup) ∧
+  (∀ gate ∈ circuit.gates,
+    (∀ a ∈ gate.inputs, a < circuit.num_inputs) ∨ (∀ a ∈ gate.inputs, circuit.num_inputs ≤ a))
 
 -- ============================================================================
 -- Constraint Generation from Circuit (copied from example 32)
@@ -332,7 +341,7 @@ lemma output_node_not_input (circuit : Circuit)
     (h_wf : circuit_well_formed circuit) :
     circuit.gates.foldl (fun acc g => max acc g.output) 0 ≥ circuit.num_inputs := by
   -- Extract the two parts of well-formedness
-  obtain ⟨h_nonempty, h_outputs⟩ := h_wf
+  obtain ⟨h_nonempty, h_outputs, _, _⟩ := h_wf
 
   -- Use the general foldl_max_ge lemma
   -- Since gates is non-empty, take first gate and use its output as bound
@@ -636,10 +645,8 @@ lemma gate_inputs_nodup_when_all
     (h_gate_mem : gate ∈ circuit.gates)
     (h_all_in : ∀ i < circuit.num_inputs, i ∈ gate.inputs) :
     gate.inputs.Nodup := by
-  -- This follows from gate.inputs being a bijection with a finite range
-  -- The detailed proof uses pigeonhole principle: if gate.inputs had duplicates,
-  -- and it surjects onto range n, then it would need more than n elements
-  sorry
+  obtain ⟨_, _, h_nodup, _⟩ := h_wf
+  exact h_nodup gate h_gate_mem
 
 /-- When a gate uses all circuit inputs, gate.inputs is a permutation of List.range num_inputs -/
 lemma gate_inputs_perm_range_when_all
@@ -1282,7 +1289,7 @@ theorem input_permutation_is_variable_symmetry
         -- Prove that β fixes the gate output (it's >= num_inputs)
         have h_output_fixed : β ⟨gate.output, h_output_valid⟩ = ⟨gate.output, h_output_valid⟩ := by
           -- Gate outputs are >= circuit.num_inputs by well-formedness
-          obtain ⟨h_nonempty, h_wf_outputs⟩ := h_wf
+          obtain ⟨h_nonempty, h_wf_outputs, _, _⟩ := h_wf
           have h_output_ge : gate.output ≥ circuit.num_inputs := h_wf_outputs gate h_gate_mem
 
           -- β is extend_input_permutation, which fixes indices >= num_inputs
@@ -1402,7 +1409,7 @@ theorem input_permutation_is_variable_symmetry
                   -- Strategy: Show β fixes both in1 and gate.output
 
                   -- First, show gate.output ≥ num_inputs (by well-formedness)
-                  obtain ⟨h_nonempty, h_wf_outputs⟩ := h_wf
+                  obtain ⟨h_nonempty, h_wf_outputs, _, _⟩ := h_wf
                   have h_output_ge : gate.output ≥ circuit.num_inputs := h_wf_outputs gate h_gate_mem
 
                   -- Now case split on whether in1 < num_inputs or not
