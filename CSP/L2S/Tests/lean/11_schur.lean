@@ -1,7 +1,5 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Equivalence
-import CSP.L2S.Symmetry
 import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
@@ -56,7 +54,8 @@ def generate_schur_triples (n : ℕ) : List (ℕ × ℕ × ℕ) :=
       -- For each i, j ranges from i+1 to ensure i < j, and i+j+1 < n
       let triples_for_i := List.range (n - i - 1) |>.filterMap fun j_offset =>
         let j := i + 1 + j_offset
-        let sum := i + j + 1  -- Ball at index k represents label k+1, so (i+1)+(j+1)=(k+1) gives k=i+j+1
+        -- Ball at index k represents label k+1, so (i+1)+(j+1)=(k+1) gives k=i+j+1
+      let sum := i + j + 1
         if sum < n then some (i, j, sum) else none
       aux (i + 1) (acc ++ triples_for_i)
   aux 0 []

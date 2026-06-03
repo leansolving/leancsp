@@ -1,7 +1,5 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Equivalence
-import CSP.L2S.Symmetry
 import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
