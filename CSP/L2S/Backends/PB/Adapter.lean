@@ -113,6 +113,22 @@ theorem linear_eq_sat {n m : ℕ} (scope : _root_.Vector (HomogeneousVarIndex n)
   rw [List.map_zip_eq_zipWith]
   exact h
 
+/-- A satisfied `linear_ne scope coeffs target` constraint gives the disequality
+    `Σ coeffᵢ·a(scopeᵢ) ≠ target` over `terms = coeffs.zip scope`.  The `linear_ne`
+    analogue of `linear_eq_sat`; a consumer feeds it to the Big-M `encodeLinearNe`.
+    Powers circuit-verification queries with a negated correctness property
+    (`FullAdder.lean`). -/
+theorem linear_ne_sat {n m : ℕ} (scope : _root_.Vector (HomogeneousVarIndex n) m)
+    (coeffs : _root_.Vector ℤ m) (target : ℤ) (a : HomogeneousAssignment n)
+    (h : HomogeneousCSP.satisfiesConstraint (linear_ne scope coeffs target) a) :
+    (((coeffs.toList.zip scope.toList)).map (fun p => p.1 * a p.2)).sum ≠ target := by
+  simp only [HomogeneousCSP.satisfiesConstraint, linear_ne, linear_rel,
+    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
+    decide_eq_true_eq] at h
+  rw [extractValues_map_assignment, List.zipWith_map_right] at h
+  rw [List.map_zip_eq_zipWith]
+  exact h
+
 /-- A satisfied `sum_eq scope target` constraint gives the equality
     `Σ a(scopeᵢ) = target` over the scope.  The `sum`-pattern (unit-coefficient)
     analogue of `linear_eq_sat`; a consumer reduces `scope.toList` to a concrete
