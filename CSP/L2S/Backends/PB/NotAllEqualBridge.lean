@@ -77,6 +77,21 @@ theorem not_equals_const_sat {n : ℕ} (v : HomogeneousVarIndex n) (c : ℤ)
     CSP.map_assignment, _root_.Vector.get, decide_eq_true_eq] at h
   exact h
 
+/-- **Bridge.** A satisfied corpus `equals_const v c` constraint (a fixed value /
+    Sudoku "given", pattern `eq_const`) pins the assigned value to `c`.  The positive
+    twin of `not_equals_const_sat`; the unary checker `decide (x = c)` reduces the same
+    way once `unary_constraint` is unfolded.  Powers the Sudoku-with-clues family
+    (`Sudoku.lean`). -/
+theorem equals_const_sat {n : ℕ} (v : HomogeneousVarIndex n) (c : ℤ)
+    (a : HomogeneousAssignment n)
+    (h : HomogeneousCSP.satisfiesConstraint (equals_const v c) a) :
+    a v = c := by
+  simp only [HomogeneousCSP.satisfiesConstraint, equals_const,
+    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
+    CSP.unary_dynamic_constraint, CSP.unary_constraint,
+    CSP.map_assignment, _root_.Vector.get, decide_eq_true_eq] at h
+  exact h
+
 /-- **Bridge.** A normalized `encodeNeConst j val` constraint (`xⱼ ≠ val`, aux-free)
     is modelled by `extend a bA auxA` whenever the recovered value of `xⱼ` differs
     from `val`.  Composes `encodeNeConst_sound` (needs `orderConsistent`, supplied by
