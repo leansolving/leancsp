@@ -98,6 +98,21 @@ theorem linear_le_sat {n m : ℕ} (scope : _root_.Vector (HomogeneousVarIndex n)
   rw [List.map_zip_eq_zipWith]
   exact h
 
+/-- A satisfied `linear_eq scope coeffs target` constraint gives the equality
+    `Σ coeffᵢ·a(scopeᵢ) = target` over `terms = coeffs.zip scope`.  The `linear_eq`
+    analogue of `linear_le_sat`; a consumer splits the equality into the two
+    `≤` facts the linear fragment encodes. -/
+theorem linear_eq_sat {n m : ℕ} (scope : _root_.Vector (HomogeneousVarIndex n) m)
+    (coeffs : _root_.Vector ℤ m) (target : ℤ) (a : HomogeneousAssignment n)
+    (h : HomogeneousCSP.satisfiesConstraint (linear_eq scope coeffs target) a) :
+    (((coeffs.toList.zip scope.toList)).map (fun p => p.1 * a p.2)).sum = target := by
+  simp only [HomogeneousCSP.satisfiesConstraint, linear_eq, linear_rel,
+    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
+    decide_eq_true_eq] at h
+  rw [extractValues_map_assignment, List.zipWith_map_right] at h
+  rw [List.map_zip_eq_zipWith]
+  exact h
+
 /-! ### The generic `HomogeneousCSP` UNSAT theorem -/
 
 /-- **HomogeneousCSP UNSAT bridge.** If every variable `i` has its `bound (lb i) (ub i)`
