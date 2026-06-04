@@ -295,7 +295,7 @@ Beyond the UNSAT certificates, the repository contains verified meta-theorems ab
 | `UnreachableInputElimination.lean` | Inputs with no path to outputs can be fixed to any value |
 | `ParityPathTheorem.lean` | Inputs with uniform parity to all outputs can be optimally fixed |
 | `CircuitInputSymmetryBreaking.lean` | A permutation of symmetric circuit inputs is a variable symmetry; lex-leader breaks it |
-| `CircuitTwinSymmetryBreaking.lean` | Twin (interchangeable) circuit inputs admit a sound ordering constraint |
+| `CircuitTwinSymmetryBreaking.lean` | A lexicographic ordering on any subset of twin inputs (identical fanout) breaks symmetry equisatisfiably |
 
 ## Main Definitions
 
