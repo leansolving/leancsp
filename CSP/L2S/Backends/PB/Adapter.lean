@@ -143,6 +143,33 @@ theorem sum_eq_sat {n m : ℕ} (scope : _root_.Vector (HomogeneousVarIndex n) m)
     decide_eq_true_eq] at h
   rwa [extractValues_map_assignment] at h
 
+/-- A satisfied `at_most_k scope k` constraint gives the cardinality bound
+    `Σ a(scopeᵢ) ≤ k` over the (Boolean `{0,1}`) scope.  The `≤`-direction
+    cardinality analogue of `sum_eq_sat`; a consumer feeds it as a linear `≤`
+    fact to `encodeLinearLe`.  Powers the Paley-graph independence-number family
+    (`Paley.lean`). -/
+theorem at_most_k_sat {n m : ℕ} (scope : _root_.Vector (HomogeneousVarIndex n) m) (k : ℕ)
+    (a : HomogeneousAssignment n)
+    (h : HomogeneousCSP.satisfiesConstraint (at_most_k scope k) a) :
+    (scope.toList.map a).sum ≤ (k : ℤ) := by
+  simp only [HomogeneousCSP.satisfiesConstraint, at_most_k,
+    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
+    decide_eq_true_eq] at h
+  rwa [extractValues_map_assignment] at h
+
+/-- A satisfied `at_least_k scope k` constraint gives the cardinality bound
+    `k ≤ Σ a(scopeᵢ)` over the (Boolean `{0,1}`) scope.  The `≥`-direction
+    cardinality analogue of `at_most_k_sat`; a consumer negates it into the
+    linear `≤` fact `Σ (−1)·a(scopeᵢ) ≤ −k` for `encodeLinearLe`. -/
+theorem at_least_k_sat {n m : ℕ} (scope : _root_.Vector (HomogeneousVarIndex n) m) (k : ℕ)
+    (a : HomogeneousAssignment n)
+    (h : HomogeneousCSP.satisfiesConstraint (at_least_k scope k) a) :
+    (k : ℤ) ≤ (scope.toList.map a).sum := by
+  simp only [HomogeneousCSP.satisfiesConstraint, at_least_k,
+    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
+    decide_eq_true_eq] at h
+  rwa [extractValues_map_assignment] at h
+
 /-! ### The generic `HomogeneousCSP` UNSAT theorem -/
 
 /-- **HomogeneousCSP UNSAT bridge.** If every variable `i` has its `bound (lb i) (ub i)`
