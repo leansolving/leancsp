@@ -221,10 +221,17 @@ instance module for any `k` (used to author the 6×6 checkpoint).
   is roundingsat's large-coefficient arithmetic, not search hardness; a
   non-binary-weighted miter would keep the certificate linear throughout.
 * **Deferred: ripple in-Lean 8-/16-bit checkpoints.** The committed 4-bit ripple
-  theorem (`RippleCarry.lean`) verifies the *gate-level* circuit and folds the gates
-  into the Lean proof; generalising it to wider adders needs gate-level corpus
-  models at those widths (only 4-bit exists) plus a parametric telescoping proof. A
-  cheaper route is to commit the *linear-spec* variant used in §4 via `unsat_of_pb`
-  (the certificates are tiny: 348 chars at w = 8, 506 at w = 16). Left as
-  well-scoped follow-up work; the external linear-baseline sweep above already
-  characterises the scaling.
+  theorem (`RippleCarry.lean`) verifies the *gate-level* circuit (XOR/AND/OR gate
+  constraints per bit) and folds the gates into the Lean proof via the full-adder
+  identity. A *faithful* wider checkpoint needs gate-level corpus models at those
+  widths — only the hard-coded 4-bit `ripple_carry_adder_4bit` exists — plus a
+  generalisation of the bespoke ~240-line telescoping proof. The cheap alternative
+  — committing the §4 *linear-spec* variant (which asserts the full-adder identity
+  directly as a `linear_eq` constraint rather than deriving it from gates) — is
+  **deliberately not taken**: that theorem would be near-vacuous (it certifies only
+  that a system of linear equations plus a contradictory inequality is infeasible,
+  verifying *no circuit*), so committing it as "ripple-carry verification" would
+  misrepresent it. The faithful gate-level generalisation is the right follow-up;
+  meanwhile the external linear-baseline sweep above already characterises the
+  scaling, and the native_decide recheck cost is family-independent (it depends on
+  certificate size, measured in §5 to be negligible).
