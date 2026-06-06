@@ -111,6 +111,7 @@ Each row is a kernel-checked `¬ ....isSatisfiable` theorem for a CSP drawn from
 | `paley_13_4_unsat` | `Paley.lean` | `36_paley` | α(Paley(13)) ≤ 3 — the Paley graph on 13 vertices has no independent set of size 4. |
 | `magic_hexagon_2_unsat` | `MagicHexagon.lean` | (inline model) | No order-2 normal magic hexagon: `1..7` cannot fill the 7 cells with all lines equal (forced line sum `28/3`). |
 | `mutilated_chessboard_unsat` | `MutilatedChessboard.lean` | (inline model) | A 4×4 board minus two opposite (same-colour) corners has no domino tiling (6 black vs 8 white cells). |
+| `peaceable_armies_4_3_unsat` | `PeaceableArmies.lean` | (inline model) | No 3 white + 3 black peaceable queens on a 4×4 board (a(4)=2, OEIS A250000). |
 
 Three smaller demonstrations of the pipeline (not corpus problems) live in `Demo.lean`, `DemoGeneric.lean`, and `DemoHomogeneous.lean`.
 
