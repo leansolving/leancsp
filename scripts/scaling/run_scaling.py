@@ -49,7 +49,7 @@ ENV_PATH = REPO / "results" / "scaling_env.txt"
 SWEEP = {
     "php":       {"pb": list(range(2, 21)),  "drat": list(range(2, 16))},
     "mutilated": {"pb": [2, 3, 4, 5, 6, 7, 8], "drat": [2, 3, 4, 5, 6, 7]},
-    "ripple":    {"pb": [4, 8, 16, 32],      "drat": []},  # ripple handled in Lean
+    "ripple":    {"pb": [4, 8, 12, 16, 20, 24, 28, 32], "drat": []},  # linear baseline, no DRAT
 }
 
 COLUMNS = [
@@ -111,9 +111,7 @@ def run_pb(family, size, row):
     pbp = WORK / f"{family}_{size}.pbp"          # roundingsat proof log
     ker = WORK / f"{family}_{size}.kernel.pbp"   # veripb elaborated kernel proof
     text = {"php": pbgen.php_opb, "mutilated": pbgen.mutilated_opb,
-            "ripple": None}[family]
-    if text is None:
-        return False
+            "ripple": pbgen.ripple_linear_opb}[family]
     opb.write_text(text(size))
 
     # header: * #variable= V #constraint= C ...
@@ -130,6 +128,13 @@ def run_pb(family, size, row):
     row["roundingsat_status"] = "UNSAT"
     rl, rb = file_lines_bytes(pbp)
     row["rsat_log_lines"], row["rsat_log_bytes"] = rl, rb
+
+    # Strip the u64-max RUP-hint sentinel that RoundingSat emits for
+    # large-coefficient instances (the ripple miter's 2^w weights); veripb 3.0.1
+    # cannot parse it.  A no-op for small-coefficient instances (PHP, mutilated).
+    txt = pbp.read_text()
+    if "18446744073709551615" in txt:
+        pbp.write_text(txt.replace(";18446744073709551615", ";"))
 
     t, status, out = timed(["veripb", "--elaborate", str(ker), str(opb), str(pbp)])
     row["veripb_elaborate_time_s"] = fmt(t)

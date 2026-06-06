@@ -56,6 +56,23 @@ def _cnf(num_vars: int, clauses: list[list[int]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _linear_le(coeffs_vars: list[tuple[int, int]], b: int):
+    """Order-encode one linear constraint `Σ k·x ≤ b` over width-1 {0,1} variables
+    into a normalized OPB constraint `(terms, degree)`, or None if it normalizes to
+    a tautology.  Replicates `encodeLinearLe` + `normalize` of the Lean backend for
+    the {0,1} case (gap = 1, maxVal = 1, threshold of var v is OPB var v+1); this is
+    the same logic validated byte-for-byte for the mutilated chessboard."""
+    sumk = sum(k for k, _ in coeffs_vars)
+    terms, shift = [], 0
+    for k, v in coeffs_vars:
+        if k > 0:
+            terms.append((k, v + 1, False))
+        elif k < 0:
+            terms.append((-k, v + 1, True)); shift += -k
+    deg = (sumk - b) + shift
+    return (terms, deg) if deg > 0 else None
+
+
 # --------------------------------------------------------------------------- #
 # Pigeonhole php_(n+1)_n : n+1 pigeons into n holes, all distinct.
 # Integer var per pigeon over domain {1..n}; alldifferent.
@@ -186,6 +203,56 @@ def mutilated_cnf(k: int) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Ripple-carry adder, w-bit -- the EASY linear baseline (not resolution-hard).
+#
+# The committed in-Lean instance (RippleCarry.lean) folds the gate semantics into
+# a single linear full-adder identity inside the Lean proof, leaving an O(1)
+# 4-constraint OPB regardless of w.  To exhibit the *linear* scaling of the
+# order-encoding pipeline itself, this variant encodes the adder explicitly:
+#   - carry-in c0 = 0;
+#   - per bit i:  a_i + b_i + c_i = s_i + 2 c_{i+1}   (the full-adder identity);
+#   - a one-sided correctness miter  Result >= A + B + 1  (UNSAT, since the
+#     identities force Result = A + B).
+# Everything is linear over {0,1}, so it rides encodeLinearLe (no Big-M, no aux)
+# through the SAME order-encoding pipeline validated for PHP / mutilated.  The
+# cutting-planes refutation telescopes the carries -- a single linear combination,
+# certificate size linear in w.
+#
+# Variable layout (0-based, all width-1 {0,1}):
+#   a_i = i, b_i = w+i, s_i = 2w+i  (i in 0..w-1);  c_i = 3w+i  (i in 0..w).
+# --------------------------------------------------------------------------- #
+
+def ripple_linear_opb(w: int) -> str:
+    """OPB for the w-bit ripple-carry adder correctness query (linear baseline)."""
+    def a(i): return i
+    def b(i): return w + i
+    def s(i): return 2 * w + i
+    def c(i): return 3 * w + i
+    nvars = 4 * w + 1
+
+    cons = []
+
+    def add_eq(terms):                       # Σ k·x = 0  ->  two ≤ halves
+        for sgn in (1, -1):
+            r = _linear_le([(sgn * k, v) for k, v in terms], 0)
+            if r:
+                cons.append(r)
+
+    add_eq([(1, c(0))])                                  # c0 = 0
+    for i in range(w):                                   # a_i + b_i + c_i - s_i - 2 c_{i+1} = 0
+        add_eq([(1, a(i)), (1, b(i)), (1, c(i)), (-1, s(i)), (-2, c(i + 1))])
+    # miter: Σ2^i a + Σ2^i b - Σ2^i s - 2^w c_w >= 1  ==  -(...) <= -1
+    miter = ([(-(1 << i), a(i)) for i in range(w)]
+             + [(-(1 << i), b(i)) for i in range(w)]
+             + [((1 << i), s(i)) for i in range(w)]
+             + [((1 << w), c(w))])
+    r = _linear_le(miter, -1)
+    if r:
+        cons.append(r)
+    return _opb(nvars, cons)
+
+
+# --------------------------------------------------------------------------- #
 # CLI: `pbgen.py <family> <size> <opb|cnf>` -> writes to stdout.
 # --------------------------------------------------------------------------- #
 if __name__ == "__main__":
@@ -194,5 +261,6 @@ if __name__ == "__main__":
     gen = {
         ("php", "opb"): php_opb, ("php", "cnf"): php_cnf,
         ("mutilated", "opb"): mutilated_opb, ("mutilated", "cnf"): mutilated_cnf,
+        ("ripple", "opb"): ripple_linear_opb,
     }[(fam, fmt)]
     sys.stdout.write(gen(size))
