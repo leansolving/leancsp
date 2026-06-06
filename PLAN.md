@@ -16,8 +16,8 @@ in **`PLAN_old.md`**; this file supersedes it as the status/architecture summary
 
 The verified pipeline is **complete and integrated**. Every module under
 `CSP/L2S/Backends/PB/` builds with **zero `sorry`**, and a bare `lake build`
-(8635 jobs, via the `globs := #[.andSubmodules \`CSP]` lakefile setting) compiles
-and re-checks the entire backend — including all 19 end-to-end UNSAT theorems,
+(8639 jobs, via the `globs := #[.andSubmodules \`CSP]` lakefile setting) compiles
+and re-checks the entire backend — including all 23 end-to-end UNSAT theorems,
 whose kernel proofs are embedded as string literals and re-validated by
 `native_decide` during the build.
 
@@ -29,7 +29,7 @@ whose kernel proofs are embedded as string literals and re-validated by
 | **M3** Linear encoding + smallest end-to-end demo | Done (`Demo.lean`, `DemoGeneric.lean`, `DemoHomogeneous.lean`). |
 | **M4** Remaining encodings (`=,≥,<,>`, `≠`, alldifferent, cardinality, Boolean) | Done — all paper-1 fragment families implemented and proved sound. |
 | **M5** leancsp integration (generic spine + adapter + tactic) | Done (`Extend.lean`, `Adapter.lean`, `Tactic.lean`). |
-| **M6** Test-corpus benchmarks | Realized as **19 committed end-to-end theorems** across 13 problem families (§4). Systematic timing/scaling tables are deferred to the paper. |
+| **M6** Test-corpus benchmarks | Realized as **23 committed end-to-end theorems** across 16 problem families (§4). Systematic timing/scaling tables are deferred to the paper. |
 | **M7** Paper | Future work (not in this repo). |
 
 **Toolchain.** Pinned in `lean-toolchain` (`leanprover/lean4:v4.30.0`); Mathlib,
@@ -137,9 +137,9 @@ entry points (full signatures and usage in `docs/ADDING_UNSAT_INSTANCES.md` §3)
 
 ---
 
-## 4. Results — 19 end-to-end UNSAT theorems
+## 4. Results — 23 end-to-end UNSAT theorems
 
-Across 13 problem families (full table with module/corpus in `README.md`):
+Across 16 problem families (full table with module/corpus in `README.md`):
 
 - **Pigeonhole** — `php_3_2_unsat`, `php_5_4_unsat`.
 - **Schur** — `schur_2_5_unsat` (2-colour), `schur_3_14_unsat` (3-colour).
@@ -154,6 +154,18 @@ Across 13 problem families (full table with module/corpus in `README.md`):
   `circuit_majority3_unsat`.
 - **Independent set** — `paley_13_4_unsat` (α(Paley(13)) ≤ 3 — a genuine
   combinatorial theorem, certified by a non-trivial cutting-planes proof).
+- **Magic hexagon** — `magic_hexagon_2_unsat` (no order-2 normal magic hexagon;
+  the divisibility obstruction `3·M = 28`).
+- **Mutilated chessboard** — `mutilated_chessboard_unsat` (4×4 minus two
+  same-colour corners has no domino tiling; the colour-counting argument).
+- **Peaceable armies of queens** — `peaceable_armies_4_3_unsat`
+  (`a(4) = 2`, so 3 + 3 peaceable queens on the 4×4 board is infeasible).
+- **Blocked N-Queens** — `blocked_queens_4_unsat` (4-queens with the first
+  column forbidden in every row; a column pigeonhole).
+
+The last four are modelled directly (not pre-existing corpus problems), except
+the blocked-queens instance, which reuses the corpus `nqueens_csp 4` model plus
+blocking constraints.
 
 **Supported constraint fragment.** Linear arithmetic (`≤,≥,=,<,>`); disequality
 `≠` (aux-free for var≠const and var≠var, Big-M for general linear `≠`);
