@@ -126,7 +126,7 @@ lake exe cache get     # pre-built Mathlib oleans (avoids a 30+ min build)
 lake build             # compiles EVERYTHING, including every UNSAT theorem above
 ```
 
-A clean `lake build` **is** the verification: the lakefile uses `globs := #[.andSubmodules `CSP]`, so a bare build compiles the CSP root *and all submodules* — the PB backend, the proofs, and every `_unsat` theorem (kernel proofs are embedded as string literals and re-checked by `native_decide` during the build). A successful build prints `Build completed successfully (8639 jobs)`.
+A clean `lake build` **is** the verification: the lakefile uses `globs := #[.andSubmodules `CSP]`, so a bare build compiles the CSP root *and all submodules* — the PB backend, the proofs, and every `_unsat` theorem (kernel proofs are embedded as string literals and re-checked by `native_decide` during the build). A successful build prints `Build completed successfully (8640 jobs)`.
 
 Verifying committed theorems needs **only Lean + the Mathlib cache** — RoundingSat and veripb are *not* required to re-check them, only to generate a certificate for a *new* instance.
 
@@ -204,7 +204,7 @@ lake exe cache get
 lake build
 ```
 
-A successful build ends with `Build completed successfully (8639 jobs)`. The only warnings are two `String.dropRight` deprecation notices in `Tests/BenchmarkAll.lean` (a benchmark helper); the verified code is warning-free and `sorry`-free.
+A successful build ends with `Build completed successfully (8640 jobs)`. The only warnings are two `String.dropRight` deprecation notices in `Tests/BenchmarkAll.lean` (a benchmark helper); the verified code is warning-free and `sorry`-free.
 
 To re-check a single module once its imports are built: `lake env lean <path/to/File.lean>`.
 
