@@ -44,7 +44,23 @@ CHECKPOINTS = [
      "CSP/L2S/Backends/PB/Pigeonhole.lean",
      "VeriPB.Reflect.formulaUnsat (Pigeonhole.php9Encoded.toArray.map PBConstr.toNatConstr) := "
      "VeriPB.Reflect.checkProof_sound _ 63 Pigeonhole.php9KernelProof (by native_decide)"),
+    ("mutilated", 3, "CSP.L2S.Backends.PB.MutilatedChessboard6",
+     "CSP/L2S/Backends/PB/MutilatedChessboard6.lean",
+     "VeriPB.Reflect.formulaUnsat ((encodeLinear MutilatedChessboard6.mcSig "
+     "MutilatedChessboard6.mcLin).toArray.map PBConstr.toNatConstr) := "
+     "VeriPB.Reflect.checkProof_sound _ 56 MutilatedChessboard6.mcKernelProof (by native_decide)"),
 ]
+
+# olean / trace / hash artifacts to delete (relative to .lake/build) to force a real
+# rebuild -- lake content-hashes, so `touch` alone is a no-op.
+def _rmartifacts(module: str):
+    rel = module.removeprefix("CSP.").replace(".", "/")  # e.g. L2S/Backends/PB/Pigeonhole
+    for p in [f".lake/build/lib/lean/CSP/{rel}.olean",
+              f".lake/build/lib/lean/CSP/{rel}.olean.hash",
+              f".lake/build/lib/lean/CSP/{rel}.trace",
+              f".lake/build/lib/lean/CSP/{rel}.ilean.hash",
+              f".lake/build/ir/CSP/{rel}.c.hash"]:
+        (REPO / p).unlink(missing_ok=True)
 
 
 def wall(cmd, repeats=3):
@@ -56,22 +72,34 @@ def wall(cmd, repeats=3):
     return statistics.median(ts)
 
 
-def baseline(module, repeats=3):
+def wall_min(cmd, repeats=5):
+    # min over N runs: a fixed cost plus positive wall-clock noise (olean load,
+    # scheduler jitter) is best estimated by the minimum, not the median.
+    return min(wall(cmd, 1) for _ in range(repeats))
+
+
+def baseline(module, repeats=5):
     f = Path("/tmp/_lt_baseline.lean")
     f.write_text(f"import {module}\n")
-    return wall(["lake", "env", "lean", str(f)], repeats)
+    return wall_min(["lake", "env", "lean", str(f)], repeats)
 
 
 def native_decide_time(module, expr, base):
+    # recheck-minus-baseline using the noise-robust min estimator: the certs are
+    # tiny (<=7-line kernel proofs), so this isolates the native_decide reflection
+    # run from Lean startup + Mathlib-olean load (the dominant, shared cost).
     f = Path("/tmp/_lt_recheck.lean")
     f.write_text(f"import {module}\nopen CSP.L2S.PB\nexample : {expr}\n")
-    full = wall(["lake", "env", "lean", str(f)])
+    full = wall_min(["lake", "env", "lean", str(f)])
     return max(0.0, full - base)
 
 
-def module_build_time(module, src):
-    (REPO / src).touch()
-    return wall(["lake", "build", module], repeats=3)
+def module_build_time(module, src, repeats=2):
+    # lake content-hashes, so `touch` is a no-op; delete the olean to force a rebuild.
+    def one():
+        _rmartifacts(module)
+        return wall(["lake", "build", module], repeats=1)
+    return statistics.median([one() for _ in range(repeats)])
 
 
 def main():
