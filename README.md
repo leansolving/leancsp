@@ -92,6 +92,8 @@ Each row is a kernel-checked `¬ ....isSatisfiable` theorem for a CSP drawn from
 |---------|--------|--------|-------------------|
 | `php_3_2_unsat` | `Pigeonhole.lean` | `35_pigeonhole` | 3 pigeons cannot injectively occupy 2 holes (`alldifferent`). |
 | `php_5_4_unsat` | `Pigeonhole.lean` | `35_pigeonhole` | 5 pigeons cannot injectively occupy 4 holes. |
+| `php_7_6_unsat` | `Pigeonhole.lean` | `35_pigeonhole` | 7 pigeons cannot injectively occupy 6 holes (scaling checkpoint). |
+| `php_9_8_unsat` | `Pigeonhole.lean` | `35_pigeonhole` | 9 pigeons cannot injectively occupy 8 holes (scaling checkpoint). |
 | `schur_2_5_unsat` | `Schur.lean` | `11_schur` | `{1..5}` has no sum-free 2-colouring (Schur S(2)=4). |
 | `schur_3_14_unsat` | `Schur3.lean` | `11_schur` | `{1..14}` has no sum-free 3-colouring (Schur S(3)=13). |
 | `vdw_2_3_9_unsat` | `VanDerWaerden.lean` | `33_van_der_waerden` | No 2-colouring of `{1..9}` avoids a monochromatic 3-term AP (W(2,3)=9). |

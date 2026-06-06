@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""Measure the in-Lean cost of the committed scaling checkpoints.
+
+Two numbers per instance:
+  * native_decide_time_s -- wall-time for `lake env lean` to re-elaborate the
+    instance's `_formulaUnsat` theorem (which runs PBLean's verified checker via
+    native_decide on the embedded certificate), minus an import-only baseline for
+    the same module.  This is the "recheck the certificate from Lean alone" cost.
+  * module_build_time_s   -- wall-time for `lake build <module>` after touching its
+    source (imports cached): the incremental module compile, which includes the
+    native_decide rechecks of every certificate in the module.
+
+All medians of 3.  Results -> results/scaling_lean.csv.  Run from repo root with lake
+available:  uv run python scripts/scaling/lean_timing.py
+"""
+
+from __future__ import annotations
+
+import csv
+import statistics
+import subprocess
+import time
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent.parent
+OUT = REPO / "results" / "scaling_lean.csv"
+
+# (family, size_param, module, source_path, recheck_expr)
+# recheck_expr re-states the committed `_formulaUnsat` so native_decide runs once.
+CHECKPOINTS = [
+    ("php", 2, "CSP.L2S.Backends.PB.Pigeonhole",
+     "CSP/L2S/Backends/PB/Pigeonhole.lean",
+     "VeriPB.Reflect.formulaUnsat (Pigeonhole.phpEncoded.toArray.map PBConstr.toNatConstr) := "
+     "VeriPB.Reflect.checkProof_sound _ 3 Pigeonhole.phpKernelProof (by native_decide)"),
+    ("php", 4, "CSP.L2S.Backends.PB.Pigeonhole",
+     "CSP/L2S/Backends/PB/Pigeonhole.lean",
+     "VeriPB.Reflect.formulaUnsat (Pigeonhole.php5Encoded.toArray.map PBConstr.toNatConstr) := "
+     "VeriPB.Reflect.checkProof_sound _ 15 Pigeonhole.php5KernelProof (by native_decide)"),
+    ("php", 6, "CSP.L2S.Backends.PB.Pigeonhole",
+     "CSP/L2S/Backends/PB/Pigeonhole.lean",
+     "VeriPB.Reflect.formulaUnsat (Pigeonhole.php7Encoded.toArray.map PBConstr.toNatConstr) := "
+     "VeriPB.Reflect.checkProof_sound _ 35 Pigeonhole.php7KernelProof (by native_decide)"),
+    ("php", 8, "CSP.L2S.Backends.PB.Pigeonhole",
+     "CSP/L2S/Backends/PB/Pigeonhole.lean",
+     "VeriPB.Reflect.formulaUnsat (Pigeonhole.php9Encoded.toArray.map PBConstr.toNatConstr) := "
+     "VeriPB.Reflect.checkProof_sound _ 63 Pigeonhole.php9KernelProof (by native_decide)"),
+]
+
+
+def wall(cmd, repeats=3):
+    ts = []
+    for _ in range(repeats):
+        t0 = time.monotonic()
+        subprocess.run(cmd, cwd=REPO, capture_output=True)
+        ts.append(time.monotonic() - t0)
+    return statistics.median(ts)
+
+
+def baseline(module, repeats=3):
+    f = Path("/tmp/_lt_baseline.lean")
+    f.write_text(f"import {module}\n")
+    return wall(["lake", "env", "lean", str(f)], repeats)
+
+
+def native_decide_time(module, expr, base):
+    f = Path("/tmp/_lt_recheck.lean")
+    f.write_text(f"import {module}\nopen CSP.L2S.PB\nexample : {expr}\n")
+    full = wall(["lake", "env", "lean", str(f)])
+    return max(0.0, full - base)
+
+
+def module_build_time(module, src):
+    (REPO / src).touch()
+    return wall(["lake", "build", module], repeats=3)
+
+
+def main():
+    rows, base_cache = [], {}
+    # group by module to amortize baseline + one build measurement per module
+    for fam, size, module, src, expr in CHECKPOINTS:
+        if module not in base_cache:
+            base_cache[module] = baseline(module)
+        nd = native_decide_time(module, expr, base_cache[module])
+        rows.append({"family": fam, "size_param": size, "module": module,
+                     "native_decide_time_s": f"{nd:.3f}", "module_build_time_s": ""})
+        print(f"{fam} size={size}: native_decide~{nd:.3f}s (baseline {base_cache[module]:.2f}s)")
+    # module build (one per distinct module), attach to that module's largest row
+    seen = set()
+    for fam, size, module, src, expr in CHECKPOINTS:
+        if module in seen:
+            continue
+        seen.add(module)
+        mb = module_build_time(module, src)
+        # attach to the last (largest) row for this module
+        for r in reversed(rows):
+            if r["module"] == module:
+                r["module_build_time_s"] = f"{mb:.2f}"
+                break
+        print(f"{module}: module_build={mb:.2f}s")
+    with open(OUT, "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=["family", "size_param", "module",
+                                           "native_decide_time_s", "module_build_time_s"])
+        w.writeheader()
+        w.writerows(rows)
+    print(f"Wrote {OUT}")
+
+
+if __name__ == "__main__":
+    main()

@@ -197,4 +197,152 @@ theorem php_5_4_unsat : ¬ php_5_4.isSatisfiable := by
     · exact php5_formulaUnsat
   exact key ⟨a, fun _ => false, hdom, hnodup⟩
 
+/-! ### Scaling checkpoints: `php_7_6` and `php_9_8`
+
+Two larger pigeonhole instances, committed as scaling checkpoints for the
+verified-PB cutting-planes pipeline (see `docs/SCALING.md`).  Pigeonhole is
+exponentially hard for resolution (Haken 1985) but has polynomial cutting-planes
+refutations; the verified kernel certificate here grows linearly in the number of
+holes (php_3_2: 168 chars, php_5_4: 221, php_7_6: 269, php_9_8: 317), in stark
+contrast to the resolution (DRAT) proofs of the same instances, which blow up
+exponentially.  The proof structure is identical to `php_5_4` above — only the
+instance size, domain, value list, and certificate change. -/
+
+/-- The PB signature for `php_7_6`: seven integer variables over `{1,…,6}`. -/
+def php7Sig : CSPSig where
+  nInt := 7
+  nBool := 0
+  nAux := 0
+  values := fun _ => domainValues 1 6
+  sorted := fun _ => domainValues_sorted 1 6
+  nonempty := fun _ => domainValues_nonempty (by norm_num)
+
+/-- The pigeon variables as the scope of the corpus `alldifferent`. -/
+def php7Scope : _root_.Vector (HomogeneousVarIndex 7) 7 := _root_.Vector.ofFn id
+
+/-- The pigeon variable list (the `alldifferent` scope as a `List`). -/
+def php7Vars : List (Fin php7Sig.nInt) := php7Scope.toList
+
+/-- The PB encoding of `php_7_6`: staircase clauses plus the normalized
+    `alldifferent` per-value constraints over the shared domain `{1,…,6}`. -/
+def php7Encoded : List (PBConstr (PBVar php7Sig)) :=
+  php7Sig.monotonicity ++ (encodeAllDifferent php7Vars [1, 2, 3, 4, 5, 6]).filterMap normalize
+
+/-- The veripb-elaborated kernel proof of UNSAT for `php7Encoded`'s OPB
+    serialization (RoundingSat + veripb; both untrusted). The 35 thresholds map to
+    OPB `x1,…,x35`. -/
+def php7KernelProof : String :=
+"pseudo-Boolean proof version 3.0
+f 34;
+rup >= 0 : ~ ;
+pol 35 29 1000000000000000 * + 30 1000000000000000 * + 31 1000000000000000 * + 32 1000000000000000 * + 33 1000000000000000 * + 34 1000000000000000 * +;
+output NONE ;
+conclusion UNSAT : 36;
+end pseudo-Boolean proof;
+"
+
+/-- The PB encoding of `php_7_6` is unsatisfiable — kernel-checked through PBLean's
+    verified reflection checker (`native_decide`; RoundingSat / veripb / serializer
+    untrusted). -/
+theorem php7_formulaUnsat :
+    VeriPB.Reflect.formulaUnsat (php7Encoded.toArray.map PBConstr.toNatConstr) :=
+  VeriPB.Reflect.checkProof_sound _ 35 php7KernelProof (by native_decide)
+
+/-- **End-to-end pigeonhole UNSAT (`php_7_6`).** Seven pigeons into six holes,
+    `alldifferent`, via the same verified PB pipeline as `php_3_2` / `php_5_4`. -/
+theorem php_7_6_unsat : ¬ php_7_6.isSatisfiable := by
+  rintro ⟨a, hsol⟩
+  have hdom : ∀ i : Fin php7Sig.nInt, a i ∈ php7Sig.values i := by
+    intro i
+    have hb : HomogeneousCSP.satisfiesConstraint (bound i 1 (6 : ℕ)) a := by
+      apply hsol
+      exact List.mem_append_left _ (List.mem_map.mpr ⟨i, List.mem_finRange i, rfl⟩)
+    obtain ⟨h1, h2⟩ := bound_sat i 1 (6 : ℕ) a hb
+    have h2' : a i ≤ 6 := by exact_mod_cast h2
+    show a i ∈ domainValues 1 6
+    exact mem_domainValues.mpr ⟨h1, h2'⟩
+  have hnodup : (php7Vars.map a).Nodup := by
+    have ha : HomogeneousCSP.satisfiesConstraint (php_alldiff 7) a :=
+      hsol _ (List.mem_append_right _ (List.mem_singleton.mpr rfl))
+    exact alldifferent_sat php7Scope a ha
+  have key : ¬ ∃ (a : Fin php7Sig.nInt → Int) (_ : Fin php7Sig.nBool → Bool),
+      (∀ i, a i ∈ php7Sig.values i) ∧ (php7Vars.map a).Nodup := by
+    apply csp_unsat_generic php7Sig
+      ((encodeAllDifferent php7Vars [1, 2, 3, 4, 5, 6]).filterMap normalize)
+      (fun a _ => (php7Vars.map a).Nodup)
+      (fun _ _ _ => false)
+    · intro a' bA hdom' hnodup' c hc
+      exact extend_sat_encodeAllDifferent a' bA _ hdom' php7Vars [1, 2, 3, 4, 5, 6] c hc hnodup'
+    · exact php7_formulaUnsat
+  exact key ⟨a, fun _ => false, hdom, hnodup⟩
+
+/-- The PB signature for `php_9_8`: nine integer variables over `{1,…,8}`. -/
+def php9Sig : CSPSig where
+  nInt := 9
+  nBool := 0
+  nAux := 0
+  values := fun _ => domainValues 1 8
+  sorted := fun _ => domainValues_sorted 1 8
+  nonempty := fun _ => domainValues_nonempty (by norm_num)
+
+/-- The pigeon variables as the scope of the corpus `alldifferent`. -/
+def php9Scope : _root_.Vector (HomogeneousVarIndex 9) 9 := _root_.Vector.ofFn id
+
+/-- The pigeon variable list (the `alldifferent` scope as a `List`). -/
+def php9Vars : List (Fin php9Sig.nInt) := php9Scope.toList
+
+/-- The PB encoding of `php_9_8`: staircase clauses plus the normalized
+    `alldifferent` per-value constraints over the shared domain `{1,…,8}`. -/
+def php9Encoded : List (PBConstr (PBVar php9Sig)) :=
+  php9Sig.monotonicity ++ (encodeAllDifferent php9Vars [1, 2, 3, 4, 5, 6, 7, 8]).filterMap normalize
+
+/-- The veripb-elaborated kernel proof of UNSAT for `php9Encoded`'s OPB
+    serialization (RoundingSat + veripb; both untrusted). The 63 thresholds map to
+    OPB `x1,…,x63`. -/
+def php9KernelProof : String :=
+"pseudo-Boolean proof version 3.0
+f 62;
+rup >= 0 : ~ ;
+pol 63 55 1000000000000000 * + 56 1000000000000000 * + 57 1000000000000000 * + 58 1000000000000000 * + 59 1000000000000000 * + 60 1000000000000000 * + 61 1000000000000000 * + 62 1000000000000000 * +;
+output NONE ;
+conclusion UNSAT : 64;
+end pseudo-Boolean proof;
+"
+
+/-- The PB encoding of `php_9_8` is unsatisfiable — kernel-checked through PBLean's
+    verified reflection checker (`native_decide`; RoundingSat / veripb / serializer
+    untrusted). -/
+theorem php9_formulaUnsat :
+    VeriPB.Reflect.formulaUnsat (php9Encoded.toArray.map PBConstr.toNatConstr) :=
+  VeriPB.Reflect.checkProof_sound _ 63 php9KernelProof (by native_decide)
+
+/-- **End-to-end pigeonhole UNSAT (`php_9_8`).** Nine pigeons into eight holes,
+    `alldifferent`, via the same verified PB pipeline as `php_3_2` / `php_5_4`. -/
+theorem php_9_8_unsat : ¬ php_9_8.isSatisfiable := by
+  rintro ⟨a, hsol⟩
+  have hdom : ∀ i : Fin php9Sig.nInt, a i ∈ php9Sig.values i := by
+    intro i
+    have hb : HomogeneousCSP.satisfiesConstraint (bound i 1 (8 : ℕ)) a := by
+      apply hsol
+      exact List.mem_append_left _ (List.mem_map.mpr ⟨i, List.mem_finRange i, rfl⟩)
+    obtain ⟨h1, h2⟩ := bound_sat i 1 (8 : ℕ) a hb
+    have h2' : a i ≤ 8 := by exact_mod_cast h2
+    show a i ∈ domainValues 1 8
+    exact mem_domainValues.mpr ⟨h1, h2'⟩
+  have hnodup : (php9Vars.map a).Nodup := by
+    have ha : HomogeneousCSP.satisfiesConstraint (php_alldiff 9) a :=
+      hsol _ (List.mem_append_right _ (List.mem_singleton.mpr rfl))
+    exact alldifferent_sat php9Scope a ha
+  have key : ¬ ∃ (a : Fin php9Sig.nInt → Int) (_ : Fin php9Sig.nBool → Bool),
+      (∀ i, a i ∈ php9Sig.values i) ∧ (php9Vars.map a).Nodup := by
+    apply csp_unsat_generic php9Sig
+      ((encodeAllDifferent php9Vars [1, 2, 3, 4, 5, 6, 7, 8]).filterMap normalize)
+      (fun a _ => (php9Vars.map a).Nodup)
+      (fun _ _ _ => false)
+    · intro a' bA hdom' hnodup' c hc
+      exact extend_sat_encodeAllDifferent a' bA _ hdom' php9Vars
+        [1, 2, 3, 4, 5, 6, 7, 8] c hc hnodup'
+    · exact php9_formulaUnsat
+  exact key ⟨a, fun _ => false, hdom, hnodup⟩
+
 end CSP.L2S.PB.Pigeonhole
