@@ -1,0 +1,13 @@
+Scaling-study environment
+=========================
+machine            : Darwin MBA15-2 25.1.0 arm64
+cpu                : Apple M2, 8 cores
+lean-toolchain     : leanprover/lean4:v4.30.0
+roundingsat        : git 57d44ad (~/git/roundingsat)
+veripb             : Running VeriPB version 3.0.1-67-gec8ebad
+veripb 3.0.1
+cadical            : 3.0.0
+kissat             : 4.0.3
+drat-trim          : ~/bin/drat-trim (no version flag)
+timeout            : 600s per call; median of up to 3 runs
+mathlib cache       : lake exe cache get (unpacked oleans)
