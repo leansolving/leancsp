@@ -6,7 +6,10 @@ Sweeps three families across size ranges, running two pipelines per instance:
   PB  (cutting-planes, verified): OPB -> roundingsat -> .pbp proof log
                                   -> veripb --elaborate -> kernel proof
   DRAT (resolution, for contrast): DIMACS CNF -> cadical (DRAT) -> drat-trim
-       (only on the resolution-hard families: pigeonhole, mutilated chessboard)
+
+The two resolution-hard families (pigeonhole, mutilated chessboard) make the
+resolution proof blow up; the odd-cycle family is the easy non-separation
+baseline where BOTH proofs stay small (it runs DRAT too, as the control).
 
 All wall-times are the median of up to 3 runs (a single run is used once a run
 exceeds `SLOW_THRESHOLD`, to keep the sweep near the exponential wall tractable).
@@ -46,10 +49,13 @@ CSV_PATH = REPO / "results" / "scaling.csv"
 ENV_PATH = REPO / "results" / "scaling_env.txt"
 
 # Size ranges.  PB sweeps wider (polynomial); DRAT auto-stops at the wall.
+# Odd cycle is the easy baseline: both pipelines stay small, so it sweeps far and
+# runs DRAT throughout (n is the number of vertices, always odd).
 SWEEP = {
     "php":       {"pb": list(range(2, 21)),  "drat": list(range(2, 16))},
     "mutilated": {"pb": [2, 3, 4, 5, 6, 7, 8], "drat": [2, 3, 4, 5, 6, 7]},
-    "ripple":    {"pb": [4, 8, 12, 16, 20, 24, 28, 32], "drat": []},  # linear baseline, no DRAT
+    "oddcycle":  {"pb": [3, 5, 7, 9, 11, 15, 21, 31, 51, 75, 101, 151, 201, 301, 501, 751, 1001],
+                  "drat": [3, 5, 7, 9, 11, 15, 21, 31, 51, 75, 101, 151, 201, 301, 501, 751, 1001]},
 }
 
 COLUMNS = [
@@ -111,7 +117,7 @@ def run_pb(family, size, row):
     pbp = WORK / f"{family}_{size}.pbp"          # roundingsat proof log
     ker = WORK / f"{family}_{size}.kernel.pbp"   # veripb elaborated kernel proof
     text = {"php": pbgen.php_opb, "mutilated": pbgen.mutilated_opb,
-            "ripple": pbgen.ripple_linear_opb}[family]
+            "oddcycle": pbgen.oddcycle_opb}[family]
     opb.write_text(text(size))
 
     # header: * #variable= V #constraint= C ...
@@ -128,13 +134,6 @@ def run_pb(family, size, row):
     row["roundingsat_status"] = "UNSAT"
     rl, rb = file_lines_bytes(pbp)
     row["rsat_log_lines"], row["rsat_log_bytes"] = rl, rb
-
-    # Strip the u64-max RUP-hint sentinel that RoundingSat emits for
-    # large-coefficient instances (the ripple miter's 2^w weights); veripb 3.0.1
-    # cannot parse it.  A no-op for small-coefficient instances (PHP, mutilated).
-    txt = pbp.read_text()
-    if "18446744073709551615" in txt:
-        pbp.write_text(txt.replace(";18446744073709551615", ";"))
 
     t, status, out = timed(["veripb", "--elaborate", str(ker), str(opb), str(pbp)])
     row["veripb_elaborate_time_s"] = fmt(t)
@@ -154,7 +153,8 @@ def run_drat(family, size, row, solver="cadical"):
     """DRAT pipeline: CNF -> cadical (DRAT) -> drat-trim.  Returns ok?."""
     cnf = WORK / f"{family}_{size}.cnf"
     drat = WORK / f"{family}_{size}.drat"
-    text = {"php": pbgen.php_cnf, "mutilated": pbgen.mutilated_cnf}[family]
+    text = {"php": pbgen.php_cnf, "mutilated": pbgen.mutilated_cnf,
+            "oddcycle": pbgen.oddcycle_cnf}[family]
     cnf.write_text(text(size))
     row["cnf_clauses"] = int(cnf.read_text().splitlines()[0].split()[3])
     row["sat_solver"] = solver
@@ -261,7 +261,7 @@ def write_env():
 def merge_csvs():
     """Combine all results/scaling_<family>.csv into results/scaling.csv."""
     rows = []
-    for fam in ("php", "mutilated", "ripple"):
+    for fam in ("php", "mutilated", "oddcycle"):
         p = REPO / "results" / f"scaling_{fam}.csv"
         if p.exists():
             with open(p, newline="") as fh:
@@ -275,7 +275,7 @@ def merge_csvs():
 
 
 def main():
-    families = sys.argv[1:] or ["php", "mutilated", "ripple"]
+    families = sys.argv[1:] or ["php", "mutilated", "oddcycle"]
     if families == ["merge"]:
         merge_csvs()
         return

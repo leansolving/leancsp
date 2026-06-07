@@ -1,9 +1,0 @@
-family,size_param,pb_vars,pb_constraints,opb_bytes,roundingsat_time_s,roundingsat_status,rsat_log_lines,rsat_log_bytes,veripb_proof_lines,veripb_proof_bytes,veripb_elaborate_time_s,kernel_cert_chars,native_decide_time_s,module_build_time_s,cnf_clauses,sat_solver,sat_time_s,sat_status,drat_lines,drat_bytes,drat_trim_time_s,drat_trim_status
-ripple,4,17,10,504,0.0370,UNSAT,52,1448,9,263,0.0038,263,,,,,,,,,,
-ripple,8,33,18,969,0.0357,UNSAT,84,2686,9,348,0.0042,348,,,,,,,,,,
-ripple,12,49,26,1449,0.0360,UNSAT,116,3950,9,429,0.0036,429,,,,,,,,,,
-ripple,16,65,34,1942,0.0368,UNSAT,148,5236,9,506,0.0039,506,,,,,,,,,,
-ripple,20,81,42,2450,0.0387,UNSAT,180,7132,9,578,0.0041,578,,,,,,,,,,
-ripple,24,97,50,2972,0.0661,UNSAT,793,84236,332,48760,0.0047,48760,,,,,,,,,,
-ripple,28,113,58,3565,0.0800,UNSAT,1275,124220,475,57634,0.0045,57634,,,,,,,,,,
-ripple,32,129,66,4181,4.3247,UNSAT,24697,5941512,9848,2674971,0.0680,2674971,,,,,,,,,,

@@ -203,53 +203,46 @@ def mutilated_cnf(k: int) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Ripple-carry adder, w-bit -- the EASY linear baseline (not resolution-hard).
+# Odd cycle C_n 2-colourability (n odd) -- the EASY non-separation baseline.
 #
-# The committed in-Lean instance (RippleCarry.lean) folds the gate semantics into
-# a single linear full-adder identity inside the Lean proof, leaving an O(1)
-# 4-constraint OPB regardless of w.  To exhibit the *linear* scaling of the
-# order-encoding pipeline itself, this variant encodes the adder explicitly:
-#   - carry-in c0 = 0;
-#   - per bit i:  a_i + b_i + c_i = s_i + 2 c_{i+1}   (the full-adder identity);
-#   - a one-sided correctness miter  Result >= A + B + 1  (UNSAT, since the
-#     identities force Result = A + B).
-# Everything is linear over {0,1}, so it rides encodeLinearLe (no Big-M, no aux)
-# through the SAME order-encoding pipeline validated for PHP / mutilated.  The
-# cutting-planes refutation telescopes the carries -- a single linear combination,
-# certificate size linear in w.
+# The odd cycle C_n on vertices 0..n-1 (edges (i, i+1 mod n)) is not 2-colourable.
+# This SCALES the committed `k3_2col` (C_3, the smallest odd cycle).  Each vertex
+# is an integer colour variable over the binary domain {1,2} (a single threshold
+# bit, so order-encoding monotonicity is empty); each edge (u,v) is a `not_equal`
+# constraint, encoded via the binary not-all-equal encoder into the two clauses
+#   x_u + x_v >= 1   (not both colour 2)   and   ~x_u + ~x_v >= 1   (not both 1).
+# All coefficients are 0/1 -- no Big-M, no binary place values -- so unlike PHP /
+# mutilated this is EASY for both cutting planes AND resolution: the PB
+# certificate grows linearly and the resolution (DRAT) proof stays small too.
+# That is the point: odd cycle is the control that isolates the PHP / mutilated
+# walls as resolution-specific, not an artifact of the encoding pipeline.
 #
-# Variable layout (0-based, all width-1 {0,1}):
-#   a_i = i, b_i = w+i, s_i = 2w+i  (i in 0..w-1);  c_i = 3w+i  (i in 0..w).
+# Vertex i is OPB variable i+1 (width 1); this matches GraphColoring.lean exactly.
 # --------------------------------------------------------------------------- #
 
-def ripple_linear_opb(w: int) -> str:
-    """OPB for the w-bit ripple-carry adder correctness query (linear baseline)."""
-    def a(i): return i
-    def b(i): return w + i
-    def s(i): return 2 * w + i
-    def c(i): return 3 * w + i
-    nvars = 4 * w + 1
+def _cycle_edges(n: int) -> list[tuple[int, int]]:
+    assert n >= 3 and n % 2 == 1, "odd cycle needs odd n >= 3"
+    return [(i, (i + 1) % n) for i in range(n)]
 
-    cons = []
 
-    def add_eq(terms):                       # Σ k·x = 0  ->  two ≤ halves
-        for sgn in (1, -1):
-            r = _linear_le([(sgn * k, v) for k, v in terms], 0)
-            if r:
-                cons.append(r)
+def oddcycle_opb(n: int) -> str:
+    """OPB for the odd cycle C_n 2-colouring (n odd).  Matches GraphColoring.lean."""
+    cons: list[tuple[list[tuple[int, int, bool]], int]] = []
+    for u, v in _cycle_edges(n):
+        cons.append(([(1, u + 1, False), (1, v + 1, False)], 1))   # x_u + x_v >= 1
+        cons.append(([(1, u + 1, True), (1, v + 1, True)], 1))     # ~x_u + ~x_v >= 1
+    return _opb(n, cons)
 
-    add_eq([(1, c(0))])                                  # c0 = 0
-    for i in range(w):                                   # a_i + b_i + c_i - s_i - 2 c_{i+1} = 0
-        add_eq([(1, a(i)), (1, b(i)), (1, c(i)), (-1, s(i)), (-2, c(i + 1))])
-    # miter: Σ2^i a + Σ2^i b - Σ2^i s - 2^w c_w >= 1  ==  -(...) <= -1
-    miter = ([(-(1 << i), a(i)) for i in range(w)]
-             + [(-(1 << i), b(i)) for i in range(w)]
-             + [((1 << i), s(i)) for i in range(w)]
-             + [((1 << w), c(w))])
-    r = _linear_le(miter, -1)
-    if r:
-        cons.append(r)
-    return _opb(nvars, cons)
+
+def oddcycle_cnf(n: int) -> str:
+    """Natural DIMACS CNF for the odd cycle C_n 2-colouring (the canonical UNSAT
+    2-SAT instance): one Boolean per vertex, per edge (u,v) the clauses
+    (x_u v x_v) and (~x_u v ~x_v)."""
+    clauses: list[list[int]] = []
+    for u, v in _cycle_edges(n):
+        clauses.append([u + 1, v + 1])
+        clauses.append([-(u + 1), -(v + 1)])
+    return _cnf(n, clauses)
 
 
 # --------------------------------------------------------------------------- #
@@ -261,6 +254,6 @@ if __name__ == "__main__":
     gen = {
         ("php", "opb"): php_opb, ("php", "cnf"): php_cnf,
         ("mutilated", "opb"): mutilated_opb, ("mutilated", "cnf"): mutilated_cnf,
-        ("ripple", "opb"): ripple_linear_opb,
+        ("oddcycle", "opb"): oddcycle_opb, ("oddcycle", "cnf"): oddcycle_cnf,
     }[(fam, fmt)]
     sys.stdout.write(gen(size))
