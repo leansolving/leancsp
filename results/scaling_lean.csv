@@ -1,6 +1,9 @@
 family,size_param,module,native_decide_time_s,module_build_time_s
-php,2,CSP.L2S.Backends.PB.Pigeonhole,0.00,
-php,4,CSP.L2S.Backends.PB.Pigeonhole,0.00,
-php,6,CSP.L2S.Backends.PB.Pigeonhole,0.00,
-php,8,CSP.L2S.Backends.PB.Pigeonhole,0.00,3.87
-mutilated,3,CSP.L2S.Backends.PB.MutilatedChessboard6,0.13,29.36
+php,2,CSP.L2S.Backends.PB.Pigeonhole,0.000,
+php,4,CSP.L2S.Backends.PB.Pigeonhole,0.000,
+php,6,CSP.L2S.Backends.PB.Pigeonhole,0.000,
+php,8,CSP.L2S.Backends.PB.Pigeonhole,0.000,4.07
+mutilated,3,CSP.L2S.Backends.PB.MutilatedChessboard6,0.041,28.09
+oddcycle,5,CSP.L2S.Backends.PB.OddCycle,0.022,
+oddcycle,7,CSP.L2S.Backends.PB.OddCycle,0.061,
+oddcycle,9,CSP.L2S.Backends.PB.OddCycle,0.053,4.27

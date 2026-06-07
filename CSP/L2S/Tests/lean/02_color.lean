@@ -63,5 +63,34 @@ def k2_forbidden : HomogeneousCSP :=
   ⟨2, bound_constraints 2 2 ++ edge_constraints 2 k2Edges
         ++ k2Forbidden.map (fun p => not_equals_const p.1 p.2)⟩
 
+/-! ## Odd cycles `C_n` (n odd) — the scaling family for 2-colourability
+
+The odd cycle `C_n` on vertices `0..n-1` (edges `(i, i+1)`, closing `(n-1, 0)`) is
+not 2-colourable for odd `n`.  These scale `k3_2col` (`C_3`, the triangle) and drive
+the verified PB UNSAT proofs `c5_2col_unsat` / `c7_2col_unsat` / `c9_2col_unsat`
+(`Backends/PB/OddCycle.lean`), the easy non-separation baseline of the scaling study
+(`docs/SCALING.md`): all 0/1 coefficients, so both the cutting-planes certificate
+and the resolution proof grow linearly. -/
+
+/-- The cycle `C_5` (a pentagon): edges `(0,1),(1,2),(2,3),(3,4),(4,0)`. -/
+def c5Edges : List (Fin 5 × Fin 5) := [(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]
+
+/-- Colour the odd cycle `C_5` with two colours: unsatisfiable (odd cycles need three). -/
+def c5_2col : HomogeneousCSP := graph_coloring_csp 5 c5Edges 2
+
+/-- The cycle `C_7`: edges `(0,1),…,(5,6),(6,0)`. -/
+def c7Edges : List (Fin 7 × Fin 7) :=
+  [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 0)]
+
+/-- Colour the odd cycle `C_7` with two colours: unsatisfiable. -/
+def c7_2col : HomogeneousCSP := graph_coloring_csp 7 c7Edges 2
+
+/-- The cycle `C_9`: edges `(0,1),…,(7,8),(8,0)`. -/
+def c9Edges : List (Fin 9 × Fin 9) :=
+  [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 0)]
+
+/-- Colour the odd cycle `C_9` with two colours: unsatisfiable. -/
+def c9_2col : HomogeneousCSP := graph_coloring_csp 9 c9Edges 2
+
 def main : IO Unit := do
   saveAllBackendsAutoTimed graph

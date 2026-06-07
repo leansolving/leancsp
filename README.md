@@ -101,6 +101,9 @@ Each row is a kernel-checked `¬ ....isSatisfiable` theorem for a CSP drawn from
 | `k3_2col_unsat` | `GraphColoring.lean` | `02_color` | The triangle K₃ is not 2-colourable. |
 | `k4_3col_unsat` | `GraphColoring.lean` | `02_color` | K₄ is not 3-colourable (χ(K₄)=4). |
 | `k2_forbidden_unsat` | `ForbiddenColoring.lean` | `02_color` | K₂ with colour 1 forbidden at both endpoints is uncolourable. |
+| `c5_2col_unsat` | `OddCycle.lean` | `02_color` | The odd cycle C₅ is not 2-colourable (scaling checkpoint). |
+| `c7_2col_unsat` | `OddCycle.lean` | `02_color` | The odd cycle C₇ is not 2-colourable (scaling checkpoint). |
+| `c9_2col_unsat` | `OddCycle.lean` | `02_color` | The odd cycle C₉ is not 2-colourable (scaling checkpoint). |
 | `nqueens_2_unsat` | `NQueens.lean` | `08_queens` | No 2-queens placement on a 2×2 board. |
 | `nqueens_3_unsat` | `NQueens.lean` | `08_queens` | No 3-queens placement on a 3×3 board. |
 | `langford_2_2_unsat` | `Langford.lean` | `10_langford_simple` | Langford pairing L(2,2) has no solution. |
@@ -126,7 +129,7 @@ lake exe cache get     # pre-built Mathlib oleans (avoids a 30+ min build)
 lake build             # compiles EVERYTHING, including every UNSAT theorem above
 ```
 
-A clean `lake build` **is** the verification: the lakefile uses `globs := #[.andSubmodules `CSP]`, so a bare build compiles the CSP root *and all submodules* — the PB backend, the proofs, and every `_unsat` theorem (kernel proofs are embedded as string literals and re-checked by `native_decide` during the build). A successful build prints `Build completed successfully (8640 jobs)`.
+A clean `lake build` **is** the verification: the lakefile uses `globs := #[.andSubmodules `CSP]`, so a bare build compiles the CSP root *and all submodules* — the PB backend, the proofs, and every `_unsat` theorem (kernel proofs are embedded as string literals and re-checked by `native_decide` during the build). A successful build prints `Build completed successfully (8641 jobs)`.
 
 Verifying committed theorems needs **only Lean + the Mathlib cache** — RoundingSat and veripb are *not* required to re-check them, only to generate a certificate for a *new* instance.
 
@@ -204,7 +207,7 @@ lake exe cache get
 lake build
 ```
 
-A successful build ends with `Build completed successfully (8640 jobs)`. The only warnings are two `String.dropRight` deprecation notices in `Tests/BenchmarkAll.lean` (a benchmark helper); the verified code is warning-free and `sorry`-free.
+A successful build ends with `Build completed successfully (8641 jobs)`. The only warnings are two `String.dropRight` deprecation notices in `Tests/BenchmarkAll.lean` (a benchmark helper); the verified code is warning-free and `sorry`-free.
 
 To re-check a single module once its imports are built: `lake env lean <path/to/File.lean>`.
 

@@ -33,6 +33,15 @@ CASES = [
     ("mutilated k=2 (4x4)", "CSP.L2S.Backends.PB.MutilatedChessboard",
      "(encodeLinear MutilatedChessboard.mcSig MutilatedChessboard.mcLin)"
      ".toArray.map PBConstr.toNatConstr", 20, pbgen.mutilated_opb(2)),
+    ("oddcycle n=5 (c5_2col)", "CSP.L2S.Backends.PB.OddCycle",
+     "((OddCycle.cycleSig 5).monotonicity ++ OddCycle.cycleUser 5 c5Edges)"
+     ".toArray.map PBConstr.toNatConstr", 5, pbgen.oddcycle_opb(5)),
+    ("oddcycle n=7 (c7_2col)", "CSP.L2S.Backends.PB.OddCycle",
+     "((OddCycle.cycleSig 7).monotonicity ++ OddCycle.cycleUser 7 c7Edges)"
+     ".toArray.map PBConstr.toNatConstr", 7, pbgen.oddcycle_opb(7)),
+    ("oddcycle n=9 (c9_2col)", "CSP.L2S.Backends.PB.OddCycle",
+     "((OddCycle.cycleSig 9).monotonicity ++ OddCycle.cycleUser 9 c9Edges)"
+     ".toArray.map PBConstr.toNatConstr", 9, pbgen.oddcycle_opb(9)),
 ]
 
 

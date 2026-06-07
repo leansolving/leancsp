@@ -49,6 +49,21 @@ CHECKPOINTS = [
      "VeriPB.Reflect.formulaUnsat ((encodeLinear MutilatedChessboard6.mcSig "
      "MutilatedChessboard6.mcLin).toArray.map PBConstr.toNatConstr) := "
      "VeriPB.Reflect.checkProof_sound _ 56 MutilatedChessboard6.mcKernelProof (by native_decide)"),
+    ("oddcycle", 5, "CSP.L2S.Backends.PB.OddCycle",
+     "CSP/L2S/Backends/PB/OddCycle.lean",
+     "VeriPB.Reflect.formulaUnsat (((OddCycle.cycleSig 5).monotonicity ++ "
+     "OddCycle.cycleUser 5 c5Edges).toArray.map PBConstr.toNatConstr) := "
+     "VeriPB.Reflect.checkProof_sound _ 5 OddCycle.c5KernelProof (by native_decide)"),
+    ("oddcycle", 7, "CSP.L2S.Backends.PB.OddCycle",
+     "CSP/L2S/Backends/PB/OddCycle.lean",
+     "VeriPB.Reflect.formulaUnsat (((OddCycle.cycleSig 7).monotonicity ++ "
+     "OddCycle.cycleUser 7 c7Edges).toArray.map PBConstr.toNatConstr) := "
+     "VeriPB.Reflect.checkProof_sound _ 7 OddCycle.c7KernelProof (by native_decide)"),
+    ("oddcycle", 9, "CSP.L2S.Backends.PB.OddCycle",
+     "CSP/L2S/Backends/PB/OddCycle.lean",
+     "VeriPB.Reflect.formulaUnsat (((OddCycle.cycleSig 9).monotonicity ++ "
+     "OddCycle.cycleUser 9 c9Edges).toArray.map PBConstr.toNatConstr) := "
+     "VeriPB.Reflect.checkProof_sound _ 9 OddCycle.c9KernelProof (by native_decide)"),
 ]
 
 # olean / trace / hash artifacts to delete (relative to .lake/build) to force a real
