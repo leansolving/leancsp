@@ -164,7 +164,7 @@ artifact of the encoding, the serializer, or the measurement harness.
 ## 5. In-Lean checkpoints
 
 Each larger instance is committed as a kernel-checked end-to-end
-`¬ ....isSatisfiable` theorem (axiom-clean: `propext, Classical.choice, Quot.sound`
+`¬ ....isSatisfiableInt` theorem (axiom-clean: `propext, Classical.choice, Quot.sound`
 + one `native_decide` certificate axiom; no `sorryAx`). Two in-Lean costs, both
 measured by `scripts/scaling/lean_timing.py`:
 

@@ -1,10 +1,11 @@
 # L2S: LeanToSolver
 
-L2S is a subformalization of CSPs where every problem can be automatically translated to MiniZinc or SMT-LIB for solving. It provides:
+L2S is a subformalization of CSPs that can be automatically translated to MiniZinc or SMT-LIB for solving, or compiled to a kernel-checked pseudo-Boolean UNSAT certificate (see `Backends/PB/` and the top-level `README.md`). It provides:
 
-- **HomogeneousCSP**: CSPs with integer variables and individual bounds
-- **TaggedConstraint**: Dual representation (semantic pattern + executable checker)
+- **IntCSP**: CSPs with integer variables (`num_vars`) and a `List (IntConstraint num_vars)`, each variable bounded by a `bound` constraint
+- **IntConstraint**: the finite inductive of available constraints; satisfaction is pattern-determined (`satisfiesConstraintInt c a := patternHolds c a`)
 - **Multi-backend translation**: Unified API for MiniZinc and SMT-LIB output
+- **Verified PB UNSAT backend**: one generic theorem `csp_unsat csp cert : ¬ csp.isSatisfiableInt`, applied per instance as a one-line `csp_unsat_file`
 
 ## Quick Start
 
@@ -15,7 +16,7 @@ import CSP.L2S.Translate
 
 open CSP.L2S
 
-def my_csp : HomogeneousCSP :=
+def my_csp : IntCSP :=
   ⟨4, [bound 0 1 10, bound 1 1 10, bound 2 1 10, bound 3 1 10,
        alldifferent (_root_.Vector.ofFn id),
        sum_eq (_root_.Vector.ofFn id) 20]⟩
