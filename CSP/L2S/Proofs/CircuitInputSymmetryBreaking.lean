@@ -85,7 +85,7 @@ def circuit_well_formed (circuit : Circuit) : Prop :=
 -- ============================================================================
 
 /-- Generate CSP constraints for a list of gates -/
-def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (TaggedConstraint num_nodes) :=
+def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (IntConstraint num_nodes) :=
   gates.filterMap fun g =>
     match g.gate_type with
     | GateType.AND =>
@@ -120,7 +120,7 @@ def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (TaggedCo
         | _ => none
 
 /-- Convert a circuit to CSP constraints -/
-def circuit_to_constraints (circuit : Circuit) (total_nodes : ℕ) : List (TaggedConstraint total_nodes) :=
+def circuit_to_constraints (circuit : Circuit) (total_nodes : ℕ) : List (IntConstraint total_nodes) :=
   make_gate_constraints total_nodes circuit.gates
 
 -- ============================================================================
@@ -197,7 +197,7 @@ def circuit_requires_k_inputs_base_csp (circuit : Circuit) (k : ℕ) : IntCSP :=
 /-- Symmetry breaking constraint: circuit inputs in non-decreasing order.
     Requires circuit to have at least one input. -/
 def input_ordering_constraint (circuit : Circuit) (_h : circuit.num_inputs > 0) :
-    TaggedConstraint (circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1) :=
+    IntConstraint (circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1) :=
   let total_nodes := circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1
   -- Create vector of input variables (0 to num_inputs-1)
   let input_vars : _root_.Vector (VarType total_nodes) circuit.num_inputs :=

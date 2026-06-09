@@ -14,7 +14,7 @@ Alldifferent with heterogeneous domains: X∈{1,2,3}, Y∈{2,3}, Z∈{2,3}, T∈
 -/
 
 def heterogeneous_bounds (domains : List (ℤ × ℤ)) :
-    List (TaggedConstraint domains.length) :=
+    List (IntConstraint domains.length) :=
   (List.finRange domains.length).map fun i =>
     let (lb, ub) := domains[i.val]!
     bound i lb ub

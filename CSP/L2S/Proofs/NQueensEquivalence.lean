@@ -36,19 +36,19 @@ Constraints: Different queens must be in different rows, columns and diagonals
 -- Formulation 1
 
 /- Bounds: from 0 to n-1 -/
-def bound_constraints1D (n : ℕ) : List (TaggedConstraint n) :=
+def bound_constraints1D (n : ℕ) : List (IntConstraint n) :=
   (List.finRange n).map (fun v => bound v 0 (n-1))
 
 /- All queens must be placed in different rows -/
-def row_constraint1D (n : ℕ) : TaggedConstraint n :=
+def row_constraint1D (n : ℕ) : IntConstraint n :=
   alldifferent_all n
 
 /- All queens must be placed in different diagonals (x[i] - i all different) -/
-def diagonal_constraint1D (n : ℕ) : TaggedConstraint n :=
+def diagonal_constraint1D (n : ℕ) : IntConstraint n :=
   alldifferent_diag_neg n
 
 /- All queens must be placed in different antidiagonals (x[i] + i all different) -/
-def antidiagonal_constraint1D (n : ℕ) : TaggedConstraint n :=
+def antidiagonal_constraint1D (n : ℕ) : IntConstraint n :=
   alldifferent_diag_pos n
 
 /- CSP: include all constraints -/
@@ -104,15 +104,15 @@ def antidiag_variables {n : ℕ} (a : ℤ) : List (VarType (n*n)) :=
     ((v.val / n : ℤ) + (v.val % n : ℤ)) = a
 
 /- Bounds: from 0 to 1 -/
-def bound_constraints2D (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def bound_constraints2D (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.finRange (n*n)).map (fun v => bound v 0 1)
 
 /- All queens must be placed in different rows: exactly 1 queen per row -/
-def row_constraints2D (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def row_constraints2D (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.finRange n).map (fun i => sum_eq (row_variables i) 1)
 
 /- All queens must be placed in different columns: exactly 1 queen per column -/
-def col_constraints2D (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def col_constraints2D (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.finRange n).map (fun j => sum_eq (col_variables j) 1)
 
 /- Helper: convert list to vector with length proof -/
@@ -120,7 +120,7 @@ private def listToVector {α : Type*} (l : List α) : _root_.Vector α l.length 
   ⟨l.toArray, by simp [List.size_toArray]⟩
 
 /- All diagonals: at most 1 queen per diagonal -/
-def diag_constraints2D (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def diag_constraints2D (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.range (2*n - 1)).filterMap fun k =>
     let d := (k : ℤ) - (n - 1)  -- offset from -(n-1) to (n-1)
     let cells := diag_variables d
@@ -129,7 +129,7 @@ def diag_constraints2D (n : ℕ) : List (TaggedConstraint (n*n)) :=
     | _ => some (sum_le (listToVector cells) 1)
 
 /- All antidiagonals: at most 1 queen per antidiagonal -/
-def antidiag_constraints2D (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def antidiag_constraints2D (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.range (2*n - 1)).filterMap fun k =>
     let cells := antidiag_variables k
     match cells with

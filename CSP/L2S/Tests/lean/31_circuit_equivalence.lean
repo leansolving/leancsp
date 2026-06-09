@@ -52,7 +52,7 @@ structure Circuit where
 -- ============================================================================
 
 /-- Generate CSP constraints for a list of gates -/
-def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (TaggedConstraint num_nodes) :=
+def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (IntConstraint num_nodes) :=
   gates.filterMap fun g =>
     match g.gate_type with
     | GateType.AND =>
@@ -98,7 +98,7 @@ def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (TaggedCo
 Convert a single circuit to a CSP.
 All nodes have domain [0, 1] (Boolean values).
 -/
-def circuit_to_constraints (circuit : Circuit) (total_nodes : ℕ) : List (TaggedConstraint total_nodes) :=
+def circuit_to_constraints (circuit : Circuit) (total_nodes : ℕ) : List (IntConstraint total_nodes) :=
   make_gate_constraints total_nodes circuit.gates
 
 -- ============================================================================

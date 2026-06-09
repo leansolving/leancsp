@@ -21,11 +21,11 @@ Constraints: Adjacent nodes have different colors (ne constraints)
 -- ============================================================================
 
 /- Bound constraints -/
-def bound_constraints (nodes : ℕ) (colors : ℕ) : List (TaggedConstraint nodes) :=
+def bound_constraints (nodes : ℕ) (colors : ℕ) : List (IntConstraint nodes) :=
   (List.finRange nodes).map (fun v => bound v 0 (colors-1))
 
 /- Problem constraints: adjacent edges have different colors -/
-def edge_constraints (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) : List (TaggedConstraint nodes) :=
+def edge_constraints (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) : List (IntConstraint nodes) :=
   edges.map (fun (u,v) => not_equal u v)
 
 /- CSP: bound + edges constraints -/
@@ -39,7 +39,7 @@ def graph_coloring_csp (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) (co
 -- ============================================================================
 
 /- Our candidate to symmetry breaking constraint (fix the color of node 0 to 0)-/
-def sb_constraint (nodes : ℕ) (h_nodes : 0 < nodes) : TaggedConstraint nodes :=
+def sb_constraint (nodes : ℕ) (h_nodes : 0 < nodes) : IntConstraint nodes :=
   equals_const ⟨0, h_nodes⟩ 0
 
 /- Extended CSP (including the SBC) -/

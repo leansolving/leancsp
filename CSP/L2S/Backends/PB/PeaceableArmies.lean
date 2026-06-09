@@ -68,13 +68,13 @@ def paBlackScope : _root_.Vector (VarType 32) 16 :=
   ⟨#[16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31], rfl⟩
 
 /-- One `at_most_k ≤ 1` per square: at most one queen (of either colour) per square. -/
-def paDisjointC : List (TaggedConstraint 32) :=
+def paDisjointC : List (IntConstraint 32) :=
   (List.finRange 16).map (fun s =>
     at_most_k (⟨#[whiteVar s, blackVar s], rfl⟩ :
       _root_.Vector (VarType 32) 2) 1)
 
 /-- Per attacking pair, the two opposite-colour exclusions. -/
-def paPairwiseC : List (TaggedConstraint 32) :=
+def paPairwiseC : List (IntConstraint 32) :=
   paPairs.flatMap (fun p =>
     [at_most_k (⟨#[whiteVar p.1, blackVar p.2], rfl⟩ :
         _root_.Vector (VarType 32) 2) 1,

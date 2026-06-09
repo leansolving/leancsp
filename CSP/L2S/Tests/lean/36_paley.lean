@@ -36,11 +36,11 @@ def paley_residues (p : ℕ) : List ℕ :=
   (List.range p).map (fun x => (x * x) % p)
 
 -- Each vertex is in or out of the independent set.
-def paley_bounds (p : ℕ) : List (TaggedConstraint p) :=
+def paley_bounds (p : ℕ) : List (IntConstraint p) :=
   List.finRange p |>.map (fun i => bound i 0 1)
 
 -- For every edge {u,v} (u<v, u−v a quadratic residue): x_u + x_v ≤ 1.
-def paley_edge_constraints (p : ℕ) : List (TaggedConstraint p) :=
+def paley_edge_constraints (p : ℕ) : List (IntConstraint p) :=
   (List.range p).flatMap fun u =>
     (List.range p).filterMap fun v =>
       if u < v ∧ ((v - u) % p) ∈ paley_residues p then
@@ -50,7 +50,7 @@ def paley_edge_constraints (p : ℕ) : List (TaggedConstraint p) :=
       else none
 
 -- Assert an independent set of size ≥ target over all vertices.
-def paley_at_least (p target : ℕ) : List (TaggedConstraint p) :=
+def paley_at_least (p target : ℕ) : List (IntConstraint p) :=
   match listToFinVector (List.range p) p with
   | some ⟨_, sc⟩ => [at_least_k sc target]
   | none => []

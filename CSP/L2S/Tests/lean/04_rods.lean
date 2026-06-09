@@ -36,7 +36,7 @@ In L2M, we must explicitly model this using auxiliary variables V1..V5.
 def rods_array : List ℤ := [1, 2, 3, 4, 5, 2, 3, 4, 5]
 
 -- Helper to create bound constraints for all 10 variables
-def rods_bounds : List (TaggedConstraint 10) :=
+def rods_bounds : List (IntConstraint 10) :=
   -- Bounds for index variables (M1..M5): domain 1..9
   [ bound 0 1 9, bound 1 1 9, bound 2 1 9, bound 3 1 9, bound 4 1 9,
     -- Bounds for result variables (V1..V5): domain 1..5
@@ -44,7 +44,7 @@ def rods_bounds : List (TaggedConstraint 10) :=
 
 -- Element constraints: rods[Mi] = Vi for i=0..4
 -- Mi is variable i, Vi is variable (i+5)
-def rods_element_constraints : List (TaggedConstraint 10) :=
+def rods_element_constraints : List (IntConstraint 10) :=
   [ element ⟨0, by omega⟩ ⟨5, by omega⟩ rods_array,
     element ⟨1, by omega⟩ ⟨6, by omega⟩ rods_array,
     element ⟨2, by omega⟩ ⟨7, by omega⟩ rods_array,
@@ -53,21 +53,21 @@ def rods_element_constraints : List (TaggedConstraint 10) :=
 
 -- Sum constraint: V1 + V2 + V3 + V4 + V5 = 12
 -- Vi are variables 5, 6, 7, 8, 9
-def rods_sum_constraint : TaggedConstraint 10 :=
+def rods_sum_constraint : IntConstraint 10 :=
   let result_vars : _root_.Vector (VarType 10) 5 :=
     ⟨#[⟨5, by omega⟩, ⟨6, by omega⟩, ⟨7, by omega⟩, ⟨8, by omega⟩, ⟨9, by omega⟩], rfl⟩
   sum_eq result_vars 12
 
 -- Linear equation: 10*M1 + 1000*M2 + 1*M3 - 1000*M4 - 10*M5 = -2982
 -- Mi are variables 0, 1, 2, 3, 4
-def rods_linear_constraint : TaggedConstraint 10 :=
+def rods_linear_constraint : IntConstraint 10 :=
   let index_vars : _root_.Vector (VarType 10) 5 :=
     ⟨#[⟨0, by omega⟩, ⟨1, by omega⟩, ⟨2, by omega⟩, ⟨3, by omega⟩, ⟨4, by omega⟩], rfl⟩
   let coeffs : _root_.Vector ℤ 5 := ⟨#[10, 1000, 1, -1000, -10], rfl⟩
   linear_eq index_vars coeffs (-2982)
 
 -- Alldifferent constraint on M1..M5 (variables 0..4)
-def rods_alldifferent_constraint : TaggedConstraint 10 :=
+def rods_alldifferent_constraint : IntConstraint 10 :=
   let index_vars : _root_.Vector (VarType 10) 5 :=
     ⟨#[⟨0, by omega⟩, ⟨1, by omega⟩, ⟨2, by omega⟩, ⟨3, by omega⟩, ⟨4, by omega⟩], rfl⟩
   alldifferent index_vars

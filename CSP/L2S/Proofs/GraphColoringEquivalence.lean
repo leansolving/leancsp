@@ -47,11 +47,11 @@ variable (vertices colors : ℕ) (edges : List (Fin vertices × Fin vertices))
 -- Formulation 1: Vertex Model
 
 /-- Bounds: each vertex has a color in {0, ..., colors-1} -/
-def vertex_bounds_1 : List (TaggedConstraint vertices) :=
+def vertex_bounds_1 : List (IntConstraint vertices) :=
   (List.finRange vertices).map (fun v => bound v 0 (colors-1))
 
 /-- Edge constraints: adjacent vertices have different colors -/
-def edge_constraints_1 (edges : List (Fin vertices × Fin vertices)) : List (TaggedConstraint vertices) :=
+def edge_constraints_1 (edges : List (Fin vertices × Fin vertices)) : List (IntConstraint vertices) :=
   edges.map (fun (u, v) => not_equal u v)
 
 /-- Vertex model CSP -/
@@ -76,15 +76,15 @@ def vertex_colors (v : Fin vertices) : _root_.Vector (VarType (vertices * colors
   _root_.Vector.ofFn (fun c => matrixIndex vertices colors v c)
 
 /-- Bounds: all matrix entries are binary {0, 1} -/
-def matrix_bounds_2 : List (TaggedConstraint (vertices * colors)) :=
+def matrix_bounds_2 : List (IntConstraint (vertices * colors)) :=
   (List.finRange (vertices * colors)).map (fun idx => bound idx 0 1)
 
 /-- One-hot constraint: each vertex has exactly one color -/
-def one_hot_constraints_2 : List (TaggedConstraint (vertices * colors)) :=
+def one_hot_constraints_2 : List (IntConstraint (vertices * colors)) :=
   (List.finRange vertices).map (fun v => sum_eq (vertex_colors vertices colors v) 1)
 
 /-- Edge constraints: for each edge (u,v) and color c, at most one of u or v can have color c -/
-def edge_matrix_constraints_2 (edges : List (Fin vertices × Fin vertices)) : List (TaggedConstraint (vertices * colors)) :=
+def edge_matrix_constraints_2 (edges : List (Fin vertices × Fin vertices)) : List (IntConstraint (vertices * colors)) :=
   edges.flatMap fun (u, v) =>
     (List.finRange colors).map fun c =>
       let u_c := matrixIndex vertices colors u c

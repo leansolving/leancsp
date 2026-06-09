@@ -13,10 +13,10 @@ open CSP.L2S.Tests.Timed
 Classic graph coloring: color 7 Australian regions with 4 colors so adjacent regions differ.
 -/
 
-def bound_constraints (nodes : ℕ) (colors : ℕ) : List (TaggedConstraint nodes) :=
+def bound_constraints (nodes : ℕ) (colors : ℕ) : List (IntConstraint nodes) :=
   (List.finRange nodes).map (fun v => bound v 1 colors)
 
-def edge_constraints (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) : List (TaggedConstraint nodes) :=
+def edge_constraints (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) : List (IntConstraint nodes) :=
   edges.map (fun (u,v) => not_equal u v)
 
 def graph_coloring_csp (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) (colors : ℕ) : IntCSP :=

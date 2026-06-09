@@ -38,7 +38,7 @@ def ramsey_edge_index (n i j : ℕ) : ℕ :=
   i * (n - 1) - i * (i - 1) / 2 + (j - i - 1)
 
 -- Each edge variable is Boolean (domain {0,1}).
-def ramsey_bounds (n : ℕ) : List (TaggedConstraint (ramsey_num_edges n)) :=
+def ramsey_bounds (n : ℕ) : List (IntConstraint (ramsey_num_edges n)) :=
   List.finRange (ramsey_num_edges n) |>.map (fun e => bound e 0 1)
 
 -- All triangles {i,j,k} (i<j<k) as triples of edge-variable indices.
@@ -51,7 +51,7 @@ def ramsey_triangles (n : ℕ) : List (ℕ × ℕ × ℕ) :=
         else none
 
 -- "No monochromatic triangle" = not-all-equal over each triangle's three edges.
-def ramsey_constraints (n : ℕ) : List (TaggedConstraint (ramsey_num_edges n)) :=
+def ramsey_constraints (n : ℕ) : List (IntConstraint (ramsey_num_edges n)) :=
   let m := ramsey_num_edges n
   (ramsey_triangles n).filterMap fun (e1, e2, e3) =>
     if h1 : e1 < m then

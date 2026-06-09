@@ -52,7 +52,7 @@ MiniZinc examples - graph.mzn
 -/
 
 -- Create bound constraints for n variables with domain 1..n
-def graph_bounds (n : ℕ) : List (TaggedConstraint n) :=
+def graph_bounds (n : ℕ) : List (IntConstraint n) :=
   List.finRange n |>.map (fun i => bound i 1 n)
 
 -- Define graph edges as pairs of vertex indices
@@ -79,7 +79,7 @@ def graph_edges : List (ℕ × ℕ) :=
 
 -- Helper to create abs_diff_ge constraints for all edges
 def make_graph_constraints (n : ℕ) (edges : List (ℕ × ℕ)) (min_diff : ℤ) :
-    List (TaggedConstraint n) :=
+    List (IntConstraint n) :=
   edges.filterMap fun (u, v) =>
     if h1 : u < n then
       if h2 : v < n then
@@ -88,7 +88,7 @@ def make_graph_constraints (n : ℕ) (edges : List (ℕ × ℕ)) (min_diff : ℤ
     else none
 
 -- Create alldifferent constraint for all n variables
-def graph_alldifferent (n : ℕ) : TaggedConstraint n :=
+def graph_alldifferent (n : ℕ) : IntConstraint n :=
   alldifferent (_root_.Vector.ofFn id)
 
 -- Complete graph numbering CSP

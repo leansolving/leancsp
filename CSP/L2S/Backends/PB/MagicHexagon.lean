@@ -63,20 +63,20 @@ def mhCellScope : _root_.Vector (VarType 7) 7 := ⟨#[0, 1, 2, 3, 4, 5, 6], rfl�
 
 /-- Top row `{a,b} = {0,1}` equals the middle row `{c,d,e} = {2,3,4}`:
     `a 0 + a 1 − a 2 − a 3 − a 4 = 0`. -/
-def mhTopEqMid : TaggedConstraint 7 :=
+def mhTopEqMid : IntConstraint 7 :=
   linear_eq (⟨#[0, 1, 2, 3, 4], rfl⟩ : _root_.Vector (VarType 7) 5)
     (⟨#[1, 1, -1, -1, -1], rfl⟩ : _root_.Vector ℤ 5) 0
 
 /-- Bottom row `{f,g} = {5,6}` equals the middle row `{c,d,e} = {2,3,4}`:
     `a 5 + a 6 − a 2 − a 3 − a 4 = 0`. -/
-def mhBotEqMid : TaggedConstraint 7 :=
+def mhBotEqMid : IntConstraint 7 :=
   linear_eq (⟨#[5, 6, 2, 3, 4], rfl⟩ : _root_.Vector (VarType 7) 5)
     (⟨#[1, 1, -1, -1, -1], rfl⟩ : _root_.Vector ℤ 5) 0
 
 /-- The remaining six magic lines, each written as "line = middle row `{c,d,e}`":
     forcing every line to equal `{c,d,e}` completes the magic property.  Present for
     faithfulness; not used by the (rows-only) refutation. -/
-def mhCrossLines : List (TaggedConstraint 7) :=
+def mhCrossLines : List (IntConstraint 7) :=
   [ -- "╲" diagonal {a,c} = {0,2}
     linear_eq (⟨#[0, 2, 2, 3, 4], rfl⟩ : _root_.Vector (VarType 7) 5)
       (⟨#[1, 1, -1, -1, -1], rfl⟩ : _root_.Vector ℤ 5) 0,

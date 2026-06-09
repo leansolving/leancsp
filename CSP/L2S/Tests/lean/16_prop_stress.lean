@@ -36,7 +36,7 @@ minizinc-benchmarks/prop_stress/prop_stress.mzn
 
 -- Helper to create chain inequality: y[i-1] - y[i] <= 0
 def make_chain_constraint (n : ℕ) (i : ℕ) (h1 : i > 0) (h2 : i < n) :
-    TaggedConstraint n :=
+    IntConstraint n :=
   let scope : _root_.Vector (VarType n) 2 :=
     ⟨#[⟨i - 1, by omega⟩, ⟨i, h2⟩], rfl⟩
   let coeffs : _root_.Vector ℤ 2 := ⟨#[1, -1], rfl⟩
@@ -44,7 +44,7 @@ def make_chain_constraint (n : ℕ) (i : ℕ) (h1 : i > 0) (h2 : i < n) :
 
 -- Helper to create constraint from y[0]: y[0] - y[i] <= C
 def make_y0_constraint (n : ℕ) (c : ℤ) (i : ℕ) (h1 : i > 0) (h2 : i < n) :
-    TaggedConstraint n :=
+    IntConstraint n :=
   let scope : _root_.Vector (VarType n) 2 :=
     ⟨#[⟨0, by omega⟩, ⟨i, h2⟩], rfl⟩
   let coeffs : _root_.Vector ℤ 2 := ⟨#[1, -1], rfl⟩

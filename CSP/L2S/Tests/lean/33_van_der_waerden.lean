@@ -33,7 +33,7 @@ PBLean / veripb benchmark `vdw9` (the W(2,3) upper-bound certificate).
 -/
 
 -- Each integer 1..n gets a Boolean colour variable (domain {0,1}).
-def vdw_bounds (n : ℕ) : List (TaggedConstraint n) :=
+def vdw_bounds (n : ℕ) : List (IntConstraint n) :=
   List.finRange n |>.map (fun i => bound i 0 1)
 
 -- All 3-term APs (a, a+d, a+2d) within 1..n, as 0-indexed variable triples.
@@ -46,7 +46,7 @@ def vdw_ap_triples (n : ℕ) : List (ℕ × ℕ × ℕ) :=
       if k < n then some (i, j, k) else none
 
 -- "No monochromatic 3-AP" = not-all-equal over each AP's three colour variables.
-def vdw_constraints (n : ℕ) (triples : List (ℕ × ℕ × ℕ)) : List (TaggedConstraint n) :=
+def vdw_constraints (n : ℕ) (triples : List (ℕ × ℕ × ℕ)) : List (IntConstraint n) :=
   triples.filterMap fun (i, j, k) =>
     if h1 : i < n then
       if h2 : j < n then

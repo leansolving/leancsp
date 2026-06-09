@@ -42,7 +42,7 @@ CSPLib Problem #015
 -/
 
 -- Create bound constraints for n variables with domain 1..c
-def schur_bounds (n c : ℕ) : List (TaggedConstraint n) :=
+def schur_bounds (n c : ℕ) : List (IntConstraint n) :=
   List.finRange n |>.map (fun i => bound i 1 c)
 
 -- Generate all valid sum triples (i, j, k) where i ≤ j and labels satisfy: (i+1)+(j+1)=(k+1)
@@ -65,7 +65,7 @@ def generate_schur_triples (n : ℕ) : List (ℕ × ℕ × ℕ) :=
 
 -- Helper to create schur_triple constraints with proofs
 def make_schur_constraints (n : ℕ) (triples : List (ℕ × ℕ × ℕ)) :
-    List (TaggedConstraint n) :=
+    List (IntConstraint n) :=
   triples.filterMap fun (i, j, k) =>
     if h1 : i < n then
       if h2 : j < n then

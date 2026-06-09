@@ -26,7 +26,7 @@ This generalizes to any alphametic/word puzzle where:
 -/
 
 -- Helper to create uniform bounds for all letters
-def letter_bounds (n_letters : ℕ) (lb ub : ℤ) : List (TaggedConstraint n_letters) :=
+def letter_bounds (n_letters : ℕ) (lb ub : ℤ) : List (IntConstraint n_letters) :=
   (List.finRange n_letters).map fun i => bound i lb ub
 
 -- Helper to convert list of nat indices to vector of Fin, with explicit proofs

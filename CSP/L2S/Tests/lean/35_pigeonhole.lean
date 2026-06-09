@@ -33,11 +33,11 @@ benchmark uses the one-hot pseudo-Boolean encoding of the same fact.)
 -/
 
 -- Pigeon `i` lives in some hole in {1,…,holes}.
-def php_bounds (pigeons holes : ℕ) : List (TaggedConstraint pigeons) :=
+def php_bounds (pigeons holes : ℕ) : List (IntConstraint pigeons) :=
   List.finRange pigeons |>.map (fun i => bound i 1 holes)
 
 -- No two pigeons share a hole.
-def php_alldiff (pigeons : ℕ) : TaggedConstraint pigeons :=
+def php_alldiff (pigeons : ℕ) : IntConstraint pigeons :=
   alldifferent (_root_.Vector.ofFn id)
 
 def php_csp (pigeons holes : ℕ) : IntCSP :=

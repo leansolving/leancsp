@@ -45,7 +45,7 @@ open CSP.L2S
 
 /-- Generate a single gate constraint based on gate type.
     Returns None if indices are out of bounds. -/
-def gateToConstraint (num_vars : ℕ) (g : Gate) : Option (TaggedConstraint num_vars) :=
+def gateToConstraint (num_vars : ℕ) (g : Gate) : Option (IntConstraint num_vars) :=
   match g.gate_type with
   | GateType.AND =>
     match g.inputs with
@@ -81,7 +81,7 @@ def gateToConstraint (num_vars : ℕ) (g : Gate) : Option (TaggedConstraint num_
   | GateType.XOR => none  -- Excluded from monotone circuits
 
 /-- Convert all gates to constraints -/
-def gatesToConstraints (num_vars : ℕ) (gates : List Gate) : List (TaggedConstraint num_vars) :=
+def gatesToConstraints (num_vars : ℕ) (gates : List Gate) : List (IntConstraint num_vars) :=
   gates.filterMap (gateToConstraint num_vars)
 
 /-- Convert a circuit to a IntCSP.

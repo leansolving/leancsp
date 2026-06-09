@@ -142,10 +142,10 @@ def translateToMiniZincWithObjective (csp : IntCSP)
 
   -- Constraint translations (excluding bound constraints)
   let constraints := csp.constraints.filterMap fun tc =>
-    match tc.pattern with
+    match tc with
     | IntConstraint.bound _ _ _ => none
     | _ =>
-        match MiniZinc.patternToMiniZinc default tc.pattern with
+        match MiniZinc.patternToMiniZinc default tc with
         | .ok lines => some (String.intercalate "\n" lines)
         | .error _ => none
 
@@ -191,7 +191,7 @@ def generateBoundsReport (csp : IntCSP) : String :=
 
 /-- Count constraints by type (for analysis) -/
 def countConstraintsByType (csp : IntCSP) : String :=
-  let patterns := csp.constraints.map (·.pattern)
+  let patterns := csp.constraints
   let counts := patterns.foldl (fun acc p =>
     let key := match p with
       | IntConstraint.alldifferent _ => "alldifferent"

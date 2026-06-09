@@ -112,7 +112,7 @@ def circuit_well_formed (circuit : Circuit) : Prop :=
 -- ============================================================================
 
 /-- Generate CSP constraints for a list of gates -/
-def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (TaggedConstraint num_nodes) :=
+def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (IntConstraint num_nodes) :=
   gates.filterMap fun g =>
     match g.gate_type with
     | GateType.AND =>
@@ -147,7 +147,7 @@ def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (TaggedCo
         | _ => none
 
 /-- Convert a circuit to CSP constraints -/
-def circuit_to_constraints (circuit : Circuit) (total_nodes : ℕ) : List (TaggedConstraint total_nodes) :=
+def circuit_to_constraints (circuit : Circuit) (total_nodes : ℕ) : List (IntConstraint total_nodes) :=
   make_gate_constraints total_nodes circuit.gates
 
 -- ============================================================================
@@ -223,7 +223,7 @@ def circuit_verification_base_csp (circuit : Circuit) : IntCSP :=
 def twin_ordering_constraint (circuit : Circuit) (twin_inputs : List ℕ)
     (_h_nonempty : twin_inputs ≠ [])
     (_h_valid : twin_inputs_valid circuit twin_inputs) :
-    TaggedConstraint (circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1) :=
+    IntConstraint (circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1) :=
   let total_nodes := circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1
 
   -- Convert twin input indices to Fin total_nodes
@@ -513,7 +513,7 @@ axiom gate_constraint_preserved_by_twin_perm
     (σ : Equiv.Perm (Fin twin_inputs.length))
     (assignment : IntAssignment
       (circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1))
-    (tc : TaggedConstraint
+    (tc : IntConstraint
       (circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1))
     (h_tc_gate : tc ∈ make_gate_constraints
       (circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1)

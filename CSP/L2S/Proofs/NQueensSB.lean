@@ -23,19 +23,19 @@ Constraints: Different queens must be in different rows, columns and diagonals
 -- ============================================================================
 
 /- Bound constraints -/
-def bound_constraints (n : ℕ) : List (TaggedConstraint n) :=
+def bound_constraints (n : ℕ) : List (IntConstraint n) :=
   (List.finRange n).map (fun v => bound v 0 (n-1))
 
 /- All queens must be placed in different rows -/
-def row_constraint (n : ℕ) : TaggedConstraint n :=
+def row_constraint (n : ℕ) : IntConstraint n :=
   alldifferent_all n
 
 /- All queens must be placed in different diagonals (x[i] - i all different) -/
-def diagonal_constraint (n : ℕ) : TaggedConstraint n :=
+def diagonal_constraint (n : ℕ) : IntConstraint n :=
   alldifferent_diag_neg n
 
 /- All queens must be placed in different antidiagonals (x[i] + i all different) -/
-def antidiagonal_constraint (n : ℕ) : TaggedConstraint n :=
+def antidiagonal_constraint (n : ℕ) : IntConstraint n :=
   alldifferent_diag_pos n
 
 /- CSP: include all constraints -/
@@ -52,7 +52,7 @@ def nqueens_csp (n : ℕ) : IntCSP :=
 
 /- Our candidate to symmetry breaking constraint: first queen must be placed
 on the first half of the first column -/
-def sb_constraint (n : ℕ) (h_n : 0 < n) : TaggedConstraint n :=
+def sb_constraint (n : ℕ) (h_n : 0 < n) : IntConstraint n :=
   less_than_const ⟨0, h_n⟩ ((n + 1) / 2)
 
 /- Extended CSP -/

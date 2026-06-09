@@ -264,7 +264,7 @@ def saveAllBackendsTimedMultiRun (basename : String) (csp : IntCSP) (isFirst : B
 -- ============================================================================
 
 -- Helper to create bound constraints for N-Queens
-def queens_bounds (n : ℕ) : List (TaggedConstraint n) :=
+def queens_bounds (n : ℕ) : List (IntConstraint n) :=
   (List.finRange n).map fun i => bound i 1 n
 
 -- General N-Queens CSP - parametrized for any board size

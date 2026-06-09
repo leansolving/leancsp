@@ -26,7 +26,7 @@ Constraints: No repeated values per row/column
 -- ============================================================================
 
 /- Bound constraints -/
-def bound_constraints (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def bound_constraints (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.finRange (n*n)).map (fun v => bound v 0 (n-1))
 
 /- Helper function: get all variables in a row -/
@@ -50,11 +50,11 @@ def col_variables (j : Fin n) : Vector (VarType (n*n)) n :=
       _ ≤ n * n := Nat.mul_le_mul_right n (Nat.succ_le_of_lt h1)⟩)
 
 /- Row constraints -/
-def row_constraints (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def row_constraints (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.finRange n).map (fun r => alldifferent (row_variables r))
 
 /- Column constraints -/
-def col_constraints (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def col_constraints (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.finRange n).map (fun c => alldifferent (col_variables c))
 
 /- CSP Definition -/
@@ -223,7 +223,7 @@ def sorting_permutation (n : ℕ) (first_row : Fin n → ℤ) : Equiv.Perm (Fin 
 
 /- Symmetry breaking constraint: first row must be in non-decreasing order.
    Uses the new `increasing` constraint. -/
-def sb_constraint (n : ℕ) (h_n : 0 < n) : TaggedConstraint (n*n) :=
+def sb_constraint (n : ℕ) (h_n : 0 < n) : IntConstraint (n*n) :=
   increasing (row_variables ⟨0, h_n⟩)
 
 /- Extended CSP (including the SBC) -/

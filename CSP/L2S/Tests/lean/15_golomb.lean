@@ -21,7 +21,7 @@ def all_mark_pairs (m : ℕ) : List (ℕ × ℕ) :=
 
 def make_diff_constraint (num_vars : ℕ) (i j d : ℕ)
     (hi : i < num_vars) (hj : j < num_vars) (hd : d < num_vars) :
-    TaggedConstraint num_vars :=
+    IntConstraint num_vars :=
   let scope : _root_.Vector (VarType num_vars) 3 :=
     ⟨#[⟨j, hj⟩, ⟨i, hi⟩, ⟨d, hd⟩], rfl⟩
   let coeffs : _root_.Vector ℤ 3 := ⟨#[1, -1, -1], rfl⟩
