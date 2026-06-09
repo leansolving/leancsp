@@ -5,4 +5,4 @@ build/
 .claude/
 .mcp.json
 
-.vscode
+.vscodeCSP/L2S/Backends/PB/Problems/_dump.lean
