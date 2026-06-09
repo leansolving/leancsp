@@ -37,7 +37,7 @@ abbrev VarType (n : ℕ) := Fin n
 instance {n : ℕ} : DecidableEq (VarType n) := inferInstance
 
 /-- Abbreviation for homogeneous constraints -/
-abbrev IntConstraint (n : ℕ) :=
+abbrev IntDynConstraint (n : ℕ) :=
   DynamicConstraint (VarType n) (fun _ => IntDomain)
 
 /-- Abbreviation for homogeneous assignments -/
@@ -66,7 +66,7 @@ inductive RelOp where
 Semantic patterns for constraint types. These enable MiniZinc translation
 by capturing the high-level structure of constraints.
 -/
-inductive ConstraintPattern (num_vars : ℕ)
+inductive IntConstraint (num_vars : ℕ)
   -- Global constraints
   | alldifferent (vars : List ℕ)
   | alldifferentOffset (vars : List ℕ) (offsets : List ℤ)  -- For diagonal constraints
@@ -171,7 +171,7 @@ def relHolds : RelOp → ℤ → ℤ → Prop
     Mirrors each smart constructor's `dynamic` checker (see `Constraints.lean`); this
     is what `satisfiesConstraintInt` is (to be) defined through, making a constraint's
     meaning a function of its finite `pattern` rather than its opaque `dynamic` field. -/
-def patternHolds {n : ℕ} : ConstraintPattern n → IntAssignment n → Prop
+def patternHolds {n : ℕ} : IntConstraint n → IntAssignment n → Prop
   | .alldifferent vars, a => (vars.map (valAt a)).Nodup
   | .alldifferentOffset vars offsets, a =>
       ((vars.zip offsets).map (fun p => valAt a p.1 + p.2)).Nodup
@@ -209,7 +209,7 @@ def patternHolds {n : ℕ} : ConstraintPattern n → IntAssignment n → Prop
   | .abs_diff_var v1 v2 result, a => valAt a result = ((valAt a v1 - valAt a v2).natAbs : ℤ)
   | .modulo v k m, a => valAt a v % k = m
   | .sliding_sum vars w op target, a =>
-      ∀ s, (List.range (vars.length - w + 1)).Mem s →
+      ∀ s ∈ List.range (vars.length - w + 1),
         relHolds op (((vars.map (valAt a)).drop s).take w).sum target
   | .not_gate i o, a => valAt a o = 1 - valAt a i
   | .and_gate i1 i2 o, a => valAt a o = min (valAt a i1) (valAt a i2)
@@ -233,7 +233,7 @@ def patternHolds {n : ℕ} : ConstraintPattern n → IntAssignment n → Prop
   | .implies p q, a => valAt a q ≥ valAt a p
   | .iff v1 v2, a => valAt a v1 = valAt a v2
   | .if_then v value nv nvalue, a => valAt a v ≠ value ∨ valAt a nv = nvalue
-  | .if_then_or v value nv allowed, a => valAt a v ≠ value ∨ allowed.Mem (valAt a nv)
+  | .if_then_or v value nv allowed, a => valAt a v ≠ value ∨ (valAt a nv) ∈ allowed
   | .at_least_k vars k, a => (vars.map (valAt a)).sum ≥ (k : ℤ)
   | .at_most_k vars k, a => (vars.map (valAt a)).sum ≤ (k : ℤ)
   | .exactly_k vars k, a => (vars.map (valAt a)).sum = (k : ℤ)
@@ -245,42 +245,40 @@ def patternHolds {n : ℕ} : ConstraintPattern n → IntAssignment n → Prop
   | .disjunctive _ _, _ => True   -- scheduling: not used by the PB pipeline
   | .unknown _ _, _ => True       -- fallback: no semantics
 
+/-- `relHolds op` is decidable on `ℤ`. -/
+instance (op : RelOp) (x y : ℤ) : Decidable (relHolds op x y) := by
+  cases op <;> unfold relHolds <;> infer_instance
+
+/-- A constraint pattern's meaning is decidable (a finite check over the assignment). -/
+instance instDecidablePatternHolds {n : ℕ} (c : IntConstraint n) (a : IntAssignment n) :
+    Decidable (patternHolds c a) := by
+  cases c <;> unfold patternHolds <;> infer_instance
+
+/-- Map an `IntConstraint` (one of the finite, available constraints) to its *real*
+    underlying general `DynamicConstraint`: the full-variable scope with the decidable
+    `patternHolds` check.  This keeps the general CSP framework while the front-end is a
+    finite inductive. -/
+def toDynamic {n : ℕ} (c : IntConstraint n) : IntDynConstraint n :=
+  DynamicConstraint.mk n
+    { scope := _root_.Vector.ofFn id
+      check := fun vals => decide (patternHolds c (fun i => vals i)) }
+
 -- ============================================================================
--- Tagged Constraint (Dual Representation)
+-- Unified IntCSP Structure
 -- ============================================================================
 
 /--
-Tagged constraint bundles semantic pattern with dynamic checker.
-
-The dual representation enables:
-- **Pattern**: High-level structure for MiniZinc translation
-- **Dynamic**: Executable checker for Lean proofs and verification
--/
-structure TaggedConstraint (num_vars : ℕ) where
-  /-- The semantic pattern for translation -/
-  pattern : ConstraintPattern num_vars
-  /-- The dynamic checker for proof verification -/
-  dynamic : IntConstraint num_vars
-
--- ============================================================================
--- Unified Homogeneous CSP Structure
--- ============================================================================
-
-/--
-Unified Homogeneous CSP structure combining integer domains with tagged constraints.
-
-This single structure eliminates the two-layer approach:
-- No separate "base" CSP and "tagged" wrapper
-- Directly translatable to MiniZinc
-- Directly usable in proofs
-
-All variables have integer domain `ℤ` with bounds specified via bound constraint patterns.
+An integer CSP: a variable count plus a list of `IntConstraint`s — each one of the
+finite, available constraints (the `IntConstraint` inductive).  A constraint's meaning
+is given by `patternHolds`; `toDynamic` (see `Embedding`) maps it to the *real*
+underlying general `DynamicConstraint`, so the general framework is kept while the
+front-end stays a finite inductive.
 -/
 structure IntCSP where
   /-- Number of variables in the CSP -/
   num_vars : ℕ
-  /-- List of tagged constraints (pattern + checker) -/
-  constraints : List (TaggedConstraint num_vars)
+  /-- List of constraints (each one of the finite available `IntConstraint`s) -/
+  constraints : List (IntConstraint num_vars)
 
 namespace IntCSP
 
@@ -288,9 +286,11 @@ namespace IntCSP
 -- Solution Checking
 -- ============================================================================
 
-/-- Check if a constraint is satisfied by an assignment -/
-def satisfiesConstraintInt (c : TaggedConstraint n) (assignment : IntAssignment n) : Prop :=
-  satisfies_dynamic_constraint c.dynamic assignment
+/-- A constraint is satisfied by an assignment iff its pattern's meaning holds
+    (`patternHolds`).  Equivalent to satisfying its real underlying general constraint
+    `toDynamic c` (see `Embedding.satisfiesConstraintInt_iff_toDynamic`). -/
+def satisfiesConstraintInt (c : IntConstraint n) (assignment : IntAssignment n) : Prop :=
+  patternHolds c assignment
 
 /-- Check if an assignment is a solution to the CSP -/
 def isSolutionInt (csp : IntCSP) (assignment : IntAssignment csp.num_vars) : Prop :=
@@ -309,8 +309,8 @@ def extractVariableBounds (csp : IntCSP)
     (var : VarType csp.num_vars) : ℤ × ℤ :=
   -- Scan through constraints looking for bound patterns for this variable
   let bounds := csp.constraints.filterMap fun tc =>
-    match tc.pattern with
-    | ConstraintPattern.bound v lb ub => if v = var.val then some (lb, ub) else none
+    match tc with
+    | IntConstraint.bound v lb ub => if v = var.val then some (lb, ub) else none
     | _ => none
 
   -- If we found bounds, use them; otherwise default to reasonable range
@@ -334,12 +334,12 @@ def mkEmpty (num_vars : ℕ) : IntCSP where
 
 /-- Add a constraint to an existing CSP -/
 def addConstraint (csp : IntCSP)
-    (constraint : TaggedConstraint csp.num_vars) : IntCSP :=
+    (constraint : IntConstraint csp.num_vars) : IntCSP :=
   { csp with constraints := constraint :: csp.constraints }
 
 /-- Add multiple constraints -/
 def addConstraints (csp : IntCSP)
-    (new_constraints : List (TaggedConstraint csp.num_vars)) : IntCSP :=
+    (new_constraints : List (IntConstraint csp.num_vars)) : IntCSP :=
   { csp with constraints := new_constraints ++ csp.constraints }
 
 
@@ -379,12 +379,8 @@ end IntCSP
 -- ============================================================================
 
 /-- Get all constraints from a CSP -/
-def getConstraints (csp : IntCSP) : List (TaggedConstraint csp.num_vars) :=
+def getConstraints (csp : IntCSP) : List (IntConstraint csp.num_vars) :=
   csp.constraints
-
-/-- Extract all constraint patterns (semantic representation) -/
-def getPatterns (csp : IntCSP) : List (ConstraintPattern csp.num_vars) :=
-  csp.constraints.map (·.pattern)
 
 /-- Count total number of constraints -/
 def countConstraints (csp : IntCSP) : ℕ :=
@@ -392,14 +388,14 @@ def countConstraints (csp : IntCSP) : ℕ :=
 
 /-- Count constraints of a specific type -/
 def countConstraintsByPattern (csp : IntCSP)
-    (pred : ConstraintPattern csp.num_vars → Bool) : ℕ :=
-  (getPatterns csp).filter pred |>.length
+    (pred : IntConstraint csp.num_vars → Bool) : ℕ :=
+  csp.constraints.filter pred |>.length
 
 /-- Count bound constraints -/
 def countBoundConstraints (csp : IntCSP) : ℕ :=
   countConstraintsByPattern csp fun p =>
     match p with
-    | ConstraintPattern.bound _ _ _ => true
+    | IntConstraint.bound _ _ _ => true
     | _ => false
 
 
