@@ -150,6 +150,102 @@ inductive ConstraintPattern (num_vars : ℕ)
   deriving Repr
 
 -- ============================================================================
+-- Pattern Semantics (meaning of a constraint from its `pattern`)
+-- ============================================================================
+
+/-- Value of pattern variable `v` (a raw `ℕ` index) under assignment `a`;
+    out-of-range indices default to `0` (they do not occur in well-formed CSPs). -/
+def valAt {n : ℕ} (a : IntAssignment n) (v : ℕ) : ℤ :=
+  if h : v < n then a ⟨v, h⟩ else 0
+
+/-- Interpret a `RelOp` as a relation on `ℤ`. -/
+def relHolds : RelOp → ℤ → ℤ → Prop
+  | .EQ, x, y => x = y
+  | .NE, x, y => x ≠ y
+  | .LT, x, y => x < y
+  | .LE, x, y => x ≤ y
+  | .GT, x, y => x > y
+  | .GE, x, y => x ≥ y
+
+/-- The intended meaning of a constraint pattern as a predicate on assignments.
+    Mirrors each smart constructor's `dynamic` checker (see `Constraints.lean`); this
+    is what `satisfiesConstraintInt` is (to be) defined through, making a constraint's
+    meaning a function of its finite `pattern` rather than its opaque `dynamic` field. -/
+def patternHolds {n : ℕ} : ConstraintPattern n → IntAssignment n → Prop
+  | .alldifferent vars, a => (vars.map (valAt a)).Nodup
+  | .alldifferentOffset vars offsets, a =>
+      ((vars.zip offsets).map (fun p => valAt a p.1 + p.2)).Nodup
+  | .increasing vars, a => List.Pairwise (· ≤ ·) (vars.map (valAt a))
+  | .sum vars op target, a => relHolds op (vars.map (valAt a)).sum target
+  | .linear vars coeffs op target, a =>
+      relHolds op (List.zipWith (· * ·) coeffs (vars.map (valAt a))).sum target
+  | .count vars value target, a =>
+      ((vars.map (valAt a)).filter (· = value)).length = target
+  | .count_var vars value cvar, a =>
+      (((vars.map (valAt a)).filter (· = value)).length : ℤ) = valAt a cvar
+  | .element idx array result, a =>
+      valAt a idx ≥ 1 ∧ (array[(valAt a idx).natAbs - 1]?).any (· = valAt a result)
+  | .maximum vars mx, a =>
+      (vars.map (valAt a)).all (· ≤ valAt a mx) ∧ (vars.map (valAt a)).any (· = valAt a mx)
+  | .minimum vars mn, a =>
+      (vars.map (valAt a)).all (valAt a mn ≤ ·) ∧ (vars.map (valAt a)).any (· = valAt a mn)
+  | .bound v lb ub, a => lb ≤ valAt a v ∧ valAt a v ≤ ub
+  | .eq v1 v2, a => valAt a v1 = valAt a v2
+  | .ne v1 v2, a => valAt a v1 ≠ valAt a v2
+  | .lt v1 v2, a => valAt a v1 < valAt a v2
+  | .le v1 v2, a => valAt a v1 ≤ valAt a v2
+  | .gt v1 v2, a => valAt a v1 > valAt a v2
+  | .ge v1 v2, a => valAt a v1 ≥ valAt a v2
+  | .eq_const v c, a => valAt a v = c
+  | .ne_const v c, a => valAt a v ≠ c
+  | .lt_const v c, a => valAt a v < c
+  | .le_const v c, a => valAt a v ≤ c
+  | .gt_const v c, a => valAt a v > c
+  | .ge_const v c, a => valAt a v ≥ c
+  | .schur_triple v1 v2 v3, a =>
+      valAt a v1 ≠ valAt a v2 ∨ valAt a v1 ≠ valAt a v3 ∨ valAt a v2 ≠ valAt a v3
+  | .abs_diff_rel v1 v2 op target, a =>
+      relHolds op ((valAt a v1 - valAt a v2).natAbs : ℤ) target
+  | .abs_diff_var v1 v2 result, a => valAt a result = ((valAt a v1 - valAt a v2).natAbs : ℤ)
+  | .modulo v k m, a => valAt a v % k = m
+  | .sliding_sum vars w op target, a =>
+      ∀ s, (List.range (vars.length - w + 1)).Mem s →
+        relHolds op (((vars.map (valAt a)).drop s).take w).sum target
+  | .not_gate i o, a => valAt a o = 1 - valAt a i
+  | .and_gate i1 i2 o, a => valAt a o = min (valAt a i1) (valAt a i2)
+  | .or_gate i1 i2 o, a => valAt a o = max (valAt a i1) (valAt a i2)
+  | .xor_gate i1 i2 o, a => (valAt a i1 + valAt a i2) % 2 = valAt a o
+  | .nand_gate i1 i2 o, a =>
+      valAt a o ≥ 1 - valAt a i1 ∧ valAt a o ≥ 1 - valAt a i2 ∧
+        valAt a o ≤ 2 - valAt a i1 - valAt a i2
+  | .nor_gate i1 i2 o, a =>
+      valAt a o ≤ 1 - valAt a i1 ∧ valAt a o ≤ 1 - valAt a i2 ∧
+        valAt a o ≥ 1 - valAt a i1 - valAt a i2
+  | .and_all vars result, a =>
+      (vars.map (valAt a)) ≠ [] ∧
+      valAt a result = (vars.map (valAt a)).foldl (fun acc x => if x < acc then x else acc)
+        (vars.map (valAt a)).headI
+  | .or_all vars result, a =>
+      (vars.map (valAt a)) ≠ [] ∧
+      valAt a result = (vars.map (valAt a)).foldl (fun acc x => if x > acc then x else acc)
+        (vars.map (valAt a)).headI
+  | .xor_all vars result, a => (vars.map (valAt a)).sum % 2 = valAt a result
+  | .implies p q, a => valAt a q ≥ valAt a p
+  | .iff v1 v2, a => valAt a v1 = valAt a v2
+  | .if_then v value nv nvalue, a => valAt a v ≠ value ∨ valAt a nv = nvalue
+  | .if_then_or v value nv allowed, a => valAt a v ≠ value ∨ allowed.Mem (valAt a nv)
+  | .at_least_k vars k, a => (vars.map (valAt a)).sum ≥ (k : ℤ)
+  | .at_most_k vars k, a => (vars.map (valAt a)).sum ≤ (k : ℤ)
+  | .exactly_k vars k, a => (vars.map (valAt a)).sum = (k : ℤ)
+  | .sum_rel_var vars op tvar, a => relHolds op (vars.map (valAt a)).sum (valAt a tvar)
+  | .linear_rel_var vars coeffs op tvar, a =>
+      relHolds op (List.zipWith (· * ·) coeffs (vars.map (valAt a))).sum (valAt a tvar)
+  | .product_rel_var vars op tvar, a =>
+      relHolds op ((vars.map (valAt a)).foldl (· * ·) 1) (valAt a tvar)
+  | .disjunctive _ _, _ => True   -- scheduling: not used by the PB pipeline
+  | .unknown _ _, _ => True       -- fallback: no semantics
+
+-- ============================================================================
 -- Tagged Constraint (Dual Representation)
 -- ============================================================================
 
