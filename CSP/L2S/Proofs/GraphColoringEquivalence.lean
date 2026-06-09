@@ -55,7 +55,7 @@ def edge_constraints_1 (edges : List (Fin vertices × Fin vertices)) : List (Tag
   edges.map (fun (u, v) => not_equal u v)
 
 /-- Vertex model CSP -/
-def graph_coloring_vertex (vertices colors : ℕ) (edges : List (Fin vertices × Fin vertices)) : HomogeneousCSP :=
+def graph_coloring_vertex (vertices colors : ℕ) (edges : List (Fin vertices × Fin vertices)) : IntCSP :=
   ⟨ vertices,
     vertex_bounds_1 vertices colors ++ edge_constraints_1 vertices edges ⟩
 
@@ -72,7 +72,7 @@ def matrixIndex (v : Fin vertices) (c : Fin colors) : Fin (vertices * colors) :=
       _ ≤ vertices * colors := Nat.mul_le_mul_right colors (Nat.succ_le_of_lt h1)⟩
 
 /-- Helper: get all variables for a vertex (row in matrix) -/
-def vertex_colors (v : Fin vertices) : _root_.Vector (HomogeneousVarIndex (vertices * colors)) colors :=
+def vertex_colors (v : Fin vertices) : _root_.Vector (VarType (vertices * colors)) colors :=
   _root_.Vector.ofFn (fun c => matrixIndex vertices colors v c)
 
 /-- Bounds: all matrix entries are binary {0, 1} -/
@@ -94,7 +94,7 @@ def edge_matrix_constraints_2 (edges : List (Fin vertices × Fin vertices)) : Li
 
 /-- Binary matrix model CSP -/
 def graph_coloring_matrix (vertices colors : ℕ)
-    (edges : List (Fin vertices × Fin vertices)) : HomogeneousCSP :=
+    (edges : List (Fin vertices × Fin vertices)) : IntCSP :=
   ⟨ vertices * colors,
     matrix_bounds_2 vertices colors ++
     one_hot_constraints_2 vertices colors ++
@@ -112,7 +112,7 @@ end Definitions
 Projection π: Matrix → Vertex
 For each vertex v, find the unique color c where matrix[v,c] = 1
 -/
-def π {vertices colors : ℕ} (x : HomogeneousAssignment (vertices * colors)) : HomogeneousAssignment vertices :=
+def π {vertices colors : ℕ} (x : IntAssignment (vertices * colors)) : IntAssignment vertices :=
   fun v : Fin vertices =>
     match (List.finRange colors).find? (fun c =>
       x (matrixIndex vertices colors v c) = 1) with
@@ -123,8 +123,8 @@ def π {vertices colors : ℕ} (x : HomogeneousAssignment (vertices * colors)) :
 Lifting lift: Vertex → Matrix
 Set matrix[v,c] = 1 iff vertex_color(v) = c
 -/
-def lift {vertices colors : ℕ} (h_colors : 0 < colors) (assignment : HomogeneousAssignment vertices) :
-    HomogeneousAssignment (vertices * colors) :=
+def lift {vertices colors : ℕ} (h_colors : 0 < colors) (assignment : IntAssignment vertices) :
+    IntAssignment (vertices * colors) :=
   fun idx : Fin (vertices * colors) =>
     let c : Fin colors := ⟨idx.val % colors, Nat.mod_lt idx.val h_colors⟩
     if assignment ⟨(idx.val / colors), by
@@ -161,7 +161,7 @@ lemma matrixIndex_mod_eq (v : Fin vertices) (c : Fin colors) :
   exact c.isLt
 
 /-- π∘lift is the identity (for valid vertex colorings) -/
-lemma π_lift_inverse (assignment : HomogeneousAssignment vertices)
+lemma π_lift_inverse (assignment : IntAssignment vertices)
     (h_bounds : ∀ v : Fin vertices, 0 ≤ assignment v ∧ assignment v < colors) :
     π (lift h_colors assignment) = assignment := by
   funext v
@@ -227,8 +227,8 @@ lemma π_lift_inverse (assignment : HomogeneousAssignment vertices)
   rw [← h_toNat_eq]
 
 /-- A matrix solution has exactly one color per vertex -/
-lemma matrix_one_hot (x : HomogeneousAssignment (vertices * colors))
-    (h_sol : HomogeneousCSP.isSolution (graph_coloring_matrix vertices colors edges) x)
+lemma matrix_one_hot (x : IntAssignment (vertices * colors))
+    (h_sol : IntCSP.isSolutionInt (graph_coloring_matrix vertices colors edges) x)
     (v : Fin vertices) :
     ∃! c : Fin colors, x (matrixIndex vertices colors v c) = 1 := by
   have h_mem : sum_eq (vertex_colors vertices colors v) 1 ∈
@@ -236,7 +236,7 @@ lemma matrix_one_hot (x : HomogeneousAssignment (vertices * colors))
     unfold graph_coloring_matrix
     simp [one_hot_constraints_2, List.finRange]
   have h_sat := h_sol (sum_eq (vertex_colors vertices colors v) 1) h_mem
-  unfold HomogeneousCSP.satisfiesConstraint at h_sat
+  unfold IntCSP.satisfiesConstraintInt at h_sat
   unfold sum_eq sum_rel at h_sat
   unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_sat
   unfold CSP.map_assignment at h_sat
@@ -248,7 +248,7 @@ lemma matrix_one_hot (x : HomogeneousAssignment (vertices * colors))
       unfold graph_coloring_matrix
       simp [matrix_bounds_2, List.finRange]
     have h_bound_sat := h_sol (bound (matrixIndex vertices colors v c) 0 1) h_bound_mem
-    unfold HomogeneousCSP.satisfiesConstraint at h_bound_sat
+    unfold IntCSP.satisfiesConstraintInt at h_bound_sat
     unfold bound at h_bound_sat
     unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_bound_sat
     unfold CSP.map_assignment at h_bound_sat
@@ -342,8 +342,8 @@ lemma matrix_one_hot (x : HomogeneousAssignment (vertices * colors))
       exact (h_unique c_wit c' h_wit h_c').symm
 
 /-- A vertex solution has valid color bounds -/
-lemma vertex_solution_bounds (assignment : HomogeneousAssignment vertices)
-    (h_sol : HomogeneousCSP.isSolution (graph_coloring_vertex vertices colors edges) assignment)
+lemma vertex_solution_bounds (assignment : IntAssignment vertices)
+    (h_sol : IntCSP.isSolutionInt (graph_coloring_vertex vertices colors edges) assignment)
     (v : Fin vertices) :
     0 ≤ assignment v ∧ assignment v < colors := by
   have h_mem : bound v 0 (colors-1) ∈ (graph_coloring_vertex vertices colors edges).constraints := by
@@ -354,7 +354,7 @@ lemma vertex_solution_bounds (assignment : HomogeneousAssignment vertices)
     simp only [List.mem_map, List.mem_finRange, true_and]
     use v
   have h_sat := h_sol (bound v 0 (colors-1)) h_mem
-  unfold HomogeneousCSP.satisfiesConstraint at h_sat
+  unfold IntCSP.satisfiesConstraintInt at h_sat
   unfold bound at h_sat
   unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_sat
   unfold CSP.map_assignment at h_sat
@@ -376,17 +376,17 @@ section MainTheorems
 variable {vertices colors : ℕ} (h_colors : 0 < colors) (edges : List (Fin vertices × Fin vertices))
 
 /-- Forward direction: matrix solution projects to vertex solution -/
-theorem forward (sol₂ : HomogeneousAssignment (vertices * colors))
-    (h_sol₂ : HomogeneousCSP.isSolution (graph_coloring_matrix vertices colors edges) sol₂) :
-    HomogeneousCSP.isSolution (graph_coloring_vertex vertices colors edges) (π sol₂) := by
-  unfold HomogeneousCSP.isSolution
+theorem forward (sol₂ : IntAssignment (vertices * colors))
+    (h_sol₂ : IntCSP.isSolutionInt (graph_coloring_matrix vertices colors edges) sol₂) :
+    IntCSP.isSolutionInt (graph_coloring_vertex vertices colors edges) (π sol₂) := by
+  unfold IntCSP.isSolutionInt
   intro c h_c
   unfold graph_coloring_vertex at h_c
   simp only [List.mem_append] at h_c
   rcases h_c with h_bounds | h_edges
   · obtain ⟨v, ⟨_, h_eq⟩⟩ := (List.mem_map.mp h_bounds)
     subst h_eq
-    unfold HomogeneousCSP.satisfiesConstraint bound
+    unfold IntCSP.satisfiesConstraintInt bound
     unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.map_assignment
     simp [CSP.sat, extractValues, _root_.Vector.get]
     unfold π
@@ -408,7 +408,7 @@ theorem forward (sol₂ : HomogeneousAssignment (vertices * colors))
   · obtain ⟨edge, ⟨h_edge_mem, h_eq⟩⟩ := (List.mem_map.mp h_edges)
     subst h_eq
     obtain ⟨u, v⟩ := edge
-    unfold HomogeneousCSP.satisfiesConstraint not_equal
+    unfold IntCSP.satisfiesConstraintInt not_equal
     unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.map_assignment
     simp [CSP.sat, _root_.Vector.get, CSP.binary_dynamic_constraint, CSP.binary_constraint]
     intro h_eq
@@ -429,7 +429,7 @@ theorem forward (sol₂ : HomogeneousAssignment (vertices * colors))
         right
         use u, v, h_edge_mem, c_u
       have h_sat := h_sol₂ _ h_constr
-      unfold HomogeneousCSP.satisfiesConstraint sum_le sum_rel at h_sat
+      unfold IntCSP.satisfiesConstraintInt sum_le sum_rel at h_sat
       simp only [CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat, extractValues, decide_eq_true_iff] at h_sat
       -- Reduce h_sat's sum directly to a numeric value, then derive 2 ≤ 1.
       simp only [List.ofFn, CSP.map_assignment, _root_.Vector.get] at h_sat
@@ -491,22 +491,22 @@ theorem forward (sol₂ : HomogeneousAssignment (vertices * colors))
     exact Nat.cast_injective h_cast
 
 /-- Backward direction: vertex solution lifts to matrix solution -/
-theorem backward (h_pos : 0 < colors) (sol₁ : HomogeneousAssignment vertices)
-    (h_sol₁ : HomogeneousCSP.isSolution (graph_coloring_vertex vertices colors edges) sol₁) :
-    ∃ sol₂ : HomogeneousAssignment (vertices * colors),
-      HomogeneousCSP.isSolution (graph_coloring_matrix vertices colors edges) sol₂ ∧
+theorem backward (h_pos : 0 < colors) (sol₁ : IntAssignment vertices)
+    (h_sol₁ : IntCSP.isSolutionInt (graph_coloring_vertex vertices colors edges) sol₁) :
+    ∃ sol₂ : IntAssignment (vertices * colors),
+      IntCSP.isSolutionInt (graph_coloring_matrix vertices colors edges) sol₂ ∧
       π sol₂ = sol₁ := by
   let sol₂ := lift h_pos sol₁
   use sol₂
   constructor
-  · unfold HomogeneousCSP.isSolution
+  · unfold IntCSP.isSolutionInt
     intro c h_c
     unfold graph_coloring_matrix at h_c
     unfold matrix_bounds_2 one_hot_constraints_2 edge_matrix_constraints_2 at h_c
     simp only [List.mem_append, List.mem_map, List.mem_finRange, List.mem_flatMap, true_and, Prod.exists] at h_c
     rcases h_c with (⟨idx, h_eq⟩ | ⟨v, h_eq⟩) | ⟨u, v, h_edge_mem, color, h_eq⟩
     · subst h_eq
-      unfold HomogeneousCSP.satisfiesConstraint bound
+      unfold IntCSP.satisfiesConstraintInt bound
       unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.map_assignment
       simp [CSP.sat, extractValues, _root_.Vector.get]
       show 0 ≤ sol₂ idx ∧ sol₂ idx ≤ 1
@@ -520,7 +520,7 @@ theorem backward (h_pos : 0 < colors) (sol₁ : HomogeneousAssignment vertices)
         · norm_num
         · norm_num
     · subst h_eq
-      unfold HomogeneousCSP.satisfiesConstraint sum_eq sum_rel
+      unfold IntCSP.satisfiesConstraintInt sum_eq sum_rel
       unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint
       simp [CSP.sat, extractValues]
       have h_v_bounds := vertex_solution_bounds edges sol₁ h_sol₁ v
@@ -588,7 +588,7 @@ theorem backward (h_pos : 0 < colors) (sol₁ : HomogeneousAssignment vertices)
           exfalso
           exact h_mem (Finset.mem_univ c_target)
     · subst h_eq
-      unfold HomogeneousCSP.satisfiesConstraint sum_le sum_rel
+      unfold IntCSP.satisfiesConstraintInt sum_le sum_rel
       unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint
       simp [CSP.sat, extractValues]
       simp only [_root_.Vector.get]
@@ -617,7 +617,7 @@ theorem backward (h_pos : 0 < colors) (sol₁ : HomogeneousAssignment vertices)
           right
           use (u, v)
         have h_sat_edge := h_sol₁ (not_equal u v) h_edge_constr
-        unfold HomogeneousCSP.satisfiesConstraint not_equal at h_sat_edge
+        unfold IntCSP.satisfiesConstraintInt not_equal at h_sat_edge
         unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.map_assignment at h_sat_edge
         simp [CSP.sat, _root_.Vector.get, CSP.binary_dynamic_constraint, CSP.binary_constraint] at h_sat_edge
         exact h_sat_edge h_u_eq_v
@@ -632,9 +632,9 @@ theorem backward (h_pos : 0 < colors) (sol₁ : HomogeneousAssignment vertices)
     exact this
 
 /-- Injectivity: different matrix solutions with same projection are equal -/
-theorem injective (h_pos : 0 < colors) (sol₂ sol₂' : HomogeneousAssignment (vertices * colors))
-    (h_sol₂ : HomogeneousCSP.isSolution (graph_coloring_matrix vertices colors edges) sol₂)
-    (h_sol₂' : HomogeneousCSP.isSolution (graph_coloring_matrix vertices colors edges) sol₂')
+theorem injective (h_pos : 0 < colors) (sol₂ sol₂' : IntAssignment (vertices * colors))
+    (h_sol₂ : IntCSP.isSolutionInt (graph_coloring_matrix vertices colors edges) sol₂)
+    (h_sol₂' : IntCSP.isSolutionInt (graph_coloring_matrix vertices colors edges) sol₂')
     (h_proj_eq : π sol₂ = π sol₂') :
     sol₂ = sol₂' := by
   funext idx
@@ -726,7 +726,7 @@ theorem injective (h_pos : 0 < colors) (sol₂ sol₂' : HomogeneousAssignment (
         unfold graph_coloring_matrix
         simp [matrix_bounds_2, List.finRange]
       have h_bound_sat := h_sol₂ (bound (matrixIndex vertices colors v c) 0 1) h_bound_mem
-      unfold HomogeneousCSP.satisfiesConstraint at h_bound_sat
+      unfold IntCSP.satisfiesConstraintInt at h_bound_sat
       unfold bound at h_bound_sat
       unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_bound_sat
       unfold CSP.map_assignment at h_bound_sat
@@ -748,7 +748,7 @@ theorem injective (h_pos : 0 < colors) (sol₂ sol₂' : HomogeneousAssignment (
         unfold graph_coloring_matrix
         simp [matrix_bounds_2, List.finRange]
       have h_bound_sat := h_sol₂' (bound (matrixIndex vertices colors v c) 0 1) h_bound_mem
-      unfold HomogeneousCSP.satisfiesConstraint at h_bound_sat
+      unfold IntCSP.satisfiesConstraintInt at h_bound_sat
       unfold bound at h_bound_sat
       unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_bound_sat
       unfold CSP.map_assignment at h_bound_sat
@@ -780,14 +780,14 @@ theorem graph_coloring_pi_equivalent (vertices colors : ℕ) (h_colors : 0 < col
       (graph_coloring_vertex vertices colors edges)
       (graph_coloring_matrix vertices colors edges)
       (@π vertices colors) := by
-  have h_forward : ∀ sol₂, HomogeneousCSP.isSolution (graph_coloring_matrix vertices colors edges) sol₂ →
-      HomogeneousCSP.isSolution (graph_coloring_vertex vertices colors edges) (π sol₂) :=
+  have h_forward : ∀ sol₂, IntCSP.isSolutionInt (graph_coloring_matrix vertices colors edges) sol₂ →
+      IntCSP.isSolutionInt (graph_coloring_vertex vertices colors edges) (π sol₂) :=
     forward edges
-  have h_backward : ∀ sol₁, HomogeneousCSP.isSolution (graph_coloring_vertex vertices colors edges) sol₁ →
-      ∃ sol₂, HomogeneousCSP.isSolution (graph_coloring_matrix vertices colors edges) sol₂ ∧ π sol₂ = sol₁ :=
+  have h_backward : ∀ sol₁, IntCSP.isSolutionInt (graph_coloring_vertex vertices colors edges) sol₁ →
+      ∃ sol₂, IntCSP.isSolutionInt (graph_coloring_matrix vertices colors edges) sol₂ ∧ π sol₂ = sol₁ :=
     backward edges h_colors
-  have h_injective : ∀ sol₂ sol₂', HomogeneousCSP.isSolution (graph_coloring_matrix vertices colors edges) sol₂ →
-      HomogeneousCSP.isSolution (graph_coloring_matrix vertices colors edges) sol₂' →
+  have h_injective : ∀ sol₂ sol₂', IntCSP.isSolutionInt (graph_coloring_matrix vertices colors edges) sol₂ →
+      IntCSP.isSolutionInt (graph_coloring_matrix vertices colors edges) sol₂' →
       π sol₂ = π sol₂' → sol₂ = sol₂' :=
     injective edges h_colors
   constructor

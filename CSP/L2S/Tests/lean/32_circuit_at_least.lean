@@ -5,7 +5,7 @@ import Mathlib.Tactic.Linarith
 
 open CSP.L2S
 open CSP.L2S.Tests.Timed
-open CSP.L2S.HomogeneousCSP
+open CSP.L2S.IntCSP
 
 
 /-!
@@ -114,7 +114,7 @@ def circuit_to_constraints (circuit : Circuit) (total_nodes : ℕ) : List (Tagge
 -- CSP definition
 -- ============================================================================
 
-def at_least_k_satisfies_circuit_csp (circuit : Circuit) (k : ℕ) : HomogeneousCSP :=
+def at_least_k_satisfies_circuit_csp (circuit : Circuit) (k : ℕ) : IntCSP :=
   -- Compute the number of variables (must account for all gates' outputs)
   let total_nodes := circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1
 

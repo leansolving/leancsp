@@ -23,7 +23,7 @@ Variables:
 Total: 16 variables
 -/
 
-def multiplier_2bit : HomogeneousCSP :=
+def multiplier_2bit : IntCSP :=
   let nvars := 16
   let bounds := (List.finRange nvars).map fun i => bound i 0 1
 

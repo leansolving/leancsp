@@ -60,29 +60,29 @@ def paPairs : List (Fin 16 × Fin 16) :=
    (13, 14), (13, 15), (14, 15)]
 
 /-- Scope of the white-army cardinality constraint: variables `0 .. 15`. -/
-def paWhiteScope : _root_.Vector (HomogeneousVarIndex 32) 16 :=
+def paWhiteScope : _root_.Vector (VarType 32) 16 :=
   ⟨#[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], rfl⟩
 
 /-- Scope of the black-army cardinality constraint: variables `16 .. 31`. -/
-def paBlackScope : _root_.Vector (HomogeneousVarIndex 32) 16 :=
+def paBlackScope : _root_.Vector (VarType 32) 16 :=
   ⟨#[16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31], rfl⟩
 
 /-- One `at_most_k ≤ 1` per square: at most one queen (of either colour) per square. -/
 def paDisjointC : List (TaggedConstraint 32) :=
   (List.finRange 16).map (fun s =>
     at_most_k (⟨#[whiteVar s, blackVar s], rfl⟩ :
-      _root_.Vector (HomogeneousVarIndex 32) 2) 1)
+      _root_.Vector (VarType 32) 2) 1)
 
 /-- Per attacking pair, the two opposite-colour exclusions. -/
 def paPairwiseC : List (TaggedConstraint 32) :=
   paPairs.flatMap (fun p =>
     [at_most_k (⟨#[whiteVar p.1, blackVar p.2], rfl⟩ :
-        _root_.Vector (HomogeneousVarIndex 32) 2) 1,
+        _root_.Vector (VarType 32) 2) 1,
      at_most_k (⟨#[blackVar p.1, whiteVar p.2], rfl⟩ :
-        _root_.Vector (HomogeneousVarIndex 32) 2) 1])
+        _root_.Vector (VarType 32) 2) 1])
 
-/-- Peaceable armies (n = 4, k = 3) as a `HomogeneousCSP`. -/
-def peaceableArmies : HomogeneousCSP :=
+/-- Peaceable armies (n = 4, k = 3) as a `IntCSP`. -/
+def peaceableArmies : IntCSP :=
   ⟨32, ((List.finRange 32).map (fun i => bound i 0 1))
       ++ [at_least_k paWhiteScope 3, at_least_k paBlackScope 3]
       ++ paDisjointC ++ paPairwiseC⟩
@@ -136,9 +136,9 @@ theorem pa_hbound (i : Fin peaceableArmies.num_vars) :
   exact List.mem_map.mpr ⟨i, List.mem_finRange i, rfl⟩
 
 /-- Every linear `≤` fact in `paLin` follows from any solution. -/
-theorem pa_hlin (a : HomogeneousAssignment 32) (hsol : peaceableArmies.isSolution a) :
+theorem pa_hlin (a : IntAssignment 32) (hsol : peaceableArmies.isSolutionInt a) :
     ∀ c ∈ paLin, (c.1.map (fun p => p.1 * a p.2)).sum ≤ c.2 := by
-  unfold HomogeneousCSP.isSolution peaceableArmies at hsol
+  unfold IntCSP.isSolutionInt peaceableArmies at hsol
   simp only [List.forall_mem_append, List.forall_mem_cons] at hsol
   obtain ⟨⟨⟨_hbounds, hcw, hcb, _⟩, hdisjAll⟩, hpairAll⟩ := hsol
   intro c hc
@@ -153,7 +153,7 @@ theorem pa_hlin (a : HomogeneousAssignment 32) (hsol : peaceableArmies.isSolutio
   · rw [paDisjointLin, List.mem_map] at hdisj
     obtain ⟨s, hs, rfl⟩ := hdisj
     have h := at_most_k_sat (⟨#[whiteVar s, blackVar s], rfl⟩ :
-        _root_.Vector (HomogeneousVarIndex 32) 2) 1 a
+        _root_.Vector (VarType 32) 2) 1 a
       (hdisjAll _ (List.mem_map.mpr ⟨s, hs, rfl⟩))
     simp at h ⊢; linarith [h]
   · rw [paPairwiseLin, List.mem_flatMap] at hpair
@@ -161,11 +161,11 @@ theorem pa_hlin (a : HomogeneousAssignment 32) (hsol : peaceableArmies.isSolutio
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hc'
     rcases hc' with rfl | rfl
     · have h := at_most_k_sat (⟨#[whiteVar p.1, blackVar p.2], rfl⟩ :
-          _root_.Vector (HomogeneousVarIndex 32) 2) 1 a
+          _root_.Vector (VarType 32) 2) 1 a
         (hpairAll _ (List.mem_flatMap.mpr ⟨p, hp, List.mem_cons_self⟩))
       simp at h ⊢; linarith [h]
     · have h := at_most_k_sat (⟨#[blackVar p.1, whiteVar p.2], rfl⟩ :
-          _root_.Vector (HomogeneousVarIndex 32) 2) 1 a
+          _root_.Vector (VarType 32) 2) 1 a
         (hpairAll _ (List.mem_flatMap.mpr ⟨p, hp, List.mem_cons_of_mem _ List.mem_cons_self⟩))
       simp at h ⊢; linarith [h]
 
@@ -602,7 +602,7 @@ theorem pa_formulaUnsat :
     turn any solution into the army-size and exclusion inequalities, the `unsat_of_pb`
     spine order-encodes them via `encodeLinear`, and the committed certificate
     `pa_formulaUnsat` contradicts it. -/
-theorem peaceable_armies_4_3_unsat : ¬ peaceableArmies.isSatisfiable := by
+theorem peaceable_armies_4_3_unsat : ¬ peaceableArmies.isSatisfiableInt := by
   refine unsat_of_pb peaceableArmies (fun _ => 0) (fun _ => 1) (fun _ => by norm_num)
     pa_hbound paLin pa_hlin ?_
   show VeriPB.Reflect.formulaUnsat

@@ -46,7 +46,7 @@ CSPLib Problem 007
 
 -- Parametrized All-Interval Series CSP
 -- num_vars = 2n - 1 (n series + n-1 differences)
-def all_interval_csp (n num_vars : ℕ) : HomogeneousCSP :=
+def all_interval_csp (n num_vars : ℕ) : IntCSP :=
   -- Bounds for series variables (indices 0..n-1): domain [0, n-1]
   let series_bounds := (List.range n).filterMap fun i =>
     if h : i < num_vars then
@@ -70,7 +70,7 @@ def all_interval_csp (n num_vars : ℕ) : HomogeneousCSP :=
       none
   let series_alldiff_opt :=
     if h_len : series_var_list.length = n then
-      let series_vars : _root_.Vector (HomogeneousVarIndex num_vars) n :=
+      let series_vars : _root_.Vector (VarType num_vars) n :=
         ⟨series_var_list.toArray, by simp; exact h_len⟩
       some (alldifferent series_vars)
     else
@@ -88,7 +88,7 @@ def all_interval_csp (n num_vars : ℕ) : HomogeneousCSP :=
       none
   let diff_alldiff_opt :=
     if h_len : diff_var_list.length = n - 1 then
-      let diff_vars : _root_.Vector (HomogeneousVarIndex num_vars) (n - 1) :=
+      let diff_vars : _root_.Vector (VarType num_vars) (n - 1) :=
         ⟨diff_var_list.toArray, by simp; exact h_len⟩
       some (alldifferent diff_vars)
     else
@@ -145,7 +145,7 @@ def all_interval_csp (n num_vars : ℕ) : HomogeneousCSP :=
 
 -- Standard n=10 All-Interval Series instance
 -- n = 10 series elements, n-1 = 9 differences, num_vars = 10 + 9 = 19
-def all_interval_10 : HomogeneousCSP :=
+def all_interval_10 : IntCSP :=
   all_interval_csp 10 19
 
 def main : IO Unit := do

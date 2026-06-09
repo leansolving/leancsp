@@ -8,7 +8,7 @@ open Sat.PB (Constr Literal)
 /-!
 # PB (pseudo-Boolean) verified backend — umbrella / bridge-API anchor
 
-Confirms that leancsp (`HomogeneousCSP`, with Mathlib) and PBLean
+Confirms that leancsp (`IntCSP`, with Mathlib) and PBLean
 (`VeriPB.*`, Mathlib-free) co-compile on the shared Lean 4.30.0 toolchain,
 and pins down the exact PBLean symbols the UNSAT bridge composes with:
 
@@ -29,6 +29,6 @@ example (cs : Array Constr) (numVars : Nat) (proof : String)
   VeriPB.Reflect.checkProof_sound cs numVars proof h
 
 /-- Smoke check: both type families are usable together in one module. -/
-example (_csp : HomogeneousCSP) (c : Constr) : Nat := c.degree
+example (_csp : IntCSP) (c : Constr) : Nat := c.degree
 
 end CSP.L2S.PB

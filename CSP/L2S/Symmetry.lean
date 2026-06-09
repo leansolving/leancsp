@@ -11,7 +11,7 @@ namespace CSP.L2S
 /-!
 # L2M Symmetry Theory
 
-Symmetry-breaking theory for L2M HomogeneousCSPs with integer domains.
+Symmetry-breaking theory for L2M IntCSPs with integer domains.
 
 ## Symmetry Types
 
@@ -26,24 +26,24 @@ Symmetry-breaking theory for L2M HomogeneousCSPs with integer domains.
 - `symmetry_breaking_preserves_equisatisfiability`: Adding symmetry-breaking constraints preserves satisfiability
 -/
 
-open HomogeneousCSP
+open IntCSP
 
 -- ============================================================================
 -- Core Symmetry Definitions
 -- ============================================================================
 
 /-- Domain symmetry: a permutation of ℤ that preserves all constraints -/
-def DomainSymmetry (csp : HomogeneousCSP) (δ : Equiv.Perm HomogeneousDomain) : Prop :=
-  ∀ assignment : HomogeneousAssignment csp.num_vars,
-  isSolution csp assignment →
-  isSolution csp (δ ∘ assignment)
+def DomainSymmetry (csp : IntCSP) (δ : Equiv.Perm IntDomain) : Prop :=
+  ∀ assignment : IntAssignment csp.num_vars,
+  isSolutionInt csp assignment →
+  isSolutionInt csp (δ ∘ assignment)
 
 /-- Variable symmetry: a permutation of variable indices that preserves all constraints -/
-def VariableSymmetry (csp : HomogeneousCSP)
-    (β : Equiv.Perm (HomogeneousVarIndex csp.num_vars)) : Prop :=
-  ∀ assignment : HomogeneousAssignment csp.num_vars,
-  isSolution csp assignment →
-  isSolution csp (assignment ∘ β)
+def VariableSymmetry (csp : IntCSP)
+    (β : Equiv.Perm (VarType csp.num_vars)) : Prop :=
+  ∀ assignment : IntAssignment csp.num_vars,
+  isSolutionInt csp assignment →
+  isSolutionInt csp (assignment ∘ β)
 
 -- ============================================================================
 -- Common Domain Symmetries
@@ -52,28 +52,28 @@ def VariableSymmetry (csp : HomogeneousCSP)
 namespace DomainSymmetry
 
 /-- Identity domain symmetry -/
-def identity : Equiv.Perm HomogeneousDomain := Equiv.refl _
+def identity : Equiv.Perm IntDomain := Equiv.refl _
 
 /-- Swap two values in the integer domain -/
-def swap (i j : HomogeneousDomain) : Equiv.Perm HomogeneousDomain :=
+def swap (i j : IntDomain) : Equiv.Perm IntDomain :=
   Equiv.swap i j
 
 /-- Negation symmetry: flip the sign of all values -/
-def negation : Equiv.Perm HomogeneousDomain where
+def negation : Equiv.Perm IntDomain where
   toFun := fun x => -x
   invFun := fun x => -x
   left_inv := fun x => by simp
   right_inv := fun x => by simp
 
 /-- Translation symmetry: add a constant offset -/
-def translate (offset : ℤ) : Equiv.Perm HomogeneousDomain where
+def translate (offset : ℤ) : Equiv.Perm IntDomain where
   toFun := fun x => x + offset
   invFun := fun x => x - offset
   left_inv := fun x => by ring
   right_inv := fun x => by ring
 
 /-- Identity is always a domain symmetry -/
-theorem identity_is_symmetry (csp : HomogeneousCSP) :
+theorem identity_is_symmetry (csp : IntCSP) :
     DomainSymmetry csp identity := by
   intro assignment h_solution
   simp only [identity]
@@ -88,15 +88,15 @@ end DomainSymmetry
 namespace VariableSymmetry
 
 /-- Identity variable symmetry -/
-def identity (num_vars : ℕ) : Equiv.Perm (HomogeneousVarIndex num_vars) := Equiv.refl _
+def identity (num_vars : ℕ) : Equiv.Perm (VarType num_vars) := Equiv.refl _
 
 /-- Swap two variables -/
-def swap {num_vars : ℕ} (i j : HomogeneousVarIndex num_vars) :
-    Equiv.Perm (HomogeneousVarIndex num_vars) :=
+def swap {num_vars : ℕ} (i j : VarType num_vars) :
+    Equiv.Perm (VarType num_vars) :=
   Equiv.swap i j
 
 /-- Identity is always a variable symmetry -/
-theorem identity_is_symmetry (csp : HomogeneousCSP) :
+theorem identity_is_symmetry (csp : IntCSP) :
     VariableSymmetry csp (identity csp.num_vars) := by
   intro assignment h_solution
   simp only [identity]
@@ -110,30 +110,30 @@ end VariableSymmetry
 
 /-- A dynamic constraint is domain symmetric if it's invariant under domain permutations -/
 def constraintDomainSymmetric {num_vars : ℕ}
-    (c : DynamicConstraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain))
-    (δ : Equiv.Perm HomogeneousDomain) : Prop :=
-  ∀ assignment : HomogeneousAssignment num_vars,
+    (c : DynamicConstraint (VarType num_vars) (fun _ => IntDomain))
+    (δ : Equiv.Perm IntDomain) : Prop :=
+  ∀ assignment : IntAssignment num_vars,
     satisfies_dynamic_constraint c assignment →
     satisfies_dynamic_constraint c (δ ∘ assignment)
 
 /-- A dynamic constraint is variable symmetric if it's invariant under variable permutations -/
 def constraintVariableSymmetric {num_vars : ℕ}
-    (c : DynamicConstraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain))
-    (β : Equiv.Perm (HomogeneousVarIndex num_vars)) : Prop :=
-  ∀ assignment : HomogeneousAssignment num_vars,
+    (c : DynamicConstraint (VarType num_vars) (fun _ => IntDomain))
+    (β : Equiv.Perm (VarType num_vars)) : Prop :=
+  ∀ assignment : IntAssignment num_vars,
     satisfies_dynamic_constraint c assignment →
     satisfies_dynamic_constraint c (assignment ∘ β)
 
 /-- A tagged constraint is domain symmetric if its dynamic part is -/
 def taggedConstraintDomainSymmetric {num_vars : ℕ}
     (tc : TaggedConstraint num_vars)
-    (δ : Equiv.Perm HomogeneousDomain) : Prop :=
+    (δ : Equiv.Perm IntDomain) : Prop :=
   constraintDomainSymmetric tc.dynamic δ
 
 /-- A tagged constraint is variable symmetric if its dynamic part is -/
 def taggedConstraintVariableSymmetric {num_vars : ℕ}
     (tc : TaggedConstraint num_vars)
-    (β : Equiv.Perm (HomogeneousVarIndex num_vars)) : Prop :=
+    (β : Equiv.Perm (VarType num_vars)) : Prop :=
   constraintVariableSymmetric tc.dynamic β
 
 -- ============================================================================
@@ -141,8 +141,8 @@ def taggedConstraintVariableSymmetric {num_vars : ℕ}
 -- ============================================================================
 
 /-- Domain symmetries preserve solutions when all constraints are symmetric -/
-theorem domain_symmetry_preserves_solutions (csp : HomogeneousCSP)
-    (δ : Equiv.Perm HomogeneousDomain)
+theorem domain_symmetry_preserves_solutions (csp : IntCSP)
+    (δ : Equiv.Perm IntDomain)
     (h_constraints : ∀ c ∈ csp.constraints, taggedConstraintDomainSymmetric c δ) :
     DomainSymmetry csp δ := by
   intro assignment h_solution tc h_tc_mem
@@ -151,8 +151,8 @@ theorem domain_symmetry_preserves_solutions (csp : HomogeneousCSP)
   exact h_symmetric assignment (h_solution tc h_tc_mem)
 
 /-- Variable symmetries preserve solutions when all constraints are symmetric -/
-theorem variable_symmetry_preserves_solutions (csp : HomogeneousCSP)
-    (β : Equiv.Perm (HomogeneousVarIndex csp.num_vars))
+theorem variable_symmetry_preserves_solutions (csp : IntCSP)
+    (β : Equiv.Perm (VarType csp.num_vars))
     (h_constraints : ∀ c ∈ csp.constraints, taggedConstraintVariableSymmetric c β) :
     VariableSymmetry csp β := by
   intro assignment h_solution tc h_tc_mem
@@ -166,26 +166,26 @@ theorem variable_symmetry_preserves_solutions (csp : HomogeneousCSP)
 
 /-- A domain symmetry breaking constraint: for every solution, there exists a domain
     symmetry transforming it to a solution of the extended CSP -/
-def domainSymmetryBreakingConstraint (csp : HomogeneousCSP)
+def domainSymmetryBreakingConstraint (csp : IntCSP)
     (c : TaggedConstraint csp.num_vars) : Prop :=
-  ∀ assignment : HomogeneousAssignment csp.num_vars,
-  isSolution csp assignment →
-  ∃ δ : Equiv.Perm HomogeneousDomain,
+  ∀ assignment : IntAssignment csp.num_vars,
+  isSolutionInt csp assignment →
+  ∃ δ : Equiv.Perm IntDomain,
     DomainSymmetry csp δ ∧
-    isSolution (csp.addConstraint c) (δ ∘ assignment)
+    isSolutionInt (csp.addConstraint c) (δ ∘ assignment)
 
 /-- A variable symmetry breaking constraint: for every solution, there exists a variable
     symmetry transforming it to a solution of the extended CSP -/
-def variableSymmetryBreakingConstraint (csp : HomogeneousCSP)
+def variableSymmetryBreakingConstraint (csp : IntCSP)
     (c : TaggedConstraint csp.num_vars) : Prop :=
-  ∀ assignment : HomogeneousAssignment csp.num_vars,
-  isSolution csp assignment →
-  ∃ β : Equiv.Perm (HomogeneousVarIndex csp.num_vars),
+  ∀ assignment : IntAssignment csp.num_vars,
+  isSolutionInt csp assignment →
+  ∃ β : Equiv.Perm (VarType csp.num_vars),
     VariableSymmetry csp β ∧
-    isSolution (csp.addConstraint c) (assignment ∘ β)
+    isSolutionInt (csp.addConstraint c) (assignment ∘ β)
 
 /-- General symmetry breaking constraint: breaks either domain or variable symmetries -/
-def symmetryBreakingConstraint (csp : HomogeneousCSP)
+def symmetryBreakingConstraint (csp : IntCSP)
     (c : TaggedConstraint csp.num_vars) : Prop :=
   domainSymmetryBreakingConstraint csp c ∨
   variableSymmetryBreakingConstraint csp c
@@ -196,30 +196,30 @@ def symmetryBreakingConstraint (csp : HomogeneousCSP)
 
 /-- Domain symmetry breaking constraints preserve satisfiability -/
 theorem domainSymmetryBreaking_preserves_satisfiability
-    (csp : HomogeneousCSP) (c : TaggedConstraint csp.num_vars)
-    (h_satisfiable : isSatisfiable csp)
+    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
+    (h_satisfiable : isSatisfiableInt csp)
     (h_sbc : domainSymmetryBreakingConstraint csp c) :
-    isSatisfiable (csp.addConstraint c) := by
+    isSatisfiableInt (csp.addConstraint c) := by
   obtain ⟨assignment, h_solution⟩ := h_satisfiable
   obtain ⟨δ, h_symmetry, h_solution'⟩ := h_sbc assignment h_solution
   exact ⟨δ ∘ assignment, h_solution'⟩
 
 /-- Variable symmetry breaking constraints preserve satisfiability -/
 theorem variableSymmetryBreaking_preserves_satisfiability
-    (csp : HomogeneousCSP) (c : TaggedConstraint csp.num_vars)
-    (h_satisfiable : isSatisfiable csp)
+    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
+    (h_satisfiable : isSatisfiableInt csp)
     (h_sbc : variableSymmetryBreakingConstraint csp c) :
-    isSatisfiable (csp.addConstraint c) := by
+    isSatisfiableInt (csp.addConstraint c) := by
   obtain ⟨assignment, h_solution⟩ := h_satisfiable
   obtain ⟨β, h_symmetry, h_solution'⟩ := h_sbc assignment h_solution
   exact ⟨assignment ∘ β, h_solution'⟩
 
 /-- General symmetry breaking preserves satisfiability -/
 theorem symmetryBreaking_preserves_satisfiability
-    (csp : HomogeneousCSP) (c : TaggedConstraint csp.num_vars)
-    (h_satisfiable : isSatisfiable csp)
+    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
+    (h_satisfiable : isSatisfiableInt csp)
     (h_sbc : symmetryBreakingConstraint csp c) :
-    isSatisfiable (csp.addConstraint c) := by
+    isSatisfiableInt (csp.addConstraint c) := by
   unfold symmetryBreakingConstraint at h_sbc
   obtain h_domain | h_variable := h_sbc
   · exact domainSymmetryBreaking_preserves_satisfiability csp c h_satisfiable h_domain
@@ -231,7 +231,7 @@ theorem symmetryBreaking_preserves_satisfiability
 
 /-- Domain symmetry breaking implies equisatisfiability -/
 theorem domainSymmetryBreaking_equisatisfiability
-    (csp : HomogeneousCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
     (h_sbc : domainSymmetryBreakingConstraint csp c) :
     equisatisfiable csp (csp.addConstraint c) := by
   constructor
@@ -250,7 +250,7 @@ theorem domainSymmetryBreaking_equisatisfiability
 
 /-- Variable symmetry breaking implies equisatisfiability -/
 theorem variableSymmetryBreaking_equisatisfiability
-    (csp : HomogeneousCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
     (h_sbc : variableSymmetryBreakingConstraint csp c) :
     equisatisfiable csp (csp.addConstraint c) := by
   constructor
@@ -269,7 +269,7 @@ theorem variableSymmetryBreaking_equisatisfiability
 
 /-- General symmetry breaking implies equisatisfiability -/
 theorem symmetryBreaking_equisatisfiability
-    (csp : HomogeneousCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
     (h_sbc : symmetryBreakingConstraint csp c) :
     equisatisfiable csp (csp.addConstraint c) := by
   unfold symmetryBreakingConstraint at h_sbc
@@ -283,7 +283,7 @@ theorem symmetryBreaking_equisatisfiability
 
 /-- Domain symmetry breaking preserves heterogeneous equisatisfiability via embedding -/
 theorem domainSymmetryBreaking_heterogeneous_equisatisfiability
-    (csp : HomogeneousCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
     (h_sbc : domainSymmetryBreakingConstraint csp c) :
     CSP.equisatisfiable (embed csp) (embed (csp.addConstraint c)) := by
   have h_native := domainSymmetryBreaking_equisatisfiability csp c h_sbc
@@ -300,7 +300,7 @@ theorem domainSymmetryBreaking_heterogeneous_equisatisfiability
 
 /-- Variable symmetry breaking preserves heterogeneous equisatisfiability via embedding -/
 theorem variableSymmetryBreaking_heterogeneous_equisatisfiability
-    (csp : HomogeneousCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
     (h_sbc : variableSymmetryBreakingConstraint csp c) :
     CSP.equisatisfiable (embed csp) (embed (csp.addConstraint c)) := by
   have h_native := variableSymmetryBreaking_equisatisfiability csp c h_sbc
@@ -317,7 +317,7 @@ theorem variableSymmetryBreaking_heterogeneous_equisatisfiability
 
 /-- General symmetry breaking preserves heterogeneous equisatisfiability via embedding -/
 theorem symmetryBreaking_heterogeneous_equisatisfiability
-    (csp : HomogeneousCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
     (h_sbc : symmetryBreakingConstraint csp c) :
     CSP.equisatisfiable (embed csp) (embed (csp.addConstraint c)) := by
   unfold symmetryBreakingConstraint at h_sbc
@@ -353,9 +353,9 @@ def isBoundConstraint {num_vars : ℕ} (tc : TaggedConstraint num_vars) : Option
 
 /-- Interval-preserving domain permutations preserve individual bound constraints -/
 theorem intervalPreserving_preserves_bound {num_vars : ℕ}
-    (δ : Equiv.Perm HomogeneousDomain) (v : HomogeneousVarIndex num_vars) (lb ub : ℤ)
+    (δ : Equiv.Perm IntDomain) (v : VarType num_vars) (lb ub : ℤ)
     (h_interval : intervalPreserving δ lb ub)
-    (assignment : HomogeneousAssignment num_vars) :
+    (assignment : IntAssignment num_vars) :
     satisfies_dynamic_constraint (bound v lb ub).dynamic assignment ↔
     satisfies_dynamic_constraint (bound v lb ub).dynamic (δ ∘ assignment) := by
   -- Unfold constraint satisfaction definitions
@@ -376,10 +376,10 @@ theorem intervalPreserving_preserves_bound {num_vars : ℕ}
 
 /-- Domain permutation preserves a list of bound constraints when interval-preserving -/
 theorem domainSymmetry_preserves_bound_list {num_vars : ℕ}
-    (δ : Equiv.Perm HomogeneousDomain)
-    (bounds : List (HomogeneousVarIndex num_vars × ℤ × ℤ))
+    (δ : Equiv.Perm IntDomain)
+    (bounds : List (VarType num_vars × ℤ × ℤ))
     (h_interval : ∀ (v lb ub), (v, lb, ub) ∈ bounds → intervalPreserving δ lb ub)
-    (assignment : HomogeneousAssignment num_vars) :
+    (assignment : IntAssignment num_vars) :
     (∀ (v lb ub), (v, lb, ub) ∈ bounds →
       satisfies_dynamic_constraint (bound v lb ub).dynamic assignment) ↔
     (∀ (v lb ub), (v, lb, ub) ∈ bounds →
@@ -396,9 +396,9 @@ theorem domainSymmetry_preserves_bound_list {num_vars : ℕ}
 
 /-- Variable permutation preserves bound constraints (always, regardless of interval) -/
 theorem variableSymmetry_preserves_bound {num_vars : ℕ}
-    (β : Equiv.Perm (HomogeneousVarIndex num_vars))
-    (v : HomogeneousVarIndex num_vars) (lb ub : ℤ)
-    (assignment : HomogeneousAssignment num_vars) :
+    (β : Equiv.Perm (VarType num_vars))
+    (v : VarType num_vars) (lb ub : ℤ)
+    (assignment : IntAssignment num_vars) :
     satisfies_dynamic_constraint (bound v lb ub).dynamic assignment ↔
     satisfies_dynamic_constraint (bound (β v) lb ub).dynamic (assignment ∘ β.symm) := by
   -- Unfold constraint satisfaction definitions
@@ -433,8 +433,8 @@ theorem variableSymmetry_preserves_bound {num_vars : ℕ}
 -- ============================================================================
 
 /-- Composition of domain symmetries is a domain symmetry -/
-theorem domainSymmetry_comp (csp : HomogeneousCSP)
-    (δ₁ δ₂ : Equiv.Perm HomogeneousDomain)
+theorem domainSymmetry_comp (csp : IntCSP)
+    (δ₁ δ₂ : Equiv.Perm IntDomain)
     (h₁ : DomainSymmetry csp δ₁) (h₂ : DomainSymmetry csp δ₂) :
     DomainSymmetry csp (δ₁.trans δ₂) := by
   intro assignment h_solution

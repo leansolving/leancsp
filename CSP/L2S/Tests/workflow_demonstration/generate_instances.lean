@@ -190,7 +190,7 @@ def appendToCSVStats (csvPath : String) (record : TimingRecordStats) (writeHeade
   handle.putStrLn record.toCSVRow
 
 /-- Save CSP to specific backend with multi-run timing -/
-def saveBackendTimedMultiRun (basename : String) (csp : HomogeneousCSP)
+def saveBackendTimedMultiRun (basename : String) (csp : IntCSP)
     (backend : BackendType) (writeCSVHeader : Bool) : IO BackendTimingsStats := do
   let dirName := getBackendDirName backend
   let ext := getBackendExtension backend
@@ -240,7 +240,7 @@ def formatNanos (ns : Float) : String :=
   s!"{μs.round}μs"
 
 /-- Save CSP to all backends with multi-run timing -/
-def saveAllBackendsTimedMultiRun (basename : String) (csp : HomogeneousCSP) (isFirst : Bool) : IO Unit := do
+def saveAllBackendsTimedMultiRun (basename : String) (csp : IntCSP) (isFirst : Bool) : IO Unit := do
   IO.println s!"Translating {basename} ({WARMUP_RUNS} warmup + {MEASURED_RUNS} runs)..."
 
   let mut writeHeader := isFirst
@@ -268,7 +268,7 @@ def queens_bounds (n : ℕ) : List (TaggedConstraint n) :=
   (List.finRange n).map fun i => bound i 1 n
 
 -- General N-Queens CSP - parametrized for any board size
-def nqueens_csp (n : ℕ) : HomogeneousCSP :=
+def nqueens_csp (n : ℕ) : IntCSP :=
   ⟨n, queens_bounds n ++ [
     alldifferent (_root_.Vector.ofFn id),
     alldifferent_diag_pos n,

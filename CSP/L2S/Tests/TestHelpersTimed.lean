@@ -77,7 +77,7 @@ def appendToCSV (csvPath : String) (record : TimingRecord) : IO Nat := do
 
 def timingCSVPath : String := "CSP/L2S/Tests/timing_results_raw.csv"
 
-def saveBackendTimed (basename : String) (csp : HomogeneousCSP)
+def saveBackendTimed (basename : String) (csp : IntCSP)
     (backend : BackendType) (prevCSVTime : Nat := 0) : IO BackendTimings := do
   let dirName := getBackendDirName backend
   let ext := getBackendExtension backend
@@ -104,7 +104,7 @@ def saveBackendTimed (basename : String) (csp : HomogeneousCSP)
     file_size_bytes := fileSize
   }
 
-def saveAllBackendsTimed (basename : String) (csp : HomogeneousCSP) : IO Unit := do
+def saveAllBackendsTimed (basename : String) (csp : IntCSP) : IO Unit := do
   IO.println s!"Translating {basename}..."
 
   let mut totalTranslationNs := 0

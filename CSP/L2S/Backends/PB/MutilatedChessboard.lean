@@ -41,37 +41,37 @@ Cells are taken in row-major order over the `14` remaining squares; placement va
 /-- The 20 domino-placement variables, one per pair of orthogonally adjacent remaining
     cells, each constrained to `{0,1}`; plus one exactly-one (`sum_eq … = 1`) constraint
     per remaining cell (its covering placements).  A solution is a perfect tiling. -/
-def mutilatedChessboard : HomogeneousCSP :=
+def mutilatedChessboard : IntCSP :=
   ⟨20, ((List.finRange 20).map (fun i => bound i 0 1))
       ++ [
     -- cell (0, 1) (white)
-    sum_eq (⟨#[0, 1], rfl⟩ : _root_.Vector (HomogeneousVarIndex 20) 2) 1,
+    sum_eq (⟨#[0, 1], rfl⟩ : _root_.Vector (VarType 20) 2) 1,
     -- cell (0, 2) (black)
-    sum_eq (⟨#[0, 2, 3], rfl⟩ : _root_.Vector (HomogeneousVarIndex 20) 3) 1,
+    sum_eq (⟨#[0, 2, 3], rfl⟩ : _root_.Vector (VarType 20) 3) 1,
     -- cell (0, 3) (white)
-    sum_eq (⟨#[2, 4], rfl⟩ : _root_.Vector (HomogeneousVarIndex 20) 2) 1,
+    sum_eq (⟨#[2, 4], rfl⟩ : _root_.Vector (VarType 20) 2) 1,
     -- cell (1, 0) (white)
-    sum_eq (⟨#[5, 6], rfl⟩ : _root_.Vector (HomogeneousVarIndex 20) 2) 1,
+    sum_eq (⟨#[5, 6], rfl⟩ : _root_.Vector (VarType 20) 2) 1,
     -- cell (1, 1) (black)
-    sum_eq (⟨#[1, 5, 7, 8], rfl⟩ : _root_.Vector (HomogeneousVarIndex 20) 4) 1,
+    sum_eq (⟨#[1, 5, 7, 8], rfl⟩ : _root_.Vector (VarType 20) 4) 1,
     -- cell (1, 2) (white)
-    sum_eq (⟨#[3, 7, 9, 10], rfl⟩ : _root_.Vector (HomogeneousVarIndex 20) 4) 1,
+    sum_eq (⟨#[3, 7, 9, 10], rfl⟩ : _root_.Vector (VarType 20) 4) 1,
     -- cell (1, 3) (black)
-    sum_eq (⟨#[4, 9, 11], rfl⟩ : _root_.Vector (HomogeneousVarIndex 20) 3) 1,
+    sum_eq (⟨#[4, 9, 11], rfl⟩ : _root_.Vector (VarType 20) 3) 1,
     -- cell (2, 0) (black)
-    sum_eq (⟨#[6, 12, 13], rfl⟩ : _root_.Vector (HomogeneousVarIndex 20) 3) 1,
+    sum_eq (⟨#[6, 12, 13], rfl⟩ : _root_.Vector (VarType 20) 3) 1,
     -- cell (2, 1) (white)
-    sum_eq (⟨#[8, 12, 14, 15], rfl⟩ : _root_.Vector (HomogeneousVarIndex 20) 4) 1,
+    sum_eq (⟨#[8, 12, 14, 15], rfl⟩ : _root_.Vector (VarType 20) 4) 1,
     -- cell (2, 2) (black)
-    sum_eq (⟨#[10, 14, 16, 17], rfl⟩ : _root_.Vector (HomogeneousVarIndex 20) 4) 1,
+    sum_eq (⟨#[10, 14, 16, 17], rfl⟩ : _root_.Vector (VarType 20) 4) 1,
     -- cell (2, 3) (white)
-    sum_eq (⟨#[11, 16], rfl⟩ : _root_.Vector (HomogeneousVarIndex 20) 2) 1,
+    sum_eq (⟨#[11, 16], rfl⟩ : _root_.Vector (VarType 20) 2) 1,
     -- cell (3, 0) (white)
-    sum_eq (⟨#[13, 18], rfl⟩ : _root_.Vector (HomogeneousVarIndex 20) 2) 1,
+    sum_eq (⟨#[13, 18], rfl⟩ : _root_.Vector (VarType 20) 2) 1,
     -- cell (3, 1) (black)
-    sum_eq (⟨#[15, 18, 19], rfl⟩ : _root_.Vector (HomogeneousVarIndex 20) 3) 1,
+    sum_eq (⟨#[15, 18, 19], rfl⟩ : _root_.Vector (VarType 20) 3) 1,
     -- cell (3, 2) (white)
-    sum_eq (⟨#[17, 19], rfl⟩ : _root_.Vector (HomogeneousVarIndex 20) 2) 1
+    sum_eq (⟨#[17, 19], rfl⟩ : _root_.Vector (VarType 20) 2) 1
       ]⟩
 
 /-! ### The signature and the linear `≤` constraint list -/
@@ -131,9 +131,9 @@ theorem mc_hbound (i : Fin mutilatedChessboard.num_vars) :
 
 /-- Every linear `≤` fact in `mcLin` follows from any solution: each cell's `sum_eq … = 1`
     gives `Σ covering placements = 1`, whose two `≤` halves are the `mcLin` entries. -/
-theorem mc_hlin (a : HomogeneousAssignment 20) (hsol : mutilatedChessboard.isSolution a) :
+theorem mc_hlin (a : IntAssignment 20) (hsol : mutilatedChessboard.isSolutionInt a) :
     ∀ c ∈ mcLin, (c.1.map (fun p => p.1 * a p.2)).sum ≤ c.2 := by
-  unfold HomogeneousCSP.isSolution mutilatedChessboard at hsol
+  unfold IntCSP.isSolutionInt mutilatedChessboard at hsol
   simp only [List.forall_mem_append, List.forall_mem_cons] at hsol
   obtain ⟨_hbounds, h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, _⟩ := hsol
   have hs0 := sum_eq_sat ⟨#[0, 1], rfl⟩ 1 a h0
@@ -202,7 +202,7 @@ theorem mc_formulaUnsat :
     pipeline — the `sum_eq` bridge turns any solution into the per-cell exactly-one facts,
     the `unsat_of_pb` spine order-encodes their `≤` halves via `encodeLinear`, and the
     committed certificate `mc_formulaUnsat` derives the colour-count contradiction. -/
-theorem mutilated_chessboard_unsat : ¬ mutilatedChessboard.isSatisfiable := by
+theorem mutilated_chessboard_unsat : ¬ mutilatedChessboard.isSatisfiableInt := by
   refine unsat_of_pb mutilatedChessboard (fun _ => 0) (fun _ => 1) (fun _ => by norm_num)
     mc_hbound mcLin mc_hlin ?_
   show VeriPB.Reflect.formulaUnsat

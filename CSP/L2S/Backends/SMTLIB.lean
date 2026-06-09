@@ -8,7 +8,7 @@ open CSP.L2S
 /-!
 # SMT-LIB Backend for L2M
 
-Translates HomogeneousCSP to SMT-LIB 2.6 format for SMT solvers (Z3, CVC5, etc.).
+Translates IntCSP to SMT-LIB 2.6 format for SMT solvers (Z3, CVC5, etc.).
 
 ## Features
 - Pattern-based constraint translation
@@ -48,7 +48,7 @@ def assertRel (op : RelOp) (lhs rhs : String) : String :=
 -- ============================================================================
 
 /-- Infer SMT-LIB logic from constraint patterns (FIXED: was hardcoded) -/
-def inferLogic (csp : HomogeneousCSP) : String :=
+def inferLogic (csp : IntCSP) : String :=
   let hasNonlinear := csp.constraints.any fun tc =>
     match tc.pattern with
     | ConstraintPattern.product_rel_var vars _ _ => vars.length ≥ 2
@@ -354,19 +354,19 @@ def smtlibBackend : Backend where
 -- ============================================================================
 
 /-- Convenience wrapper (backward compatibility) -/
-def translateToSMTLIB (csp : HomogeneousCSP) : String :=
+def translateToSMTLIB (csp : IntCSP) : String :=
   match translateWith smtlibBackend default csp with
   | .ok s => s
   | .error e => s!"; Error: {e.msg}"
 
 /-- Convenience wrapper with custom logic -/
-def translateToSMTLIBWithLogic (csp : HomogeneousCSP) (logic : String) : String :=
+def translateToSMTLIBWithLogic (csp : IntCSP) (logic : String) : String :=
   match translateWith smtlibBackend { smtLogic := some logic } csp with
   | .ok s => s
   | .error e => s!"; Error: {e.msg}"
 
 /-- Convenience wrapper with strict mode -/
-def translateToSMTLIBStrict (csp : HomogeneousCSP) : Except TranslatorError String :=
+def translateToSMTLIBStrict (csp : IntCSP) : Except TranslatorError String :=
   translateWith smtlibBackend { strict := true } csp
 
 end CSP.L2S.SMTLIB

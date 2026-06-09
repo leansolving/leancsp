@@ -134,12 +134,12 @@ theorem schur_no_sol : ¬ ∃ (a : Fin schurSig.nInt → Int) (_ : Fin schurSig.
     not-all-equal facts on each sum triple (including the diagonals `1+1=2`, `2+2=4`),
     the generic spine `csp_unsat_generic` turns those into a PB model, and the
     committed certificate `schur_formulaUnsat` contradicts it. -/
-theorem schur_2_5_unsat : ¬ schur_2_5.isSatisfiable := by
+theorem schur_2_5_unsat : ¬ schur_2_5.isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Every colour lies in `{1,2}` (from its `bound`).
   have hdom : ∀ i : Fin schurSig.nInt, a i ∈ schurSig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 1 (2 : ℕ)) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 1 (2 : ℕ)) a := by
       apply hsol
       exact List.mem_append_left _ (List.mem_map.mpr ⟨i, List.mem_finRange i, rfl⟩)
     obtain ⟨h1, h2⟩ := bound_sat i 1 (2 : ℕ) a hb

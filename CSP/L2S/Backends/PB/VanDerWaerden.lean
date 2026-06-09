@@ -142,12 +142,12 @@ theorem vdw_no_sol : ¬ ∃ (a : Fin vdwSig.nInt → Int) (_ : Fin vdwSig.nBool 
     bridge turns any solution into not-all-equal facts on each AP, the generic spine
     `csp_unsat_generic` turns those into a PB model, and the committed certificate
     `vdw_formulaUnsat` contradicts it.  No hand-wired order-encoding soundness. -/
-theorem vdw_2_3_9_unsat : ¬ vdw_2_3_9.isSatisfiable := by
+theorem vdw_2_3_9_unsat : ¬ vdw_2_3_9.isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Every colour lies in `{0,1}` (from its `bound`).
   have hdom : ∀ i : Fin vdwSig.nInt, a i ∈ vdwSig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 0 1) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 0 1) a := by
       apply hsol
       exact List.mem_append_left _ (List.mem_map.mpr ⟨i, List.mem_finRange i, rfl⟩)
     obtain ⟨h1, h2⟩ := bound_sat i 0 1 a hb

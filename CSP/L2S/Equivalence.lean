@@ -9,7 +9,7 @@ namespace CSP.L2S
 /-!
 # L2M Equivalence Theory
 
-Equivalence relations for L2M HomogeneousCSPs where all variables have integer domains.
+Equivalence relations for L2M IntCSPs where all variables have integer domains.
 
 ## Key Advantage
 
@@ -26,18 +26,18 @@ Working directly with the unified structure means:
 ```
 -/
 
-open HomogeneousCSP
+open IntCSP
 
 -- ============================================================================
 -- Solution Set Definition
 -- ============================================================================
 
 /-- The solution set for an L2M CSP with integer domains -/
-def solSet (csp : HomogeneousCSP) : Set (HomogeneousAssignment csp.num_vars) :=
-  { assignment | isSolution csp assignment }
+def solSet (csp : IntCSP) : Set (IntAssignment csp.num_vars) :=
+  { assignment | isSolutionInt csp assignment }
 
 /-- Solution set equals heterogeneous counterpart via embedding -/
-theorem solSet_eq_heterogeneous (csp : HomogeneousCSP) :
+theorem solSet_eq_heterogeneous (csp : IntCSP) :
     solSet csp = CSP.sol_set (embed csp) := by
   ext assignment
   simp only [solSet, CSP.sol_set, Set.mem_setOf]
@@ -51,15 +51,15 @@ theorem solSet_eq_heterogeneous (csp : HomogeneousCSP) :
 Two L2M CSPs are equivalent if there exists a bijection between their solution sets.
 This is the strongest equivalence notion.
 -/
-def equivalent (csp₁ csp₂ : HomogeneousCSP) : Prop :=
+def equivalent (csp₁ csp₂ : IntCSP) : Prop :=
   ∃ f : {x // x ∈ solSet csp₁} → {x // x ∈ solSet csp₂}, Function.Bijective f
 
 /--
 Two L2M CSPs are equisatisfiable if they have the same satisfiability status.
 This is a weaker notion than equivalence.
 -/
-def equisatisfiable (csp₁ csp₂ : HomogeneousCSP) : Prop :=
-  isSatisfiable csp₁ ↔ isSatisfiable csp₂
+def equisatisfiable (csp₁ csp₂ : IntCSP) : Prop :=
+  isSatisfiableInt csp₁ ↔ isSatisfiableInt csp₂
 
 /--
 π-equivalence: CSP₂ is π-equivalent to CSP₁ via projection π if:
@@ -67,16 +67,16 @@ def equisatisfiable (csp₁ csp₂ : HomogeneousCSP) : Prop :=
 2. Every solution of csp₁ has a preimage solution in csp₂
 3. Different csp₂ solutions project to different csp₁ solutions
 -/
-def piEquivalent (csp₁ csp₂ : HomogeneousCSP)
-    (π : HomogeneousAssignment csp₂.num_vars → HomogeneousAssignment csp₁.num_vars) : Prop :=
-  (∀ sol₂ : HomogeneousAssignment csp₂.num_vars,
-    isSolution csp₂ sol₂ → isSolution csp₁ (π sol₂)) ∧
-  (∀ sol₁ : HomogeneousAssignment csp₁.num_vars,
-    isSolution csp₁ sol₁ →
-    ∃ sol₂ : HomogeneousAssignment csp₂.num_vars,
-      isSolution csp₂ sol₂ ∧ π sol₂ = sol₁) ∧
-  (∀ sol₂ sol₂' : HomogeneousAssignment csp₂.num_vars,
-    isSolution csp₂ sol₂ → isSolution csp₂ sol₂' →
+def piEquivalent (csp₁ csp₂ : IntCSP)
+    (π : IntAssignment csp₂.num_vars → IntAssignment csp₁.num_vars) : Prop :=
+  (∀ sol₂ : IntAssignment csp₂.num_vars,
+    isSolutionInt csp₂ sol₂ → isSolutionInt csp₁ (π sol₂)) ∧
+  (∀ sol₁ : IntAssignment csp₁.num_vars,
+    isSolutionInt csp₁ sol₁ →
+    ∃ sol₂ : IntAssignment csp₂.num_vars,
+      isSolutionInt csp₂ sol₂ ∧ π sol₂ = sol₁) ∧
+  (∀ sol₂ sol₂' : IntAssignment csp₂.num_vars,
+    isSolutionInt csp₂ sol₂ → isSolutionInt csp₂ sol₂' →
     π sol₂ = π sol₂' → sol₂ = sol₂')
 
 -- ============================================================================
@@ -84,8 +84,8 @@ def piEquivalent (csp₁ csp₂ : HomogeneousCSP)
 -- ============================================================================
 
 /-- π-equivalence implies equivalence -/
-theorem piEquivalent_implies_equivalent (csp₁ csp₂ : HomogeneousCSP)
-    (π : HomogeneousAssignment csp₂.num_vars → HomogeneousAssignment csp₁.num_vars) :
+theorem piEquivalent_implies_equivalent (csp₁ csp₂ : IntCSP)
+    (π : IntAssignment csp₂.num_vars → IntAssignment csp₁.num_vars) :
     piEquivalent csp₁ csp₂ π → equivalent csp₂ csp₁ := by
   intro h
   obtain ⟨h_forward, h_backward, h_injective⟩ := h
@@ -109,7 +109,7 @@ theorem piEquivalent_implies_equivalent (csp₁ csp₂ : HomogeneousCSP)
     exact Subtype.ext h_proj
 
 /-- Equivalence implies equisatisfiability -/
-theorem equivalent_implies_equisatisfiable (csp₁ csp₂ : HomogeneousCSP) :
+theorem equivalent_implies_equisatisfiable (csp₁ csp₂ : IntCSP) :
     equivalent csp₁ csp₂ → equisatisfiable csp₁ csp₂ := by
   intro h
   obtain ⟨f, hf_bij⟩ := h
@@ -126,8 +126,8 @@ theorem equivalent_implies_equisatisfiable (csp₁ csp₂ : HomogeneousCSP) :
     exact ⟨x.val, x.property⟩
 
 /-- π-equivalence implies equisatisfiability -/
-theorem piEquivalent_implies_equisatisfiable (csp₁ csp₂ : HomogeneousCSP)
-    (π : HomogeneousAssignment csp₂.num_vars → HomogeneousAssignment csp₁.num_vars) :
+theorem piEquivalent_implies_equisatisfiable (csp₁ csp₂ : IntCSP)
+    (π : IntAssignment csp₂.num_vars → IntAssignment csp₁.num_vars) :
     piEquivalent csp₁ csp₂ π → equisatisfiable csp₁ csp₂ := by
   intro h
   have h_equiv := piEquivalent_implies_equivalent csp₁ csp₂ π h
@@ -139,12 +139,12 @@ theorem piEquivalent_implies_equisatisfiable (csp₁ csp₂ : HomogeneousCSP)
 -- ============================================================================
 
 /-- Equivalence is reflexive -/
-theorem equivalent_refl (csp : HomogeneousCSP) : equivalent csp csp := by
+theorem equivalent_refl (csp : IntCSP) : equivalent csp csp := by
   use id
   exact Function.bijective_id
 
 /-- Equivalence is symmetric -/
-theorem equivalent_symm (csp₁ csp₂ : HomogeneousCSP) :
+theorem equivalent_symm (csp₁ csp₂ : IntCSP) :
     equivalent csp₁ csp₂ → equivalent csp₂ csp₁ := by
   intro h
   obtain ⟨f, hf_bij⟩ := h
@@ -158,7 +158,7 @@ theorem equivalent_symm (csp₁ csp₂ : HomogeneousCSP) :
     exact h_left a
 
 /-- Equivalence is transitive -/
-theorem equivalent_trans (csp₁ csp₂ csp₃ : HomogeneousCSP) :
+theorem equivalent_trans (csp₁ csp₂ csp₃ : IntCSP) :
     equivalent csp₁ csp₂ → equivalent csp₂ csp₃ → equivalent csp₁ csp₃ := by
   intro h₁₂ h₂₃
   obtain ⟨f₁₂, hf₁₂⟩ := h₁₂
@@ -167,17 +167,17 @@ theorem equivalent_trans (csp₁ csp₂ csp₃ : HomogeneousCSP) :
   exact Function.Bijective.comp hf₂₃ hf₁₂
 
 /-- Equisatisfiability is reflexive -/
-theorem equisatisfiable_refl (csp : HomogeneousCSP) : equisatisfiable csp csp := by
+theorem equisatisfiable_refl (csp : IntCSP) : equisatisfiable csp csp := by
   rfl
 
 /-- Equisatisfiability is symmetric -/
-theorem equisatisfiable_symm (csp₁ csp₂ : HomogeneousCSP) :
+theorem equisatisfiable_symm (csp₁ csp₂ : IntCSP) :
     equisatisfiable csp₁ csp₂ → equisatisfiable csp₂ csp₁ := by
   intro h
   exact h.symm
 
 /-- Equisatisfiability is transitive -/
-theorem equisatisfiable_trans (csp₁ csp₂ csp₃ : HomogeneousCSP) :
+theorem equisatisfiable_trans (csp₁ csp₂ csp₃ : IntCSP) :
     equisatisfiable csp₁ csp₂ → equisatisfiable csp₂ csp₃ → equisatisfiable csp₁ csp₃ := by
   intro h₁₂ h₂₃
   exact h₁₂.trans h₂₃
@@ -187,7 +187,7 @@ theorem equisatisfiable_trans (csp₁ csp₂ csp₃ : HomogeneousCSP) :
 -- ============================================================================
 
 /-- L2M equisatisfiability implies heterogeneous equisatisfiability via embedding -/
-theorem equisatisfiable_implies_heterogeneous_equisatisfiable (csp₁ csp₂ : HomogeneousCSP) :
+theorem equisatisfiable_implies_heterogeneous_equisatisfiable (csp₁ csp₂ : IntCSP) :
     equisatisfiable csp₁ csp₂ → CSP.equisatisfiable (embed csp₁) (embed csp₂) := by
   intro h
   simp only [CSP.equisatisfiable]
@@ -196,7 +196,7 @@ theorem equisatisfiable_implies_heterogeneous_equisatisfiable (csp₁ csp₂ : H
   exact h
 
 /-- Heterogeneous equisatisfiability implies L2M equisatisfiability (converse) -/
-theorem heterogeneous_equisatisfiable_implies_equisatisfiable (csp₁ csp₂ : HomogeneousCSP) :
+theorem heterogeneous_equisatisfiable_implies_equisatisfiable (csp₁ csp₂ : IntCSP) :
     CSP.equisatisfiable (embed csp₁) (embed csp₂) → equisatisfiable csp₁ csp₂ := by
   intro h
   simp only [CSP.equisatisfiable] at h
@@ -205,14 +205,14 @@ theorem heterogeneous_equisatisfiable_implies_equisatisfiable (csp₁ csp₂ : H
     (h.trans (embedding_preserves_satisfiability csp₂).symm)
 
 /-- L2M equisatisfiability is equivalent to heterogeneous equisatisfiability -/
-theorem equisatisfiable_iff_heterogeneous_equisatisfiable (csp₁ csp₂ : HomogeneousCSP) :
+theorem equisatisfiable_iff_heterogeneous_equisatisfiable (csp₁ csp₂ : IntCSP) :
     equisatisfiable csp₁ csp₂ ↔ CSP.equisatisfiable (embed csp₁) (embed csp₂) := by
   constructor
   · exact equisatisfiable_implies_heterogeneous_equisatisfiable csp₁ csp₂
   · exact heterogeneous_equisatisfiable_implies_equisatisfiable csp₁ csp₂
 
 /-- L2M equivalence implies heterogeneous equivalence via embedding -/
-theorem equivalent_implies_heterogeneous_equivalent (csp₁ csp₂ : HomogeneousCSP) :
+theorem equivalent_implies_heterogeneous_equivalent (csp₁ csp₂ : IntCSP) :
     equivalent csp₁ csp₂ → CSP.equivalent (embed csp₁) (embed csp₂) := by
   intro h
   obtain ⟨f, hf_bij⟩ := h
@@ -248,7 +248,7 @@ theorem equivalent_implies_heterogeneous_equivalent (csp₁ csp₂ : Homogeneous
     exact h_val_eq
 
 /-- Heterogeneous equivalence implies L2M equivalence (converse) -/
-theorem heterogeneous_equivalent_implies_equivalent (csp₁ csp₂ : HomogeneousCSP) :
+theorem heterogeneous_equivalent_implies_equivalent (csp₁ csp₂ : IntCSP) :
     CSP.equivalent (embed csp₁) (embed csp₂) → equivalent csp₁ csp₂ := by
   intro h
   obtain ⟨f, hf_bij⟩ := h
@@ -284,7 +284,7 @@ theorem heterogeneous_equivalent_implies_equivalent (csp₁ csp₂ : Homogeneous
     exact h_val_eq
 
 /-- L2M equivalence is equivalent to heterogeneous equivalence -/
-theorem equivalent_iff_heterogeneous_equivalent (csp₁ csp₂ : HomogeneousCSP) :
+theorem equivalent_iff_heterogeneous_equivalent (csp₁ csp₂ : IntCSP) :
     equivalent csp₁ csp₂ ↔ CSP.equivalent (embed csp₁) (embed csp₂) := by
   constructor
   · exact equivalent_implies_heterogeneous_equivalent csp₁ csp₂

@@ -37,7 +37,7 @@ CSPLib Problem 057 (standard 9×9 Sudoku)
 -/
 
 -- Helper function: get all variables in row i (for n×n grid)
-def row_variables (n : ℕ) (i : Fin n) : _root_.Vector (HomogeneousVarIndex (n*n)) n :=
+def row_variables (n : ℕ) (i : Fin n) : _root_.Vector (VarType (n*n)) n :=
   _root_.Vector.ofFn (fun j => ⟨i.val * n + j.val, by
     have h1 : i.val < n := i.isLt
     have h2 : j.val < n := j.isLt
@@ -47,7 +47,7 @@ def row_variables (n : ℕ) (i : Fin n) : _root_.Vector (HomogeneousVarIndex (n*
       _ ≤ n * n := Nat.mul_le_mul_right n (Nat.succ_le_of_lt h1)⟩)
 
 -- Helper function: get all variables in column j (for n×n grid)
-def col_variables (n : ℕ) (j : Fin n) : _root_.Vector (HomogeneousVarIndex (n*n)) n :=
+def col_variables (n : ℕ) (j : Fin n) : _root_.Vector (VarType (n*n)) n :=
   _root_.Vector.ofFn (fun i => ⟨i.val * n + j.val, by
     have h1 : i.val < n := i.isLt
     have h2 : j.val < n := j.isLt
@@ -59,7 +59,7 @@ def col_variables (n : ℕ) (j : Fin n) : _root_.Vector (HomogeneousVarIndex (n*
 -- Helper function: get all variables in box (br, bc) where br,bc ∈ [0, s-1]
 -- Box contains cells at (s*br+di, s*bc+dj) for di,dj ∈ [0, s-1]
 -- Uses filter approach like diagonal constraints in NQueens
-def box_variables (n s : ℕ) (br bc : Fin s) : List (HomogeneousVarIndex (n*n)) :=
+def box_variables (n s : ℕ) (br bc : Fin s) : List (VarType (n*n)) :=
   (List.finRange (n*n)).filter fun v =>
     let row := v.val / n
     let col := v.val % n
@@ -70,7 +70,7 @@ private def listToVector {α : Type*} (l : List α) : _root_.Vector α l.length 
   ⟨l.toArray, by simp [List.size_toArray]⟩
 
 -- Parametrized Sudoku CSP for n×n grid with s×s boxes (n should equal s²)
-def sudoku_csp (n s : ℕ) : HomogeneousCSP :=
+def sudoku_csp (n s : ℕ) : IntCSP :=
   let bounds_list := (List.finRange (n*n)).map fun i => bound i 1 n
   -- Row constraints: alldifferent for each row
   let row_constraints := (List.finRange n).map fun i =>
@@ -88,10 +88,10 @@ def sudoku_csp (n s : ℕ) : HomogeneousCSP :=
   ⟨n*n, bounds_list ++ row_constraints ++ col_constraints ++ box_constraints⟩
 
 -- Standard 9×9 Sudoku instance
-def sudoku_9 : HomogeneousCSP :=
+def sudoku_9 : IntCSP :=
   sudoku_csp 9 3
 
-def sudoku_4 : HomogeneousCSP :=
+def sudoku_4 : IntCSP :=
   sudoku_csp 4 2
 
 def main : IO Unit := do

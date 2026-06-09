@@ -28,14 +28,14 @@ def extractBasename (fullPath : String) : String :=
   let fp := System.FilePath.mk fullPath
   fp.fileStem.getD "unknown"
 
-def saveBackend (basename : String) (csp : HomogeneousCSP) (backend : BackendType) : IO Unit := do
+def saveBackend (basename : String) (csp : IntCSP) (backend : BackendType) : IO Unit := do
   let dirName := getBackendDirName backend
   let ext := getBackendExtension backend
 
   let content := translateTo csp backend
   saveToFile s!"CSP/L2S/Tests/{dirName}/{basename}.{ext}" content
 
-def saveAllBackends (basename : String) (csp : HomogeneousCSP) : IO Unit := do
+def saveAllBackends (basename : String) (csp : IntCSP) : IO Unit := do
   IO.println s!"Translating {basename}..."
   for backend in allBackends do
     saveBackend basename csp backend

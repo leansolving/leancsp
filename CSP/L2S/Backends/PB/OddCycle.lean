@@ -18,7 +18,7 @@ control that isolates the pigeonhole / mutilated-chessboard walls as
 resolution-specific.
 
 The proof is **generic in the cycle**.  `cycle_2col_unsat n edges hunsat` discharges
-`¬ (graph_coloring_csp n edges 2).isSatisfiable` from a single committed PB
+`¬ (graph_coloring_csp n edges 2).isSatisfiableInt` from a single committed PB
 certificate (`hunsat`), exactly as `k3_2col_unsat` does, via the binary
 not-all-equal bridge (`not_equal_sat` / `extend_sat_encodeNotAllEqualBin`) and the
 generic spine `csp_unsat_generic`.  Each concrete cycle then supplies only its
@@ -92,12 +92,12 @@ theorem cycle_no_sol (n : ℕ) (edges : List (Fin n × Fin n))
 theorem cycle_2col_unsat (n : ℕ) (edges : List (Fin n × Fin n))
     (hunsat : VeriPB.Reflect.formulaUnsat
       (((cycleSig n).monotonicity ++ cycleUser n edges).toArray.map PBConstr.toNatConstr)) :
-    ¬ (graph_coloring_csp n edges 2).isSatisfiable := by
+    ¬ (graph_coloring_csp n edges 2).isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Every colour lies in `{1,2}` (from its `bound`).
   have hdom : ∀ i : Fin (cycleSig n).nInt, a i ∈ (cycleSig n).values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 1 (2 : ℕ)) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 1 (2 : ℕ)) a := by
       apply hsol
       exact List.mem_append_left _ (List.mem_map.mpr ⟨i, List.mem_finRange i, rfl⟩)
     obtain ⟨h1, h2⟩ := bound_sat i 1 (2 : ℕ) a hb
@@ -142,7 +142,7 @@ theorem c5_formulaUnsat :
 /-- **The odd cycle `C_5` is not 2-colourable.** The corpus CSP `c5_2col` — colour the
     pentagon with two colours — is unsatisfiable, discharged through the verified PB
     pipeline by the generic `cycle_2col_unsat` and the committed certificate. -/
-theorem c5_2col_unsat : ¬ c5_2col.isSatisfiable :=
+theorem c5_2col_unsat : ¬ c5_2col.isSatisfiableInt :=
   cycle_2col_unsat 5 c5Edges c5_formulaUnsat
 
 /-! ### `C_7` -/
@@ -173,7 +173,7 @@ theorem c7_formulaUnsat :
   VeriPB.Reflect.checkProof_sound _ 7 c7KernelProof (by native_decide)
 
 /-- **The odd cycle `C_7` is not 2-colourable.** -/
-theorem c7_2col_unsat : ¬ c7_2col.isSatisfiable :=
+theorem c7_2col_unsat : ¬ c7_2col.isSatisfiableInt :=
   cycle_2col_unsat 7 c7Edges c7_formulaUnsat
 
 /-! ### `C_9` -/
@@ -206,7 +206,7 @@ theorem c9_formulaUnsat :
   VeriPB.Reflect.checkProof_sound _ 9 c9KernelProof (by native_decide)
 
 /-- **The odd cycle `C_9` is not 2-colourable.** -/
-theorem c9_2col_unsat : ¬ c9_2col.isSatisfiable :=
+theorem c9_2col_unsat : ¬ c9_2col.isSatisfiableInt :=
   cycle_2col_unsat 9 c9Edges c9_formulaUnsat
 
 end CSP.L2S.PB.OddCycle

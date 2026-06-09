@@ -98,7 +98,7 @@ def generate_sliding_constraints (data : CarSeqData) :
         some (sliding_sum_le opt_vars block_size max_count)
     | _, _ => none
 
-def car_sequencing_csp (data : CarSeqData) : HomogeneousCSP :=
+def car_sequencing_csp (data : CarSeqData) : IntCSP :=
   let num_vars := data.n_cars + data.n_cars * data.n_options
   ⟨num_vars,
    generate_bounds data ++

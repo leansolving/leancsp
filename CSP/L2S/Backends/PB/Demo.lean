@@ -38,7 +38,7 @@ Trust boundary: RoundingSat, veripb, and the `.opb`/serializer are **untrusted**
 — if any is wrong, `checkProofBool` returns `false` and `demo_formulaUnsat`
 fails to elaborate.  Only PBLean's checker and the soundness lemmas below are
 trusted (and Lean's kernel).  The encoding here is hand-wired; the generic
-`HomogeneousCSP` encoder that produces it is the next milestone (M3/M5).
+`IntCSP` encoder that produces it is the next milestone (M3/M5).
 -/
 
 /-! ### The order encoding (`Array Constr`) -/

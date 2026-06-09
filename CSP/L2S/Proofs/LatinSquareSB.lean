@@ -30,7 +30,7 @@ def bound_constraints (n : ℕ) : List (TaggedConstraint (n*n)) :=
   (List.finRange (n*n)).map (fun v => bound v 0 (n-1))
 
 /- Helper function: get all variables in a row -/
-def row_variables (i : Fin n) : Vector (HomogeneousVarIndex (n*n)) n :=
+def row_variables (i : Fin n) : Vector (VarType (n*n)) n :=
   Vector.ofFn (fun j => ⟨i.val * n + j.val, by
     have h1 : i.val < n := i.isLt
     have h2 : j.val < n := j.isLt
@@ -40,7 +40,7 @@ def row_variables (i : Fin n) : Vector (HomogeneousVarIndex (n*n)) n :=
       _ ≤ n * n := Nat.mul_le_mul_right n (Nat.succ_le_of_lt h1)⟩)
 
 /- Helper function: get all variables in a column -/
-def col_variables (j : Fin n) : Vector (HomogeneousVarIndex (n*n)) n :=
+def col_variables (j : Fin n) : Vector (VarType (n*n)) n :=
   Vector.ofFn (fun i => ⟨i.val * n + j.val, by
     have h1 : i.val < n := i.isLt
     have h2 : j.val < n := j.isLt
@@ -58,7 +58,7 @@ def col_constraints (n : ℕ) : List (TaggedConstraint (n*n)) :=
   (List.finRange n).map (fun c => alldifferent (col_variables c))
 
 /- CSP Definition -/
-def latin_square_csp (n : ℕ) : HomogeneousCSP :=
+def latin_square_csp (n : ℕ) : IntCSP :=
   ⟨ n*n,
     bound_constraints n ++
     row_constraints n ++
@@ -72,7 +72,7 @@ def latin_square_csp (n : ℕ) : HomogeneousCSP :=
     A cell at position (i, j) with index k = i*n + j
     maps to position (i, σ(j)) with index i*n + σ(j). -/
 def column_permutation (n : ℕ) (h_n : 0 < n) (σ : Equiv.Perm (Fin n)) :
-    Equiv.Perm (HomogeneousVarIndex (n*n)) where
+    Equiv.Perm (VarType (n*n)) where
   toFun := fun v =>
     let i := v.val / n  -- row index
     let j := v.val % n  -- column index
@@ -227,7 +227,7 @@ def sb_constraint (n : ℕ) (h_n : 0 < n) : TaggedConstraint (n*n) :=
   increasing (row_variables ⟨0, h_n⟩)
 
 /- Extended CSP (including the SBC) -/
-def extended_latin_square_csp (n : ℕ) (h_n : 0 < n) : HomogeneousCSP :=
+def extended_latin_square_csp (n : ℕ) (h_n : 0 < n) : IntCSP :=
   (latin_square_csp n).addConstraint (sb_constraint n h_n)
 
 -- ============================================================================
@@ -235,7 +235,7 @@ def extended_latin_square_csp (n : ℕ) (h_n : 0 < n) : HomogeneousCSP :=
 -- ============================================================================
 
 /-- Helper lemma: column_permutation only changes the column index -/
-lemma column_permutation_structure (n : ℕ) (h_n : 0 < n) (σ : Equiv.Perm (Fin n)) (v : HomogeneousVarIndex (n*n)) :
+lemma column_permutation_structure (n : ℕ) (h_n : 0 < n) (σ : Equiv.Perm (Fin n)) (v : VarType (n*n)) :
     let i := v.val / n
     let j := v.val % n
     let j_fin : Fin n := ⟨j, Nat.mod_lt v.val h_n⟩
@@ -247,7 +247,7 @@ lemma column_permutation_structure (n : ℕ) (h_n : 0 < n) (σ : Equiv.Perm (Fin
 /-- Result 1: Column permutation is a variable symmetry for Latin Squares -/
 theorem column_permutation_is_variable_symmetry (n : ℕ) (h_n : 0 < n) (σ : Equiv.Perm (Fin n)) :
     VariableSymmetry (latin_square_csp n) (column_permutation n h_n σ) := by
-  unfold VariableSymmetry HomogeneousCSP.isSolution
+  unfold VariableSymmetry IntCSP.isSolutionInt
   intro assignment h_sol tc h_tc_mem
   unfold latin_square_csp at h_tc_mem
   simp only [List.mem_append] at h_tc_mem
@@ -266,7 +266,7 @@ theorem column_permutation_is_variable_symmetry (n : ℕ) (h_n : 0 < n) (σ : Eq
   · unfold row_constraints at h_row
     simp only [List.mem_map, List.mem_finRange] at h_row
     obtain ⟨r, _, rfl⟩ := h_row
-    unfold HomogeneousCSP.satisfiesConstraint alldifferent
+    unfold IntCSP.satisfiesConstraintInt alldifferent
     unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat
     simp only [CSP.map_assignment, extractValues]
     simp only [decide_eq_true_iff]
@@ -277,7 +277,7 @@ theorem column_permutation_is_variable_symmetry (n : ℕ) (h_n : 0 < n) (σ : Eq
         left; right
         exact ⟨r, trivial, rfl⟩
       have := h_sol (alldifferent (row_variables r)) h_mem
-      unfold HomogeneousCSP.satisfiesConstraint alldifferent at this
+      unfold IntCSP.satisfiesConstraintInt alldifferent at this
       unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat at this
       simp only [CSP.map_assignment, extractValues, decide_eq_true_iff] at this
       exact this
@@ -323,7 +323,7 @@ theorem column_permutation_is_variable_symmetry (n : ℕ) (h_n : 0 < n) (σ : Eq
   · unfold col_constraints at h_col
     simp only [List.mem_map, List.mem_finRange] at h_col
     obtain ⟨c, _, rfl⟩ := h_col
-    unfold HomogeneousCSP.satisfiesConstraint alldifferent
+    unfold IntCSP.satisfiesConstraintInt alldifferent
     unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat
     simp only [CSP.map_assignment, extractValues, decide_eq_true_iff]
     have h_col_perm : (List.ofFn fun i => (assignment ∘ column_permutation n h_n σ) ((col_variables c).get i)) =
@@ -368,7 +368,7 @@ theorem column_permutation_is_variable_symmetry (n : ℕ) (h_n : 0 < n) (σ : Eq
       right
       exact ⟨σ c, trivial, rfl⟩
     have := h_sol (alldifferent (col_variables (σ c))) h_mem
-    unfold HomogeneousCSP.satisfiesConstraint alldifferent at this
+    unfold IntCSP.satisfiesConstraintInt alldifferent at this
     unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat at this
     simp only [CSP.map_assignment, extractValues, decide_eq_true_iff] at this
     exact this
@@ -390,10 +390,10 @@ theorem sb_constraint_is_variable_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
   · exact column_permutation_is_variable_symmetry n h_n σ
 
   · intro tc h_tc_mem
-    simp only [HomogeneousCSP.addConstraint] at h_tc_mem
+    simp only [IntCSP.addConstraint] at h_tc_mem
     obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
     · rw [h_sbc]
-      unfold HomogeneousCSP.satisfiesConstraint sb_constraint increasing
+      unfold IntCSP.satisfiesConstraintInt sb_constraint increasing
       unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat
       simp only [CSP.map_assignment, extractValues, decide_eq_true_iff]
 

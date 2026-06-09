@@ -52,7 +52,7 @@ def diff_start_index (n k : ℕ) : ℕ :=
   n + (k - 1) * n - (k - 1) * k / 2
 
 -- Parametrized Costas Array CSP
-def costas_csp (n num_vars : ℕ) : HomogeneousCSP :=
+def costas_csp (n num_vars : ℕ) : IntCSP :=
   -- Bounds for costas array (indices 0..n-1): domain [1, n]
   let costas_bounds := (List.range n).filterMap fun i =>
     if h : i < num_vars then
@@ -78,7 +78,7 @@ def costas_csp (n num_vars : ℕ) : HomogeneousCSP :=
       none
   let costas_alldiff_opt :=
     if h_len : costas_var_list.length = n then
-      let costas_vars : _root_.Vector (HomogeneousVarIndex num_vars) n :=
+      let costas_vars : _root_.Vector (VarType num_vars) n :=
         ⟨costas_var_list.toArray, by simp; exact h_len⟩
       some (alldifferent costas_vars)
     else
@@ -101,7 +101,7 @@ def costas_csp (n num_vars : ℕ) : HomogeneousCSP :=
         if hj : costas_j < num_vars then
           if hd : diff_idx < num_vars then
             -- diff = costas[j] - costas[i]
-            let scope : _root_.Vector (HomogeneousVarIndex num_vars) 3 :=
+            let scope : _root_.Vector (VarType num_vars) 3 :=
               ⟨#[⟨costas_j, hj⟩, ⟨costas_i, hi⟩, ⟨diff_idx, hd⟩], rfl⟩
             let coeffs : _root_.Vector ℤ 3 := ⟨#[1, -1, -1], rfl⟩
             some (linear_eq scope coeffs 0)
@@ -121,7 +121,7 @@ def costas_csp (n num_vars : ℕ) : HomogeneousCSP :=
         none
     let alldiff_opt :=
       if h_len : diff_var_list.length = num_pairs then
-        let diff_vars : _root_.Vector (HomogeneousVarIndex num_vars) num_pairs :=
+        let diff_vars : _root_.Vector (VarType num_vars) num_pairs :=
           ⟨diff_var_list.toArray, by simp; exact h_len⟩
         some (alldifferent diff_vars)
       else
@@ -136,7 +136,7 @@ def costas_csp (n num_vars : ℕ) : HomogeneousCSP :=
 
 -- Standard n=8 Costas Array instance
 -- n = 8, num_diffs = 8*7/2 = 28, num_vars = 8 + 28 = 36
-def costas_8 : HomogeneousCSP :=
+def costas_8 : IntCSP :=
   costas_csp 8 36
 
 def main : IO Unit := do

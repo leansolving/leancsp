@@ -50,7 +50,7 @@ def indices_to_vector (num_vars : ℕ) (indices : List ℕ)
   ⟨(indices.attach.map fun ⟨i, hi⟩ => ⟨i, h i hi⟩).toArray, by simp [List.length_attach]⟩
 
 -- General Latin square CSP with binary encoding - parametrized for any size
-def latin_square_csp (n : ℕ) : HomogeneousCSP :=
+def latin_square_csp (n : ℕ) : IntCSP :=
   let num_vars := n * n * n
 
   -- All variables are binary
@@ -161,7 +161,7 @@ def latin_square_csp (n : ℕ) : HomogeneousCSP :=
   ⟨num_vars, bounds ++ cell_constraints ++ row_constraints ++ col_constraints⟩
 
 -- Specific instance
-def latin_square_inst : HomogeneousCSP :=
+def latin_square_inst : IntCSP :=
   latin_square_csp 8
 
 def main : IO Unit := do

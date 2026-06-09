@@ -59,18 +59,18 @@ variables) with a non-empty order-encoding `monotonicity` staircase.
 /-! ### The CSP -/
 
 /-- The scope of the all-different and total-sum constraints: all seven cells. -/
-def mhCellScope : _root_.Vector (HomogeneousVarIndex 7) 7 := ⟨#[0, 1, 2, 3, 4, 5, 6], rfl⟩
+def mhCellScope : _root_.Vector (VarType 7) 7 := ⟨#[0, 1, 2, 3, 4, 5, 6], rfl⟩
 
 /-- Top row `{a,b} = {0,1}` equals the middle row `{c,d,e} = {2,3,4}`:
     `a 0 + a 1 − a 2 − a 3 − a 4 = 0`. -/
 def mhTopEqMid : TaggedConstraint 7 :=
-  linear_eq (⟨#[0, 1, 2, 3, 4], rfl⟩ : _root_.Vector (HomogeneousVarIndex 7) 5)
+  linear_eq (⟨#[0, 1, 2, 3, 4], rfl⟩ : _root_.Vector (VarType 7) 5)
     (⟨#[1, 1, -1, -1, -1], rfl⟩ : _root_.Vector ℤ 5) 0
 
 /-- Bottom row `{f,g} = {5,6}` equals the middle row `{c,d,e} = {2,3,4}`:
     `a 5 + a 6 − a 2 − a 3 − a 4 = 0`. -/
 def mhBotEqMid : TaggedConstraint 7 :=
-  linear_eq (⟨#[5, 6, 2, 3, 4], rfl⟩ : _root_.Vector (HomogeneousVarIndex 7) 5)
+  linear_eq (⟨#[5, 6, 2, 3, 4], rfl⟩ : _root_.Vector (VarType 7) 5)
     (⟨#[1, 1, -1, -1, -1], rfl⟩ : _root_.Vector ℤ 5) 0
 
 /-- The remaining six magic lines, each written as "line = middle row `{c,d,e}`":
@@ -78,27 +78,27 @@ def mhBotEqMid : TaggedConstraint 7 :=
     faithfulness; not used by the (rows-only) refutation. -/
 def mhCrossLines : List (TaggedConstraint 7) :=
   [ -- "╲" diagonal {a,c} = {0,2}
-    linear_eq (⟨#[0, 2, 2, 3, 4], rfl⟩ : _root_.Vector (HomogeneousVarIndex 7) 5)
+    linear_eq (⟨#[0, 2, 2, 3, 4], rfl⟩ : _root_.Vector (VarType 7) 5)
       (⟨#[1, 1, -1, -1, -1], rfl⟩ : _root_.Vector ℤ 5) 0,
     -- "╲" diagonal {b,d,f} = {1,3,5}
-    linear_eq (⟨#[1, 3, 5, 2, 3, 4], rfl⟩ : _root_.Vector (HomogeneousVarIndex 7) 6)
+    linear_eq (⟨#[1, 3, 5, 2, 3, 4], rfl⟩ : _root_.Vector (VarType 7) 6)
       (⟨#[1, 1, 1, -1, -1, -1], rfl⟩ : _root_.Vector ℤ 6) 0,
     -- "╲" diagonal {e,g} = {4,6}
-    linear_eq (⟨#[4, 6, 2, 3, 4], rfl⟩ : _root_.Vector (HomogeneousVarIndex 7) 5)
+    linear_eq (⟨#[4, 6, 2, 3, 4], rfl⟩ : _root_.Vector (VarType 7) 5)
       (⟨#[1, 1, -1, -1, -1], rfl⟩ : _root_.Vector ℤ 5) 0,
     -- "╱" diagonal {b,e} = {1,4}
-    linear_eq (⟨#[1, 4, 2, 3, 4], rfl⟩ : _root_.Vector (HomogeneousVarIndex 7) 5)
+    linear_eq (⟨#[1, 4, 2, 3, 4], rfl⟩ : _root_.Vector (VarType 7) 5)
       (⟨#[1, 1, -1, -1, -1], rfl⟩ : _root_.Vector ℤ 5) 0,
     -- "╱" diagonal {a,d,g} = {0,3,6}
-    linear_eq (⟨#[0, 3, 6, 2, 3, 4], rfl⟩ : _root_.Vector (HomogeneousVarIndex 7) 6)
+    linear_eq (⟨#[0, 3, 6, 2, 3, 4], rfl⟩ : _root_.Vector (VarType 7) 6)
       (⟨#[1, 1, 1, -1, -1, -1], rfl⟩ : _root_.Vector ℤ 6) 0,
     -- "╱" diagonal {c,f} = {2,5}
-    linear_eq (⟨#[2, 5, 2, 3, 4], rfl⟩ : _root_.Vector (HomogeneousVarIndex 7) 5)
+    linear_eq (⟨#[2, 5, 2, 3, 4], rfl⟩ : _root_.Vector (VarType 7) 5)
       (⟨#[1, 1, -1, -1, -1], rfl⟩ : _root_.Vector ℤ 5) 0 ]
 
-/-- The order-2 magic hexagon as a `HomogeneousCSP`: seven cells over `{1 .. 7}`,
+/-- The order-2 magic hexagon as a `IntCSP`: seven cells over `{1 .. 7}`,
     `alldifferent`, the (redundant) total-sum `= 28`, and the nine line-equalities. -/
-def magicHexagon2 : HomogeneousCSP :=
+def magicHexagon2 : IntCSP :=
   ⟨7, ((List.finRange 7).map (fun i => bound i 1 7))
       ++ (alldifferent mhCellScope :: sum_eq mhCellScope 28
           :: mhTopEqMid :: mhBotEqMid :: mhCrossLines)⟩
@@ -136,7 +136,7 @@ theorem mh_hbound (i : Fin magicHexagon2.num_vars) :
 
 /-- Every linear `≤` fact in `mhLin` follows from any solution: the total-sum
     constraint gives `Σ = 28`, and the two row `linear_eq`s give the row equalities. -/
-theorem mh_hlin (a : HomogeneousAssignment 7) (hsol : magicHexagon2.isSolution a) :
+theorem mh_hlin (a : IntAssignment 7) (hsol : magicHexagon2.isSolutionInt a) :
     ∀ c ∈ mhLin, (c.1.map (fun p => p.1 * a p.2)).sum ≤ c.2 := by
   -- total sum = 28
   have hsum : a 0 + a 1 + a 2 + a 3 + a 4 + a 5 + a 6 = 28 := by
@@ -148,7 +148,7 @@ theorem mh_hlin (a : HomogeneousAssignment 7) (hsol : magicHexagon2.isSolution a
     linarith [hs]
   -- top row = middle row
   have hTop : a 0 + a 1 - a 2 - a 3 - a 4 = 0 := by
-    have hs := linear_eq_sat (⟨#[0, 1, 2, 3, 4], rfl⟩ : _root_.Vector (HomogeneousVarIndex 7) 5)
+    have hs := linear_eq_sat (⟨#[0, 1, 2, 3, 4], rfl⟩ : _root_.Vector (VarType 7) 5)
       (⟨#[1, 1, -1, -1, -1], rfl⟩ : _root_.Vector ℤ 5) 0 a (by
       apply hsol
       apply List.mem_append_right
@@ -157,7 +157,7 @@ theorem mh_hlin (a : HomogeneousAssignment 7) (hsol : magicHexagon2.isSolution a
     linarith [hs]
   -- bottom row = middle row
   have hBot : a 5 + a 6 - a 2 - a 3 - a 4 = 0 := by
-    have hs := linear_eq_sat (⟨#[5, 6, 2, 3, 4], rfl⟩ : _root_.Vector (HomogeneousVarIndex 7) 5)
+    have hs := linear_eq_sat (⟨#[5, 6, 2, 3, 4], rfl⟩ : _root_.Vector (VarType 7) 5)
       (⟨#[1, 1, -1, -1, -1], rfl⟩ : _root_.Vector ℤ 5) 0 a (by
       apply hsol
       apply List.mem_append_right
@@ -337,7 +337,7 @@ theorem mh_formulaUnsat :
     equalities, the `unsat_of_pb` spine order-encodes them via `encodeLinear`, and the
     committed certificate `mh_formulaUnsat` derives the divisibility contradiction
     `3·(a 2 + a 3 + a 4) = 28`. -/
-theorem magic_hexagon_2_unsat : ¬ magicHexagon2.isSatisfiable := by
+theorem magic_hexagon_2_unsat : ¬ magicHexagon2.isSatisfiableInt := by
   refine unsat_of_pb magicHexagon2 (fun _ => 1) (fun _ => 7) (fun _ => by norm_num)
     mh_hbound mhLin mh_hlin ?_
   show VeriPB.Reflect.formulaUnsat

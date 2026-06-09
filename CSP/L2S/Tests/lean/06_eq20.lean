@@ -29,13 +29,13 @@ def makeCoeffVector (n : ℕ) (coeffs : List ℤ) (h : coeffs.length = n) :
   ⟨coeffs.toArray, by simp [h]⟩
 
 -- Helper to create variable scope (all variables)
-def allVars (n : ℕ) : _root_.Vector (HomogeneousVarIndex n) n :=
+def allVars (n : ℕ) : _root_.Vector (VarType n) n :=
   _root_.Vector.ofFn id
 
 -- General function for creating a CSP with multiple linear equations
 def linear_equations_csp (n_vars : ℕ) (lb ub : ℤ)
     (equations : List (List ℤ × ℤ)) :
-    HomogeneousCSP :=
+    IntCSP :=
   let bounds_list := (List.finRange n_vars).map fun i => bound i lb ub
   let linear_constraints := equations.filterMap fun (coeffs, target) =>
     if h : coeffs.length = n_vars then
@@ -70,7 +70,7 @@ def eq20_equations : List (List ℤ × ℤ) := [
 ]
 
 -- Specific instance: solving the 20 linear equations
-def eq20_problem : HomogeneousCSP :=
+def eq20_problem : IntCSP :=
   let n := 7
   linear_equations_csp n 0 10 eq20_equations
 

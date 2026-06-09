@@ -9,7 +9,7 @@ import Mathlib.Data.Bool.Basic
 
 namespace CSP.L2S
 
-open HomogeneousCSP
+open IntCSP
 
 /-!
 # Parity Path Theorem (Pure Literal Rule for Circuits)

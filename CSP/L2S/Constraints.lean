@@ -30,7 +30,7 @@ This module provides all tagged constraint constructors with dual representation
 3. Add MiniZinc translation in Translator.lean
 -/
 
-open HomogeneousCSP
+open IntCSP
 open ConstraintPattern
 
 -- ============================================================================
@@ -38,9 +38,9 @@ open ConstraintPattern
 -- ============================================================================
 
 /-- Extract values from ScopeValues for integer homogeneous domain -/
-def extractValues {num_vars n : ℕ} {scope : _root_.Vector (HomogeneousVarIndex num_vars) n}
-    (values : ScopeValues (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) scope) :
-    List HomogeneousDomain :=
+def extractValues {num_vars n : ℕ} {scope : _root_.Vector (VarType num_vars) n}
+    (values : ScopeValues (VarType num_vars) (fun _ => IntDomain) scope) :
+    List IntDomain :=
   List.ofFn fun i => values i
 
 -- ============================================================================
@@ -52,9 +52,9 @@ section GlobalConstraints
 variable {num_vars : ℕ}
 
 /-- Alldifferent constraint: all variables must have different values -/
-def alldifferent {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n) :
+def alldifferent {n : ℕ} (scope : _root_.Vector (VarType num_vars) n) :
     TaggedConstraint num_vars :=
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) n := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) n := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -65,9 +65,9 @@ def alldifferent {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars)
 
 /-- Increasing constraint: variables must be in non-decreasing order.
     Maps to MiniZinc's `increasing` global constraint. -/
-def increasing {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n) :
+def increasing {n : ℕ} (scope : _root_.Vector (VarType num_vars) n) :
     TaggedConstraint num_vars :=
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) n := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) n := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -77,10 +77,10 @@ def increasing {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n
     dynamic := DynamicConstraint.mk n checker }
 
 /-- Count constraint: count occurrences of a value -/
-def count {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (value : HomogeneousDomain) (target : ℕ) :
+def count {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
+    (value : IntDomain) (target : ℕ) :
     TaggedConstraint num_vars :=
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) n := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) n := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -91,11 +91,11 @@ def count {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
 
 /-- Count constraint with variable result: count(vars, value) = count_var
     Used in magic sequence problems where the count must equal another variable. -/
-def count_var {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (value : HomogeneousDomain) (count_result : HomogeneousVarIndex num_vars) :
+def count_var {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
+    (value : IntDomain) (count_result : VarType num_vars) :
     TaggedConstraint num_vars :=
   let fullScope := _root_.Vector.append scope ⟨#[count_result], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) (n + 1) := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) (n + 1) := {
     scope := fullScope
     check := fun values =>
       let valueList := extractValues values
@@ -110,11 +110,11 @@ def count_var {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
     dynamic := DynamicConstraint.mk (n + 1) checker }
 
 /-- Element constraint: array[index] = result -/
-def element (index_var result_var : HomogeneousVarIndex num_vars)
-    (array : List HomogeneousDomain) :
+def element (index_var result_var : VarType num_vars)
+    (array : List IntDomain) :
     TaggedConstraint num_vars :=
   let scope := ⟨#[index_var, result_var], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 2 := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 2 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -133,11 +133,11 @@ def element (index_var result_var : HomogeneousVarIndex num_vars)
     dynamic := DynamicConstraint.mk 2 checker }
 
 /-- Maximum constraint: max(vars) = maxVar -/
-def maximum {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (maxVar : HomogeneousVarIndex num_vars) :
+def maximum {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
+    (maxVar : VarType num_vars) :
     TaggedConstraint num_vars :=
   let fullScope := _root_.Vector.append scope ⟨#[maxVar], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) (n + 1) := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) (n + 1) := {
     scope := fullScope
     check := fun values =>
       let valueList := extractValues values
@@ -150,11 +150,11 @@ def maximum {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
     dynamic := DynamicConstraint.mk (n + 1) checker }
 
 /-- Minimum constraint: min(vars) = minVar -/
-def minimum {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (minVar : HomogeneousVarIndex num_vars) :
+def minimum {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
+    (minVar : VarType num_vars) :
     TaggedConstraint num_vars :=
   let fullScope := _root_.Vector.append scope ⟨#[minVar], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) (n + 1) := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) (n + 1) := {
     scope := fullScope
     check := fun values =>
       let valueList := extractValues values
@@ -177,10 +177,10 @@ section ArithmeticConstraints
 variable {num_vars : ℕ}
 
 /-- General sum constraint with relation operator -/
-def sum_rel {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
+def sum_rel {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
     (op : RelOp) (target : ℤ) :
     TaggedConstraint num_vars :=
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) n := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) n := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -197,41 +197,41 @@ def sum_rel {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
     dynamic := DynamicConstraint.mk n checker }
 
 /-- Sum equality constraint: sum of variables equals target -/
-def sum_eq {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n) (target : ℤ) :
+def sum_eq {n : ℕ} (scope : _root_.Vector (VarType num_vars) n) (target : ℤ) :
     TaggedConstraint num_vars :=
   sum_rel scope .EQ target
 
 /-- Sum less-than-or-equal constraint -/
-def sum_le {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n) (target : ℤ) :
+def sum_le {n : ℕ} (scope : _root_.Vector (VarType num_vars) n) (target : ℤ) :
     TaggedConstraint num_vars :=
   sum_rel scope .LE target
 
 /-- Sum less-than constraint -/
-def sum_lt {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n) (target : ℤ) :
+def sum_lt {n : ℕ} (scope : _root_.Vector (VarType num_vars) n) (target : ℤ) :
     TaggedConstraint num_vars :=
   sum_rel scope .LT target
 
 /-- Sum greater-than-or-equal constraint -/
-def sum_ge {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n) (target : ℤ) :
+def sum_ge {n : ℕ} (scope : _root_.Vector (VarType num_vars) n) (target : ℤ) :
     TaggedConstraint num_vars :=
   sum_rel scope .GE target
 
 /-- Sum greater-than constraint -/
-def sum_gt {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n) (target : ℤ) :
+def sum_gt {n : ℕ} (scope : _root_.Vector (VarType num_vars) n) (target : ℤ) :
     TaggedConstraint num_vars :=
   sum_rel scope .GT target
 
 /-- Sum not-equal constraint -/
-def sum_ne {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n) (target : ℤ) :
+def sum_ne {n : ℕ} (scope : _root_.Vector (VarType num_vars) n) (target : ℤ) :
     TaggedConstraint num_vars :=
   sum_rel scope .NE target
 
 /-- General linear equation constraint with coefficients: c₀*v₀ + c₁*v₁ + ... op target
     This is a weighted sum (scalar product / dot product) constraint. -/
-def linear_rel {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
+def linear_rel {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
     (coeffs : _root_.Vector ℤ n) (op : RelOp) (target : ℤ) :
     TaggedConstraint num_vars :=
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) n := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) n := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -249,37 +249,37 @@ def linear_rel {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n
     dynamic := DynamicConstraint.mk n checker }
 
 /-- Linear equality constraint: c₀*v₀ + c₁*v₁ + ... = target -/
-def linear_eq {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
+def linear_eq {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
     (coeffs : _root_.Vector ℤ n) (target : ℤ) :
     TaggedConstraint num_vars :=
   linear_rel scope coeffs .EQ target
 
 /-- Linear less-than-or-equal constraint -/
-def linear_le {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
+def linear_le {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
     (coeffs : _root_.Vector ℤ n) (target : ℤ) :
     TaggedConstraint num_vars :=
   linear_rel scope coeffs .LE target
 
 /-- Linear less-than constraint -/
-def linear_lt {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
+def linear_lt {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
     (coeffs : _root_.Vector ℤ n) (target : ℤ) :
     TaggedConstraint num_vars :=
   linear_rel scope coeffs .LT target
 
 /-- Linear greater-than-or-equal constraint -/
-def linear_ge {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
+def linear_ge {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
     (coeffs : _root_.Vector ℤ n) (target : ℤ) :
     TaggedConstraint num_vars :=
   linear_rel scope coeffs .GE target
 
 /-- Linear greater-than constraint -/
-def linear_gt {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
+def linear_gt {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
     (coeffs : _root_.Vector ℤ n) (target : ℤ) :
     TaggedConstraint num_vars :=
   linear_rel scope coeffs .GT target
 
 /-- Linear not-equal constraint -/
-def linear_ne {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
+def linear_ne {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
     (coeffs : _root_.Vector ℤ n) (target : ℤ) :
     TaggedConstraint num_vars :=
   linear_rel scope coeffs .NE target
@@ -293,10 +293,10 @@ end ArithmeticConstraints
 section BoundConstraints
 
 /-- Bound constraint: lb ≤ var ≤ ub -/
-def bound {num_vars : ℕ} (var : HomogeneousVarIndex num_vars) (lb ub : ℤ) :
+def bound {num_vars : ℕ} (var : VarType num_vars) (lb ub : ℤ) :
     TaggedConstraint num_vars :=
   let scope := ⟨#[var], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 1 := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 1 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -318,37 +318,37 @@ section BinaryComparisons
 variable {num_vars : ℕ}
 
 /-- Binary equality constraint: v1 = v2 -/
-def equal (v1 v2 : HomogeneousVarIndex num_vars) :
+def equal (v1 v2 : VarType num_vars) :
     TaggedConstraint num_vars := {
   pattern := ConstraintPattern.eq v1.val v2.val
   dynamic := binary_dynamic_constraint v1 v2 (fun x y => decide (x = y)) }
 
 /-- Binary not-equal constraint: v1 ≠ v2 -/
-def not_equal (v1 v2 : HomogeneousVarIndex num_vars) :
+def not_equal (v1 v2 : VarType num_vars) :
     TaggedConstraint num_vars := {
   pattern := ConstraintPattern.ne v1.val v2.val
   dynamic := binary_dynamic_constraint v1 v2 (fun x y => decide (x ≠ y)) }
 
 /-- Binary less-than constraint: v1 < v2 -/
-def less_than (v1 v2 : HomogeneousVarIndex num_vars) :
+def less_than (v1 v2 : VarType num_vars) :
     TaggedConstraint num_vars := {
   pattern := ConstraintPattern.lt v1.val v2.val
   dynamic := binary_dynamic_constraint v1 v2 (fun x y => decide (x < y)) }
 
 /-- Binary less-than-or-equal constraint: v1 ≤ v2 -/
-def less_equal (v1 v2 : HomogeneousVarIndex num_vars) :
+def less_equal (v1 v2 : VarType num_vars) :
     TaggedConstraint num_vars := {
   pattern := ConstraintPattern.le v1.val v2.val
   dynamic := binary_dynamic_constraint v1 v2 (fun x y => decide (x ≤ y)) }
 
 /-- Binary greater-than constraint: v1 > v2 -/
-def greater_than (v1 v2 : HomogeneousVarIndex num_vars) :
+def greater_than (v1 v2 : VarType num_vars) :
     TaggedConstraint num_vars := {
   pattern := ConstraintPattern.gt v1.val v2.val
   dynamic := binary_dynamic_constraint v1 v2 (fun x y => decide (x > y)) }
 
 /-- Binary greater-than-or-equal constraint: v1 ≥ v2 -/
-def greater_equal (v1 v2 : HomogeneousVarIndex num_vars) :
+def greater_equal (v1 v2 : VarType num_vars) :
     TaggedConstraint num_vars := {
   pattern := ConstraintPattern.ge v1.val v2.val
   dynamic := binary_dynamic_constraint v1 v2 (fun x y => decide (x ≥ y)) }
@@ -364,37 +364,37 @@ section UnaryComparisons
 variable {num_vars : ℕ}
 
 /-- Variable equals constant: v = c -/
-def equals_const (v : HomogeneousVarIndex num_vars) (c : ℤ) :
+def equals_const (v : VarType num_vars) (c : ℤ) :
     TaggedConstraint num_vars := {
   pattern := ConstraintPattern.eq_const v.val c
   dynamic := unary_dynamic_constraint v (fun x => decide (x = c)) }
 
 /-- Variable not equal to constant: v ≠ c -/
-def not_equals_const (v : HomogeneousVarIndex num_vars) (c : ℤ) :
+def not_equals_const (v : VarType num_vars) (c : ℤ) :
     TaggedConstraint num_vars := {
   pattern := ConstraintPattern.ne_const v.val c
   dynamic := unary_dynamic_constraint v (fun x => decide (x ≠ c)) }
 
 /-- Variable less than constant: v < c -/
-def less_than_const (v : HomogeneousVarIndex num_vars) (c : ℤ) :
+def less_than_const (v : VarType num_vars) (c : ℤ) :
     TaggedConstraint num_vars := {
   pattern := ConstraintPattern.lt_const v.val c
   dynamic := unary_dynamic_constraint v (fun x => decide (x < c)) }
 
 /-- Variable less than or equal to constant: v ≤ c -/
-def less_equal_const (v : HomogeneousVarIndex num_vars) (c : ℤ) :
+def less_equal_const (v : VarType num_vars) (c : ℤ) :
     TaggedConstraint num_vars := {
   pattern := ConstraintPattern.le_const v.val c
   dynamic := unary_dynamic_constraint v (fun x => decide (x ≤ c)) }
 
 /-- Variable greater than constant: v > c -/
-def greater_than_const (v : HomogeneousVarIndex num_vars) (c : ℤ) :
+def greater_than_const (v : VarType num_vars) (c : ℤ) :
     TaggedConstraint num_vars := {
   pattern := ConstraintPattern.gt_const v.val c
   dynamic := unary_dynamic_constraint v (fun x => decide (x > c)) }
 
 /-- Variable greater than or equal to constant: v ≥ c -/
-def greater_equal_const (v : HomogeneousVarIndex num_vars) (c : ℤ) :
+def greater_equal_const (v : VarType num_vars) (c : ℤ) :
     TaggedConstraint num_vars := {
   pattern := ConstraintPattern.ge_const v.val c
   dynamic := unary_dynamic_constraint v (fun x => decide (x ≥ c)) }
@@ -410,7 +410,7 @@ section NQueens
 /-- Alldifferent diagonal constraint for N-Queens (positive diagonal): x[i] + i all different -/
 def alldifferent_diag_pos (n : ℕ) : TaggedConstraint n :=
   let scope := _root_.Vector.ofFn (fun i : Fin n => i)
-  let checker : Constraint (HomogeneousVarIndex n) (fun _ => HomogeneousDomain) n := {
+  let checker : Constraint (VarType n) (fun _ => IntDomain) n := {
     scope := scope
     check := fun values =>
       let diagonals := List.ofFn fun (i : Fin n) => (values i) + i.val
@@ -424,7 +424,7 @@ def alldifferent_diag_pos (n : ℕ) : TaggedConstraint n :=
 /-- Alldifferent diagonal constraint for N-Queens (negative diagonal): x[i] - i all different -/
 def alldifferent_diag_neg (n : ℕ) : TaggedConstraint n :=
   let scope := _root_.Vector.ofFn (fun i : Fin n => i)
-  let checker : Constraint (HomogeneousVarIndex n) (fun _ => HomogeneousDomain) n := {
+  let checker : Constraint (VarType n) (fun _ => IntDomain) n := {
     scope := scope
     check := fun values =>
       let diagonals := List.ofFn fun (i : Fin n) => (values i) - i.val
@@ -448,10 +448,10 @@ variable {num_vars : ℕ}
 /-- Schur triple constraint: not all three variables have the same value.
     Translates to MiniZinc as: x != y \/ x != z \/ y != z
     Used in Schur number problem to ensure no box contains a sum triple {x,y,z} where x+y=z -/
-def schur_triple (v1 v2 v3 : HomogeneousVarIndex num_vars) :
+def schur_triple (v1 v2 v3 : VarType num_vars) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 3 := ⟨#[v1, v2, v3], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 3 := {
+  let scope : _root_.Vector (VarType num_vars) 3 := ⟨#[v1, v2, v3], rfl⟩
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 3 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -475,10 +475,10 @@ variable {num_vars : ℕ}
 /-- Absolute difference constraint: |var1 - var2| op target
     Translates to MiniZinc as: abs(x[var1] - x[var2]) op target
     Used in graph labeling and distance constraints -/
-def abs_diff_rel {num_vars : ℕ} (v1 v2 : HomogeneousVarIndex num_vars) (op : RelOp) (target : ℤ) :
+def abs_diff_rel {num_vars : ℕ} (v1 v2 : VarType num_vars) (op : RelOp) (target : ℤ) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 2 := ⟨#[v1, v2], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 2 := {
+  let scope : _root_.Vector (VarType num_vars) 2 := ⟨#[v1, v2], rfl⟩
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 2 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -498,27 +498,27 @@ def abs_diff_rel {num_vars : ℕ} (v1 v2 : HomogeneousVarIndex num_vars) (op : R
     dynamic := DynamicConstraint.mk 2 checker }
 
 /-- Convenience: |var1 - var2| >= target -/
-def abs_diff_ge {num_vars : ℕ} (v1 v2 : HomogeneousVarIndex num_vars) (target : ℤ) :
+def abs_diff_ge {num_vars : ℕ} (v1 v2 : VarType num_vars) (target : ℤ) :
     TaggedConstraint num_vars :=
   abs_diff_rel v1 v2 RelOp.GE target
 
 /-- Convenience: |var1 - var2| <= target -/
-def abs_diff_le {num_vars : ℕ} (v1 v2 : HomogeneousVarIndex num_vars) (target : ℤ) :
+def abs_diff_le {num_vars : ℕ} (v1 v2 : VarType num_vars) (target : ℤ) :
     TaggedConstraint num_vars :=
   abs_diff_rel v1 v2 RelOp.LE target
 
 /-- Convenience: |var1 - var2| = target -/
-def abs_diff_eq {num_vars : ℕ} (v1 v2 : HomogeneousVarIndex num_vars) (target : ℤ) :
+def abs_diff_eq {num_vars : ℕ} (v1 v2 : VarType num_vars) (target : ℤ) :
     TaggedConstraint num_vars :=
   abs_diff_rel v1 v2 RelOp.EQ target
 
 /-- Absolute difference to variable: result = |var1 - var2|
     Translates to MiniZinc as: x[result] = abs(x[var1] - x[var2])
     Used when the absolute difference must be stored in a variable -/
-def abs_diff_var {num_vars : ℕ} (v1 v2 result : HomogeneousVarIndex num_vars) :
+def abs_diff_var {num_vars : ℕ} (v1 v2 result : VarType num_vars) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 3 := ⟨#[v1, v2, result], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 3 := {
+  let scope : _root_.Vector (VarType num_vars) 3 := ⟨#[v1, v2, result], rfl⟩
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 3 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -542,10 +542,10 @@ variable {num_vars : ℕ}
 /-- Modulo constraint: var mod n = k
     Translates to MiniZinc as: x[var] mod n = k
     Used in problems with cyclic/periodic conditions -/
-def modulo {num_vars : ℕ} (v : HomogeneousVarIndex num_vars) (n k : ℤ) :
+def modulo {num_vars : ℕ} (v : VarType num_vars) (n k : ℤ) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 1 := ⟨#[v], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 1 := {
+  let scope : _root_.Vector (VarType num_vars) 1 := ⟨#[v], rfl⟩
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 1 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -573,10 +573,10 @@ variable {num_vars : ℕ}
     at most `m` have a particular feature (when op = LE, target = m).
 
     Translates to MiniZinc's `sliding_sum` global constraint. -/
-def sliding_sum {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
+def sliding_sum {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
     (window_size : ℕ) (op : RelOp) (target : ℤ) :
     TaggedConstraint num_vars :=
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) n := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) n := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -597,13 +597,13 @@ def sliding_sum {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) 
     dynamic := DynamicConstraint.mk n checker }
 
 /-- Convenience: sliding sum ≤ target (most common for Car Sequencing) -/
-def sliding_sum_le {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
+def sliding_sum_le {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
     (window_size : ℕ) (target : ℤ) :
     TaggedConstraint num_vars :=
   sliding_sum scope window_size .LE target
 
 /-- Convenience: sliding sum = target -/
-def sliding_sum_eq {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
+def sliding_sum_eq {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
     (window_size : ℕ) (target : ℤ) :
     TaggedConstraint num_vars :=
   sliding_sum scope window_size .EQ target
@@ -621,10 +621,10 @@ variable {num_vars : ℕ}
 /-- NOT gate constraint: out = ¬in
     For 0/1 variables: out = 1 - in
     Equivalently: out + in = 1 -/
-def not_gate {num_vars : ℕ} (in1 out : HomogeneousVarIndex num_vars) :
+def not_gate {num_vars : ℕ} (in1 out : VarType num_vars) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 2 := ⟨#[in1, out], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 2 := {
+  let scope : _root_.Vector (VarType num_vars) 2 := ⟨#[in1, out], rfl⟩
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 2 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -640,10 +640,10 @@ def not_gate {num_vars : ℕ} (in1 out : HomogeneousVarIndex num_vars) :
 /-- AND gate constraint: out = in1 ∧ in2
     For 0/1 variables, this ensures out=1 iff both inputs are 1.
     Semantically: out = min(in1, in2) -/
-def and_gate {num_vars : ℕ} (in1 in2 out : HomogeneousVarIndex num_vars) :
+def and_gate {num_vars : ℕ} (in1 in2 out : VarType num_vars) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 3 := ⟨#[in1, in2, out], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 3 := {
+  let scope : _root_.Vector (VarType num_vars) 3 := ⟨#[in1, in2, out], rfl⟩
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 3 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -659,10 +659,10 @@ def and_gate {num_vars : ℕ} (in1 in2 out : HomogeneousVarIndex num_vars) :
 /-- OR gate constraint: out = in1 ∨ in2
     For 0/1 variables, this ensures out=1 iff at least one input is 1.
     Semantically: out = max(in1, in2) -/
-def or_gate {num_vars : ℕ} (in1 in2 out : HomogeneousVarIndex num_vars) :
+def or_gate {num_vars : ℕ} (in1 in2 out : VarType num_vars) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 3 := ⟨#[in1, in2, out], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 3 := {
+  let scope : _root_.Vector (VarType num_vars) 3 := ⟨#[in1, in2, out], rfl⟩
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 3 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -680,10 +680,10 @@ def or_gate {num_vars : ℕ} (in1 in2 out : HomogeneousVarIndex num_vars) :
     Equivalent to: out = in1 + in2 - 2*(in1 AND in2)
 
     For integer checking, we verify: out = 1 iff exactly one input is 1. -/
-def xor_gate {num_vars : ℕ} (in1 in2 out : HomogeneousVarIndex num_vars) :
+def xor_gate {num_vars : ℕ} (in1 in2 out : VarType num_vars) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 3 := ⟨#[in1, in2, out], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 3 := {
+  let scope : _root_.Vector (VarType num_vars) 3 := ⟨#[in1, in2, out], rfl⟩
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 3 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -700,10 +700,10 @@ def xor_gate {num_vars : ℕ} (in1 in2 out : HomogeneousVarIndex num_vars) :
 /-- NAND gate constraint: out = ¬(in1 ∧ in2)
     For 0/1 variables: out = 1 - (in1 AND in2)
     Equivalent to: out = 0 iff both inputs are 1. -/
-def nand_gate {num_vars : ℕ} (in1 in2 out : HomogeneousVarIndex num_vars) :
+def nand_gate {num_vars : ℕ} (in1 in2 out : VarType num_vars) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 3 := ⟨#[in1, in2, out], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 3 := {
+  let scope : _root_.Vector (VarType num_vars) 3 := ⟨#[in1, in2, out], rfl⟩
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 3 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -720,10 +720,10 @@ def nand_gate {num_vars : ℕ} (in1 in2 out : HomogeneousVarIndex num_vars) :
 /-- NOR gate constraint: out = ¬(in1 ∨ in2)
     For 0/1 variables: out = 1 - (in1 OR in2)
     Equivalent to: out = 1 iff both inputs are 0. -/
-def nor_gate {num_vars : ℕ} (in1 in2 out : HomogeneousVarIndex num_vars) :
+def nor_gate {num_vars : ℕ} (in1 in2 out : VarType num_vars) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 3 := ⟨#[in1, in2, out], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 3 := {
+  let scope : _root_.Vector (VarType num_vars) 3 := ⟨#[in1, in2, out], rfl⟩
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 3 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -750,11 +750,11 @@ variable {num_vars : ℕ}
 /-- AND-all constraint: result = ∧ vars
     Result is 1 iff all variables in vars are 1.
     Semantically: result = min(vars) -/
-def and_all {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (result : HomogeneousVarIndex num_vars) :
+def and_all {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
+    (result : VarType num_vars) :
     TaggedConstraint num_vars :=
   let fullScope := _root_.Vector.append scope ⟨#[result], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) (n + 1) := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) (n + 1) := {
     scope := fullScope
     check := fun values =>
       let valueList := extractValues values
@@ -773,11 +773,11 @@ def and_all {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
 
 /-- OR-all constraint: result = ∨ vars
     Result is 1 iff at least one variable in vars is 1. -/
-def or_all {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (result : HomogeneousVarIndex num_vars) :
+def or_all {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
+    (result : VarType num_vars) :
     TaggedConstraint num_vars :=
   let fullScope := _root_.Vector.append scope ⟨#[result], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) (n + 1) := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) (n + 1) := {
     scope := fullScope
     check := fun values =>
       let valueList := extractValues values
@@ -798,11 +798,11 @@ def or_all {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
 /-- XOR-all constraint: result = ⊕ vars (n-ary XOR / parity)
     Result is 1 iff an odd number of variables in vars are 1.
     This is the parity function used in ECC and cryptography. -/
-def xor_all {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (result : HomogeneousVarIndex num_vars) :
+def xor_all {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
+    (result : VarType num_vars) :
     TaggedConstraint num_vars :=
   let fullScope := _root_.Vector.append scope ⟨#[result], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) (n + 1) := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) (n + 1) := {
     scope := fullScope
     check := fun values =>
       let valueList := extractValues values
@@ -829,10 +829,10 @@ variable {num_vars : ℕ}
 /-- Implication constraint: premise ⇒ conclusion
     For 0/1 variables: if premise=1 then conclusion=1.
     Encodes as: conclusion ≥ premise -/
-def implies {num_vars : ℕ} (premise conclusion : HomogeneousVarIndex num_vars) :
+def implies {num_vars : ℕ} (premise conclusion : VarType num_vars) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 2 := ⟨#[premise, conclusion], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 2 := {
+  let scope : _root_.Vector (VarType num_vars) 2 := ⟨#[premise, conclusion], rfl⟩
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 2 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -849,10 +849,10 @@ def implies {num_vars : ℕ} (premise conclusion : HomogeneousVarIndex num_vars)
 /-- If-and-only-if constraint: var1 ↔ var2
     For 0/1 variables: var1 and var2 must have the same value.
     Encodes as: var1 = var2 -/
-def iff {num_vars : ℕ} (var1 var2 : HomogeneousVarIndex num_vars) :
+def iff {num_vars : ℕ} (var1 var2 : VarType num_vars) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 2 := ⟨#[var1, var2], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 2 := {
+  let scope : _root_.Vector (VarType num_vars) 2 := ⟨#[var1, var2], rfl⟩
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 2 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -869,11 +869,11 @@ def iff {num_vars : ℕ} (var1 var2 : HomogeneousVarIndex num_vars) :
 /-- If-then constraint: if var = value then next_var = next_value.
     Reified implication for state transitions: (var = value) → (next_var = next_value) -/
 def if_then {num_vars : ℕ}
-    (var : HomogeneousVarIndex num_vars) (value : ℤ)
-    (next_var : HomogeneousVarIndex num_vars) (next_value : ℤ) :
+    (var : VarType num_vars) (value : ℤ)
+    (next_var : VarType num_vars) (next_value : ℤ) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 2 := ⟨#[var, next_var], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 2 := {
+  let scope : _root_.Vector (VarType num_vars) 2 := ⟨#[var, next_var], rfl⟩
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 2 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -891,11 +891,11 @@ def if_then {num_vars : ℕ}
     Disjunctive implication for non-deterministic state transitions:
     (var = value) → (next_var ∈ allowed_values) -/
 def if_then_or {num_vars : ℕ}
-    (var : HomogeneousVarIndex num_vars) (value : ℤ)
-    (next_var : HomogeneousVarIndex num_vars) (allowed_values : List ℤ) :
+    (var : VarType num_vars) (value : ℤ)
+    (next_var : VarType num_vars) (allowed_values : List ℤ) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 2 := ⟨#[var, next_var], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) 2 := {
+  let scope : _root_.Vector (VarType num_vars) 2 := ⟨#[var, next_var], rfl⟩
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) 2 := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -921,9 +921,9 @@ variable {num_vars : ℕ}
 
 /-- At-least-k constraint: at least k variables must be 1.
     For 0/1 variables: sum(vars) ≥ k -/
-def at_least_k {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n) (k : ℕ) :
+def at_least_k {n : ℕ} (scope : _root_.Vector (VarType num_vars) n) (k : ℕ) :
     TaggedConstraint num_vars :=
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) n := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) n := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -934,9 +934,9 @@ def at_least_k {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n
 
 /-- At-most-k constraint: at most k variables can be 1.
     For 0/1 variables: sum(vars) ≤ k -/
-def at_most_k {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n) (k : ℕ) :
+def at_most_k {n : ℕ} (scope : _root_.Vector (VarType num_vars) n) (k : ℕ) :
     TaggedConstraint num_vars :=
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) n := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) n := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -947,9 +947,9 @@ def at_most_k {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
 
 /-- Exactly-k constraint: exactly k variables must be 1.
     For 0/1 variables: sum(vars) = k -/
-def exactly_k {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n) (k : ℕ) :
+def exactly_k {n : ℕ} (scope : _root_.Vector (VarType num_vars) n) (k : ℕ) :
     TaggedConstraint num_vars :=
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) n := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) n := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values
@@ -971,12 +971,12 @@ variable {num_vars : ℕ}
 /-- Product constraint with variable target: product(vars) op target_var
     Computes the product of all variables in the scope and compares with target variable. -/
 def product_rel_var {n : ℕ}
-    (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
+    (scope : _root_.Vector (VarType num_vars) n)
     (op : RelOp)
-    (target : HomogeneousVarIndex num_vars) :
+    (target : VarType num_vars) :
     TaggedConstraint num_vars :=
   let fullScope := _root_.Vector.append scope ⟨#[target], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) (n + 1) := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) (n + 1) := {
     scope := fullScope
     check := fun values =>
       let valueList := extractValues values
@@ -998,13 +998,13 @@ def product_rel_var {n : ℕ}
 
 /-- Linear constraint with variable target: Σ(coeffs[i] * vars[i]) op target_var -/
 def linear_rel_var {n : ℕ}
-    (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
+    (scope : _root_.Vector (VarType num_vars) n)
     (coeffs : _root_.Vector ℤ n)
     (op : RelOp)
-    (target : HomogeneousVarIndex num_vars) :
+    (target : VarType num_vars) :
     TaggedConstraint num_vars :=
   let fullScope := _root_.Vector.append scope ⟨#[target], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) (n + 1) := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) (n + 1) := {
     scope := fullScope
     check := fun values =>
       let valueList := extractValues values
@@ -1026,12 +1026,12 @@ def linear_rel_var {n : ℕ}
 
 /-- Sum constraint with variable target: sum(vars) op target_var -/
 def sum_rel_var {n : ℕ}
-    (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
+    (scope : _root_.Vector (VarType num_vars) n)
     (op : RelOp)
-    (target : HomogeneousVarIndex num_vars) :
+    (target : VarType num_vars) :
     TaggedConstraint num_vars :=
   let fullScope := _root_.Vector.append scope ⟨#[target], rfl⟩
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) (n + 1) := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) (n + 1) := {
     scope := fullScope
     check := fun values =>
       let valueList := extractValues values
@@ -1052,28 +1052,28 @@ def sum_rel_var {n : ℕ}
     dynamic := DynamicConstraint.mk (n + 1) checker }
 
 /-- Convenient aliases for common cases -/
-def product_eq_var {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (target : HomogeneousVarIndex num_vars) : TaggedConstraint num_vars :=
+def product_eq_var {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
+    (target : VarType num_vars) : TaggedConstraint num_vars :=
   product_rel_var scope .EQ target
 
-def product_ne_var {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (target : HomogeneousVarIndex num_vars) : TaggedConstraint num_vars :=
+def product_ne_var {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
+    (target : VarType num_vars) : TaggedConstraint num_vars :=
   product_rel_var scope .NE target
 
-def linear_eq_var {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (coeffs : _root_.Vector ℤ n) (target : HomogeneousVarIndex num_vars) : TaggedConstraint num_vars :=
+def linear_eq_var {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
+    (coeffs : _root_.Vector ℤ n) (target : VarType num_vars) : TaggedConstraint num_vars :=
   linear_rel_var scope coeffs .EQ target
 
-def linear_ne_var {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (coeffs : _root_.Vector ℤ n) (target : HomogeneousVarIndex num_vars) : TaggedConstraint num_vars :=
+def linear_ne_var {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
+    (coeffs : _root_.Vector ℤ n) (target : VarType num_vars) : TaggedConstraint num_vars :=
   linear_rel_var scope coeffs .NE target
 
-def sum_eq_var {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (target : HomogeneousVarIndex num_vars) : TaggedConstraint num_vars :=
+def sum_eq_var {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
+    (target : VarType num_vars) : TaggedConstraint num_vars :=
   sum_rel_var scope .EQ target
 
-def sum_ne_var {n : ℕ} (scope : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (target : HomogeneousVarIndex num_vars) : TaggedConstraint num_vars :=
+def sum_ne_var {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
+    (target : VarType num_vars) : TaggedConstraint num_vars :=
   sum_rel_var scope .NE target
 
 end VariableTargetConstraints
@@ -1088,12 +1088,12 @@ section SchedulingConstraints
     For all pairs (i,j): (start[i] + duration[i] ≤ start[j]) ∨ (start[j] + duration[j] ≤ start[i])
     Used for machine mutex in job-shop scheduling. -/
 def disjunctive {num_vars : ℕ}
-    (tasks : List (HomogeneousVarIndex num_vars))
+    (tasks : List (VarType num_vars))
     (durations : List ℤ) :
     TaggedConstraint num_vars :=
   -- Scope includes all task variables
   let scope := _root_.Vector.ofFn (fun i : Fin tasks.length => tasks.get ⟨i.val, by omega⟩)
-  let checker : Constraint (HomogeneousVarIndex num_vars) (fun _ => HomogeneousDomain) tasks.length := {
+  let checker : Constraint (VarType num_vars) (fun _ => IntDomain) tasks.length := {
     scope := scope
     check := fun values =>
       let valueList := extractValues values

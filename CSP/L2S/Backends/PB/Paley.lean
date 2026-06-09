@@ -78,32 +78,32 @@ def paleyLin : List (List (Int × Fin 13) × Int) :=
 theorem corpus_edges_eq :
     paley_edge_constraints 13
       = paleyEdges.map (fun p => at_most_k (⟨#[p.1, p.2], rfl⟩ :
-          _root_.Vector (HomogeneousVarIndex 13) 2) 1) := rfl
+          _root_.Vector (VarType 13) 2) 1) := rfl
 
 /-- The corpus size constraint is `at_least_k [0..12] 4` — by `rfl`. -/
 theorem corpus_size_eq :
     paley_at_least 13 4
       = [at_least_k (⟨#[0,1,2,3,4,5,6,7,8,9,10,11,12], rfl⟩ :
-          _root_.Vector (HomogeneousVarIndex 13) 13) 4] := rfl
+          _root_.Vector (VarType 13) 13) 4] := rfl
 
 /-! ### Per-constraint bridges to the arithmetic facts -/
 
 /-- A satisfied edge constraint `at_most_k [x,y] 1` gives `a x + a y ≤ 1`. -/
-theorem pair_le_one (x y : Fin 13) (a : HomogeneousAssignment 13)
-    (h : HomogeneousCSP.satisfiesConstraint
-      (at_most_k (⟨#[x, y], rfl⟩ : _root_.Vector (HomogeneousVarIndex 13) 2) 1) a) :
+theorem pair_le_one (x y : Fin 13) (a : IntAssignment 13)
+    (h : IntCSP.satisfiesConstraintInt
+      (at_most_k (⟨#[x, y], rfl⟩ : _root_.Vector (VarType 13) 2) 1) a) :
     a x + a y ≤ 1 := by
-  have := at_most_k_sat (⟨#[x, y], rfl⟩ : _root_.Vector (HomogeneousVarIndex 13) 2) 1 a h
+  have := at_most_k_sat (⟨#[x, y], rfl⟩ : _root_.Vector (VarType 13) 2) 1 a h
   simpa using this
 
 /-- A satisfied size constraint `at_least_k [0..12] 4` gives `4 ≤ Σ a i`. -/
-theorem size_ge_four (a : HomogeneousAssignment 13)
-    (h : HomogeneousCSP.satisfiesConstraint
+theorem size_ge_four (a : IntAssignment 13)
+    (h : IntCSP.satisfiesConstraintInt
       (at_least_k (⟨#[0,1,2,3,4,5,6,7,8,9,10,11,12], rfl⟩ :
-        _root_.Vector (HomogeneousVarIndex 13) 13) 4) a) :
+        _root_.Vector (VarType 13) 13) 4) a) :
     (4 : ℤ) ≤ a 0 + a 1 + a 2 + a 3 + a 4 + a 5 + a 6 + a 7 + a 8 + a 9 + a 10 + a 11 + a 12 := by
   have := at_least_k_sat (⟨#[0,1,2,3,4,5,6,7,8,9,10,11,12], rfl⟩ :
-    _root_.Vector (HomogeneousVarIndex 13) 13) 4 a h
+    _root_.Vector (VarType 13) 13) 4 a h
   simp only [Nat.cast_ofNat] at this
   simp at this
   linarith
@@ -128,13 +128,13 @@ theorem paley_hbound (i : Fin paley_13_4.num_vars) :
   exact List.mem_map.mpr ⟨i, List.mem_finRange i, rfl⟩
 
 /-- Every linear `≤` fact in `paleyLin` follows from any solution. -/
-theorem paley_hlin (a : HomogeneousAssignment 13) (hsol : paley_13_4.isSolution a) :
+theorem paley_hlin (a : IntAssignment 13) (hsol : paley_13_4.isSolutionInt a) :
     ∀ c ∈ paleyLin, (c.1.map (fun p => p.1 * a p.2)).sum ≤ c.2 := by
   intro c hc
   rw [paleyLin, List.mem_append, List.mem_map] at hc
   rcases hc with ⟨p, hp, rfl⟩ | hc
   · -- edge constraint
-    have hmem : at_most_k (⟨#[p.1, p.2], rfl⟩ : _root_.Vector (HomogeneousVarIndex 13) 2) 1
+    have hmem : at_most_k (⟨#[p.1, p.2], rfl⟩ : _root_.Vector (VarType 13) 2) 1
         ∈ paley_13_4.constraints := by
       show _ ∈ paley_bounds 13 ++ paley_edge_constraints 13 ++ paley_at_least 13 4
       apply List.mem_append_left
@@ -148,7 +148,7 @@ theorem paley_hlin (a : HomogeneousAssignment 13) (hsol : paley_13_4.isSolution 
     rw [List.mem_singleton] at hc
     subst hc
     have hmem : at_least_k (⟨#[0,1,2,3,4,5,6,7,8,9,10,11,12], rfl⟩ :
-        _root_.Vector (HomogeneousVarIndex 13) 13) 4 ∈ paley_13_4.constraints := by
+        _root_.Vector (VarType 13) 13) 4 ∈ paley_13_4.constraints := by
       show _ ∈ paley_bounds 13 ++ paley_edge_constraints 13 ++ paley_at_least 13 4
       apply List.mem_append_right
       rw [corpus_size_eq]
@@ -333,7 +333,7 @@ theorem paley_formulaUnsat :
     bridges turn any solution into 39 edge inequalities `x_u + x_v ≤ 1` plus the size
     bound `Σ x_i ≥ 4`, the `unsat_of_pb` spine order-encodes them via `encodeLinear`,
     and the committed certificate `paley_formulaUnsat` contradicts it. -/
-theorem paley_13_4_unsat : ¬ paley_13_4.isSatisfiable := by
+theorem paley_13_4_unsat : ¬ paley_13_4.isSatisfiableInt := by
   refine unsat_of_pb paley_13_4 (fun _ => 0) (fun _ => 1) (fun _ => by norm_num)
     paley_hbound paleyLin paley_hlin ?_
   show VeriPB.Reflect.formulaUnsat

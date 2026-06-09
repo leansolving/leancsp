@@ -23,7 +23,7 @@ def queens_bounds (n : ℕ) : List (TaggedConstraint n) :=
   (List.finRange n).map fun i => bound i 1 n
 
 -- General N-Queens CSP - parametrized for any board size
-def nqueens_csp (n : ℕ) : HomogeneousCSP :=
+def nqueens_csp (n : ℕ) : IntCSP :=
   ⟨n, queens_bounds n ++ [
     alldifferent (_root_.Vector.ofFn id),
     alldifferent_diag_pos n,
@@ -31,7 +31,7 @@ def nqueens_csp (n : ℕ) : HomogeneousCSP :=
   ]⟩
 
 -- Specific instance:
-def queens_inst : HomogeneousCSP :=
+def queens_inst : IntCSP :=
   nqueens_csp 30
 
 def main : IO Unit := do

@@ -22,7 +22,7 @@ If UNSAT: mutual exclusion holds. If SAT: safety violation found.
 -/
 
 -- Parameterized mutual exclusion verification
-def peterson_mutex_k (k : ℕ) (h_k : k ≥ 2) : HomogeneousCSP :=
+def peterson_mutex_k (k : ℕ) (h_k : k ≥ 2) : IntCSP :=
   let nprocesses := 2
   let nvars := nprocesses * k
 
@@ -62,7 +62,7 @@ def peterson_mutex_k (k : ℕ) (h_k : k ≥ 2) : HomogeneousCSP :=
   ⟨nvars, bounds ++ initial ++ p0_transitions ++ p1_transitions ++ safety_violation⟩
 
 -- Instantiate with k=3 time steps
-def peterson_mutex : HomogeneousCSP :=
+def peterson_mutex : IntCSP :=
   peterson_mutex_k 3 (by decide)
 
 def main : IO Unit := do

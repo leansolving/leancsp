@@ -143,12 +143,12 @@ theorem lf_no_sol : ¬ ∃ (a : Fin lfSig.nInt → Int) (_ : Fin lfSig.nBool →
     `csp_unsat_generic` turns those into a PB model (linear `≤` halves +
     cardinality clauses), and the committed certificate `lf_formulaUnsat`
     contradicts it. -/
-theorem langford_2_2_unsat : ¬ (langford_2n_csp 2).isSatisfiable := by
+theorem langford_2_2_unsat : ¬ (langford_2n_csp 2).isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Every position lies in `{1,2,3,4}` (from its `bound`).
   have hdom : ∀ i : Fin lfSig.nInt, a i ∈ lfSig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 1 (4 : ℕ)) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 1 (4 : ℕ)) a := by
       apply hsol
       apply List.mem_append_left; apply List.mem_append_left
       exact List.mem_map.mpr ⟨i, List.mem_finRange i, rfl⟩
@@ -158,7 +158,7 @@ theorem langford_2_2_unsat : ¬ (langford_2n_csp 2).isSatisfiable := by
     exact mem_domainValues.mpr ⟨h1, h2'⟩
   -- The two spacing equalities (from the `linear_eq` constraints).
   have hE1 : a (1 : Fin 4) - a (0 : Fin 4) = 2 := by
-    have hs : HomogeneousCSP.satisfiesConstraint
+    have hs : IntCSP.satisfiesConstraintInt
         (make_spacing_constraint 4 0 1 1 (by decide) (by decide)) a := by
       apply hsol
       apply List.mem_append_left; apply List.mem_append_right
@@ -171,7 +171,7 @@ theorem langford_2_2_unsat : ¬ (langford_2n_csp 2).isSatisfiable := by
     simp at hsum
     linarith [hsum]
   have hE2 : a (3 : Fin 4) - a (2 : Fin 4) = 3 := by
-    have hs : HomogeneousCSP.satisfiesConstraint
+    have hs : IntCSP.satisfiesConstraintInt
         (make_spacing_constraint 4 2 3 2 (by decide) (by decide)) a := by
       apply hsol
       apply List.mem_append_left; apply List.mem_append_right

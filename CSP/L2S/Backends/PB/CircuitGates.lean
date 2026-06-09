@@ -23,11 +23,11 @@ These live in their own module (importing no `Tests/lean/NN_*` corpus file) so t
 
 /-- **Bridge.** A satisfied ternary `xor_all [v0,v1,v2] r` gives `r = parity`, i.e.
     `(a v0 + a v1 + a v2) % 2 = a r`.  Reduces the `vars.sum % 2 = r` checker. -/
-theorem xor_all3_sat {nv : ℕ} (v0 v1 v2 r : Fin nv) (a : HomogeneousAssignment nv)
-    (h : HomogeneousCSP.satisfiesConstraint
-      (xor_all (⟨#[v0, v1, v2], rfl⟩ : _root_.Vector (HomogeneousVarIndex nv) 3) r) a) :
+theorem xor_all3_sat {nv : ℕ} (v0 v1 v2 r : Fin nv) (a : IntAssignment nv)
+    (h : IntCSP.satisfiesConstraintInt
+      (xor_all (⟨#[v0, v1, v2], rfl⟩ : _root_.Vector (VarType nv) 3) r) a) :
     (a v0 + a v1 + a v2) % 2 = a r := by
-  simp only [HomogeneousCSP.satisfiesConstraint, xor_all,
+  simp only [IntCSP.satisfiesConstraintInt, xor_all,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, extractValues, _root_.Vector.get, _root_.Vector.append,
     List.ofFn_succ, List.ofFn_zero, List.getLast?, List.dropLast,
@@ -40,10 +40,10 @@ theorem xor_all3_sat {nv : ℕ} (v0 v1 v2 r : Fin nv) (a : HomogeneousAssignment
 
 /-- **Bridge.** A satisfied binary `and_gate in1 in2 out` over `{0,1}` gives
     `out = min(in1, in2)` (the `dynamic` checker is `decide (z = min x y)`). -/
-theorem and_gate_sat {nv : ℕ} (in1 in2 out : Fin nv) (a : HomogeneousAssignment nv)
-    (h : HomogeneousCSP.satisfiesConstraint (and_gate in1 in2 out) a) :
+theorem and_gate_sat {nv : ℕ} (in1 in2 out : Fin nv) (a : IntAssignment nv)
+    (h : IntCSP.satisfiesConstraintInt (and_gate in1 in2 out) a) :
     a out = min (a in1) (a in2) := by
-  simp only [HomogeneousCSP.satisfiesConstraint, and_gate,
+  simp only [IntCSP.satisfiesConstraintInt, and_gate,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, extractValues, _root_.Vector.get,
     List.ofFn_succ, List.ofFn_zero, Fin.cast, Fin.val_zero, Fin.val_succ,
@@ -54,11 +54,11 @@ theorem and_gate_sat {nv : ℕ} (in1 in2 out : Fin nv) (a : HomogeneousAssignmen
 /-- **Bridge.** A satisfied ternary `or_all [g1,g2,g3] r` over `{0,1}` gives
     `r = max(max g1 g2) g3` (the `dynamic` checker is `r = foldl-max`; reconciled to
     nested `max` via a pure-`ℤ` helper). -/
-theorem or_all3_full_sat {nv : ℕ} (g1 g2 g3 r : Fin nv) (a : HomogeneousAssignment nv)
-    (h : HomogeneousCSP.satisfiesConstraint
-      (or_all (⟨#[g1, g2, g3], rfl⟩ : _root_.Vector (HomogeneousVarIndex nv) 3) r) a) :
+theorem or_all3_full_sat {nv : ℕ} (g1 g2 g3 r : Fin nv) (a : IntAssignment nv)
+    (h : IntCSP.satisfiesConstraintInt
+      (or_all (⟨#[g1, g2, g3], rfl⟩ : _root_.Vector (VarType nv) 3) r) a) :
     a r = max (max (a g1) (a g2)) (a g3) := by
-  simp only [HomogeneousCSP.satisfiesConstraint, or_all,
+  simp only [IntCSP.satisfiesConstraintInt, or_all,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, extractValues, _root_.Vector.get, _root_.Vector.append,
     List.ofFn_succ, List.ofFn_zero, List.getLast?, List.dropLast,

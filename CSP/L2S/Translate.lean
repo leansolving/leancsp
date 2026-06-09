@@ -42,14 +42,14 @@ def selectBackend : BackendType → Backend
 -- Unified Translation Functions
 -- ============================================================================
 
-def translateToExcept (csp : HomogeneousCSP)
+def translateToExcept (csp : IntCSP)
                       (backendType : BackendType)
                       (opts : BackendOptions := default)
                       : Except TranslatorError String :=
   translateWith (selectBackend backendType) opts csp
 
 
-def translateTo (csp : HomogeneousCSP)
+def translateTo (csp : IntCSP)
                 (backendType : BackendType)
                 (opts : BackendOptions := default)
                 : String :=
@@ -83,7 +83,7 @@ saveTo myCSP "output/queens.mzn" BackendType.MiniZinc
 -- Output: ✓ Saved to output/queens.mzn
 ```
 -/
-def saveTo (csp : HomogeneousCSP)
+def saveTo (csp : IntCSP)
            (filepath : String)
            (backendType : BackendType)
            (opts : BackendOptions := default)
@@ -104,7 +104,7 @@ Save a translated CSP with automatic file extension.
 Automatically appends the correct extension (.mzn or .smt2) based on backend type.
 Creates parent directories automatically if they don't exist.
 -/
-def saveToAuto (csp : HomogeneousCSP)
+def saveToAuto (csp : IntCSP)
                (basename : String)
                (backendType : BackendType)
                (opts : BackendOptions := default)
@@ -118,7 +118,7 @@ def saveToAuto (csp : HomogeneousCSP)
 -- ============================================================================
 
 
-def translateToMiniZinc (csp : HomogeneousCSP) : String :=
+def translateToMiniZinc (csp : IntCSP) : String :=
   translateTo csp BackendType.MiniZinc
 
 /-- Solving objectives for MiniZinc optimization problems -/
@@ -129,7 +129,7 @@ inductive SolveObjective where
   deriving Repr
 
 /-- MiniZinc translation with custom objective -/
-def translateToMiniZincWithObjective (csp : HomogeneousCSP)
+def translateToMiniZincWithObjective (csp : IntCSP)
     (objective : SolveObjective := .Satisfy) : String :=
   -- Include statements
   let includes := MiniZinc.getRequiredIncludes csp
@@ -164,23 +164,23 @@ def translateToMiniZincWithObjective (csp : HomogeneousCSP)
 -- ============================================================================
 
 /-- Extract variable bounds for MiniZinc variable declarations -/
-def extractVariableBoundsForMiniZinc (csp : HomogeneousCSP) :
+def extractVariableBoundsForMiniZinc (csp : IntCSP) :
     Fin csp.num_vars → (ℤ × ℤ) :=
   csp.extractAllBounds
 
 /-- Extract all variable bounds as a list for analysis -/
-def getAllVariableBounds (csp : HomogeneousCSP) : List (ℕ × ℤ × ℤ) :=
+def getAllVariableBounds (csp : IntCSP) : List (ℕ × ℤ × ℤ) :=
   List.ofFn fun (i : Fin csp.num_vars) =>
     let bounds := extractVariableBoundsForMiniZinc csp i
     (i.val, bounds.1, bounds.2)
 
 /-- Check if any variables have default bounds (indicating unbounded variables) -/
-def hasDefaultBounds (csp : HomogeneousCSP) : Bool :=
+def hasDefaultBounds (csp : IntCSP) : Bool :=
   let bounds := getAllVariableBounds csp
   bounds.any fun (_, lb, ub) => lb = -1000 ∧ ub = 1000
 
 /-- Generate statistics about variable bounds for debugging -/
-def generateBoundsReport (csp : HomogeneousCSP) : String :=
+def generateBoundsReport (csp : IntCSP) : String :=
   let bounds := getAllVariableBounds csp
   let lines := bounds.map fun (i, lb, ub) => s!"x{i}: [{lb}, {ub}]"
   let hasDefaults := if hasDefaultBounds csp then
@@ -190,7 +190,7 @@ def generateBoundsReport (csp : HomogeneousCSP) : String :=
   String.intercalate "\n" (hasDefaults :: lines)
 
 /-- Count constraints by type (for analysis) -/
-def countConstraintsByType (csp : HomogeneousCSP) : String :=
+def countConstraintsByType (csp : IntCSP) : String :=
   let patterns := csp.constraints.map (·.pattern)
   let counts := patterns.foldl (fun acc p =>
     let key := match p with
@@ -259,11 +259,11 @@ namespace CSP.L2S.Z3
 open CSP.L2S
 
 /-- Translate to SMT-LIB using old API -/
-def translateToSMTLIB (csp : HomogeneousCSP) : String :=
+def translateToSMTLIB (csp : IntCSP) : String :=
   translateTo csp BackendType.SMTLIB
 
 /-- SMT-LIB translation with custom logic -/
-def translateToSMTLIBWithLogic (csp : HomogeneousCSP) (logic : String) : String :=
+def translateToSMTLIBWithLogic (csp : IntCSP) (logic : String) : String :=
   translateTo csp BackendType.SMTLIB { smtLogic := some logic }
 
 end CSP.L2S.Z3

@@ -8,7 +8,7 @@ open CSP.L2S
 /-!
 # MiniZinc Backend for L2M
 
-Translates HomogeneousCSP to MiniZinc constraint programming language.
+Translates IntCSP to MiniZinc constraint programming language.
 
 ## Features
 - Pattern-based constraint translation
@@ -240,7 +240,7 @@ def patternToMiniZinc {num_vars : ℕ} (opts : BackendOptions)
 -- ============================================================================
 
 /-- Get required MiniZinc include statements for the constraints -/
-def getRequiredIncludes (csp : HomogeneousCSP) : List String :=
+def getRequiredIncludes (csp : IntCSP) : List String :=
   let patterns := csp.constraints.map (·.pattern)
   let includes := patterns.foldl (fun acc p =>
     match p with
@@ -292,13 +292,13 @@ def miniZincBackend : Backend where
 -- ============================================================================
 
 /-- Convenience wrapper (backward compatibility) -/
-def translateToMiniZinc (csp : HomogeneousCSP) : String :=
+def translateToMiniZinc (csp : IntCSP) : String :=
   match translateWith miniZincBackend default csp with
   | .ok s => s
   | .error e => s!"% Error: {e.msg}"
 
 /-- Convenience wrapper with options -/
-def translateToMiniZincStrict (csp : HomogeneousCSP) : Except TranslatorError String :=
+def translateToMiniZincStrict (csp : IntCSP) : Except TranslatorError String :=
   translateWith miniZincBackend { strict := true } csp
 
 end CSP.L2S.MiniZinc

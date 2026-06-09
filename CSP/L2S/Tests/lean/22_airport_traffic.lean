@@ -18,7 +18,7 @@ Constraints: Initial positions, movement rules, collision avoidance, goal (reach
 -/
 
 -- Airport ground traffic control CSP (2 aircraft, 5 time steps)
-def airport_traffic : HomogeneousCSP :=
+def airport_traffic : IntCSP :=
   let naircraft := 2
   let nsteps := 5
   let nvars := naircraft * nsteps  -- 10 variables

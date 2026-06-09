@@ -49,12 +49,12 @@ def circSig : CSPSig where
 /-- **Bridge.** A satisfied binary `and_all [x,y] r` over `{0,1}` (`r = min(x,y)`)
     gives the AND lower bound `a x + a y - 1 ≤ a r` (uses the domain upper bounds).
     The `foldl`-min checker is reduced to the `min`-`if`, then `split_ifs` + `linarith`. -/
-theorem and_all2_lower_sat (x y r : Fin 7) (a : HomogeneousAssignment 7)
+theorem and_all2_lower_sat (x y r : Fin 7) (a : IntAssignment 7)
     (hx : a x ≤ 1) (hy : a y ≤ 1)
-    (h : HomogeneousCSP.satisfiesConstraint
-      (and_all (⟨#[x, y], rfl⟩ : _root_.Vector (HomogeneousVarIndex 7) 2) r) a) :
+    (h : IntCSP.satisfiesConstraintInt
+      (and_all (⟨#[x, y], rfl⟩ : _root_.Vector (VarType 7) 2) r) a) :
     a x + a y - 1 ≤ a r := by
-  simp only [HomogeneousCSP.satisfiesConstraint, and_all,
+  simp only [IntCSP.satisfiesConstraintInt, and_all,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, extractValues, _root_.Vector.get, _root_.Vector.append,
     List.ofFn_succ, List.ofFn_zero, List.getLast?, List.dropLast,
@@ -68,11 +68,11 @@ theorem and_all2_lower_sat (x y r : Fin 7) (a : HomogeneousAssignment 7)
 
 /-- **Bridge.** A satisfied ternary `or_all [g₁,g₂,g₃] r` over `{0,1}` (`r = max`)
     gives the OR lower bounds `gᵢ ≤ a r` (the `le_max` direction; no domain needed). -/
-theorem or_all3_le_sat (g1 g2 g3 r : Fin 7) (a : HomogeneousAssignment 7)
-    (h : HomogeneousCSP.satisfiesConstraint
-      (or_all (⟨#[g1, g2, g3], rfl⟩ : _root_.Vector (HomogeneousVarIndex 7) 3) r) a) :
+theorem or_all3_le_sat (g1 g2 g3 r : Fin 7) (a : IntAssignment 7)
+    (h : IntCSP.satisfiesConstraintInt
+      (or_all (⟨#[g1, g2, g3], rfl⟩ : _root_.Vector (VarType 7) 3) r) a) :
     a g1 ≤ a r ∧ a g2 ≤ a r ∧ a g3 ≤ a r := by
-  simp only [HomogeneousCSP.satisfiesConstraint, or_all,
+  simp only [IntCSP.satisfiesConstraintInt, or_all,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, extractValues, _root_.Vector.get, _root_.Vector.append,
     List.ofFn_succ, List.ofFn_zero, List.getLast?, List.dropLast,
@@ -85,11 +85,11 @@ theorem or_all3_le_sat (g1 g2 g3 r : Fin 7) (a : HomogeneousAssignment 7)
   split_ifs at h <;> exact ⟨by linarith, by linarith, by linarith⟩
 
 /-- **Bridge.** A satisfied ternary `at_least_k [x,y,z] 2` gives `a x + a y + a z ≥ 2`. -/
-theorem at_least3_2_sat (x y z : Fin 7) (a : HomogeneousAssignment 7)
-    (h : HomogeneousCSP.satisfiesConstraint
-      (at_least_k (⟨#[x, y, z], rfl⟩ : _root_.Vector (HomogeneousVarIndex 7) 3) 2) a) :
+theorem at_least3_2_sat (x y z : Fin 7) (a : IntAssignment 7)
+    (h : IntCSP.satisfiesConstraintInt
+      (at_least_k (⟨#[x, y, z], rfl⟩ : _root_.Vector (VarType 7) 3) 2) a) :
     a x + a y + a z ≥ 2 := by
-  simp only [HomogeneousCSP.satisfiesConstraint, at_least_k,
+  simp only [IntCSP.satisfiesConstraintInt, at_least_k,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, extractValues, _root_.Vector.get,
     List.ofFn_succ, List.ofFn_zero, List.sum_cons, List.sum_nil,
@@ -201,11 +201,11 @@ theorem circ_no_sol : ¬ ∃ (a : Fin circSig.nInt → Int) (_ : Fin circSig.nBo
     / `encodeNeConst` encoders, and the committed certificate `circ_formulaUnsat`
     contradicts it.  No Boolean/Tseitin machinery — AND/OR are linear over `{0,1}`. -/
 theorem circuit_majority3_unsat :
-    ¬ (at_least_k_satisfies_circuit_csp majority3_circuit 2).isSatisfiable := by
+    ¬ (at_least_k_satisfies_circuit_csp majority3_circuit 2).isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   have hdom : ∀ i : Fin circSig.nInt, a i ∈ circSig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 0 1) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 0 1) a := by
       apply hsol
       show bound i 0 1 ∈ (List.finRange 7).map (fun i => bound i 0 1) ++
         [and_all (⟨#[(0:Fin 7),(1:Fin 7)], rfl⟩) (3:Fin 7),

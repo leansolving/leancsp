@@ -39,7 +39,7 @@ so row `i` maps to OPB thresholds `x{{3i+1..3i+3}}` (12 variables).
 
 /-- The blocked instance: the corpus 4-queens CSP with the first column forbidden in every
     row (`not_equals_const a i 1` for `i = 0,1,2,3`). -/
-def blockedQueens4 : HomogeneousCSP :=
+def blockedQueens4 : IntCSP :=
   (nqueens_csp 4).addConstraints
     [not_equals_const (⟨0, by decide⟩ : Fin (nqueens_csp 4).num_vars) 1,
      not_equals_const (⟨1, by decide⟩ : Fin (nqueens_csp 4).num_vars) 1,
@@ -60,7 +60,7 @@ def bqSig : CSPSig where
 
 /-- The columns scope (`Vector.ofFn id` = `[0,1,2,3]`): the rows whose columns are all
     different. -/
-def bqScope : _root_.Vector (HomogeneousVarIndex 4) 4 := _root_.Vector.ofFn id
+def bqScope : _root_.Vector (VarType 4) 4 := _root_.Vector.ofFn id
 
 /-- The four row variables as a `List (Fin bqSig.nInt)` (definitionally `[0,1,2,3]`). -/
 def bqVars : List (Fin bqSig.nInt) := bqScope.toList
@@ -106,18 +106,18 @@ theorem bq_formulaUnsat :
     `encodeAllDifferent` / `encodeNeConst` encoders, and the committed certificate
     `bq_formulaUnsat` contradicts it (four distinct columns cannot avoid `1` within
     `{1,2,3,4}`). -/
-theorem blocked_queens_4_unsat : ¬ blockedQueens4.isSatisfiable := by
+theorem blocked_queens_4_unsat : ¬ blockedQueens4.isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Expose the constraint list as the explicit append (defeq through `addConstraints`).
   have hsol' : ∀ c ∈ [not_equals_const (⟨0, by decide⟩ : Fin (nqueens_csp 4).num_vars) 1,
       not_equals_const (⟨1, by decide⟩ : Fin (nqueens_csp 4).num_vars) 1,
       not_equals_const (⟨2, by decide⟩ : Fin (nqueens_csp 4).num_vars) 1,
       not_equals_const (⟨3, by decide⟩ : Fin (nqueens_csp 4).num_vars) 1] ++
-      (nqueens_csp 4).constraints, HomogeneousCSP.satisfiesConstraint c a := hsol
+      (nqueens_csp 4).constraints, IntCSP.satisfiesConstraintInt c a := hsol
   -- Every row's column lies in {1,2,3,4} (from its `bound`).
   have hdom : ∀ i : Fin bqSig.nInt, a i ∈ bqSig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 1 (4 : ℕ)) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 1 (4 : ℕ)) a := by
       apply hsol'
       apply List.mem_append_right
       show bound i 1 (4 : ℕ) ∈ queens_bounds 4 ++
@@ -130,7 +130,7 @@ theorem blocked_queens_4_unsat : ¬ blockedQueens4.isSatisfiable := by
     exact mem_domainValues.mpr ⟨h1, h2'⟩
   -- The four columns are pairwise distinct (from the columns `alldifferent`).
   have hnodup : (bqVars.map a).Nodup := by
-    have ha : HomogeneousCSP.satisfiesConstraint (alldifferent (_root_.Vector.ofFn id)) a := by
+    have ha : IntCSP.satisfiesConstraintInt (alldifferent (_root_.Vector.ofFn id)) a := by
       apply hsol'
       apply List.mem_append_right
       show alldifferent (_root_.Vector.ofFn id) ∈ queens_bounds 4 ++

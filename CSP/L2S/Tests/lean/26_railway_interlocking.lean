@@ -26,7 +26,7 @@ Variable layout:
 Constraints: Route mutex, segment reservation implications, point consistency
 -/
 
-def railway_interlocking : HomogeneousCSP :=
+def railway_interlocking : IntCSP :=
   let nvars := 7
 
   -- All variables are Boolean: 0 or 1

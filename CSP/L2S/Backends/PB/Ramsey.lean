@@ -158,12 +158,12 @@ theorem ramsey_no_sol : ¬ ∃ (a : Fin ramseySig.nInt → Int) (_ : Fin ramseyS
     spine `csp_unsat_generic` turns those into a PB model, and the committed
     certificate `ramsey_formulaUnsat` contradicts it.  No hand-wired order-encoding
     soundness. -/
-theorem ramsey_3_3_K6_unsat : ¬ ramsey_3_3_K6.isSatisfiable := by
+theorem ramsey_3_3_K6_unsat : ¬ ramsey_3_3_K6.isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Every edge colour lies in `{0,1}` (from its `bound`).
   have hdom : ∀ i : Fin ramseySig.nInt, a i ∈ ramseySig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 0 1) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 0 1) a := by
       apply hsol
       exact List.mem_append_left _ (List.mem_map.mpr ⟨i, List.mem_finRange i, rfl⟩)
     obtain ⟨h1, h2⟩ := bound_sat i 0 1 a hb

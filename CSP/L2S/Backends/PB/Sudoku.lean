@@ -34,7 +34,7 @@ row 0's four thresholds and the two clue constraints participate in the UNSAT co
 /-- The contradictory-clue instance: the corpus 4×4 Sudoku (`sudoku_4`) with two clues
     that both pin row 0's first two cells (variables 0 and 1) to the digit `1`, violating
     row 0's `alldifferent`. -/
-def sudoku_4_contradictory : HomogeneousCSP :=
+def sudoku_4_contradictory : IntCSP :=
   sudoku_4.addConstraints [equals_const ⟨0, by decide⟩ 1, equals_const ⟨1, by decide⟩ 1]
 
 /-! ### The signature and PB encoding -/
@@ -100,16 +100,16 @@ theorem sudoku_formulaUnsat :
     `csp_unsat_generic` turns those into a PB model via the aux-free `encodeAllDifferent`
     / `encodeLinearLe` encoders, and the committed certificate `sudoku_formulaUnsat`
     contradicts it (two `1`s cannot be distinct). -/
-theorem sudoku_4_contradictory_unsat : ¬ sudoku_4_contradictory.isSatisfiable := by
+theorem sudoku_4_contradictory_unsat : ¬ sudoku_4_contradictory.isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Expose the constraint list as the explicit append (defeq through `addConstraints`).
   have hsol' : ∀ c ∈ [equals_const (⟨0, by decide⟩ : Fin sudoku_4.num_vars) 1,
       equals_const (⟨1, by decide⟩ : Fin sudoku_4.num_vars) 1] ++ sudoku_4.constraints,
-      HomogeneousCSP.satisfiesConstraint c a := hsol
+      IntCSP.satisfiesConstraintInt c a := hsol
   -- Every grid cell lies in the digit domain {1,2,3,4} (from its `bound`).
   have hdom : ∀ i : Fin sudokuSig.nInt, a i ∈ sudokuSig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 1 (4:ℕ)) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 1 (4:ℕ)) a := by
       apply hsol'
       apply List.mem_append_right
       show bound i 1 (4:ℕ) ∈ sudoku_4.constraints
@@ -123,7 +123,7 @@ theorem sudoku_4_contradictory_unsat : ¬ sudoku_4_contradictory.isSatisfiable :
     exact mem_domainValues.mpr ⟨h1, h2'⟩
   -- Row 0's cells are pairwise distinct (from its `alldifferent`).
   have hnodup : (sudokuRow0.map a).Nodup := by
-    have ha : HomogeneousCSP.satisfiesConstraint (alldifferent (row_variables 4 0)) a := by
+    have ha : IntCSP.satisfiesConstraintInt (alldifferent (row_variables 4 0)) a := by
       apply hsol'
       apply List.mem_append_right
       show alldifferent (row_variables 4 0) ∈ sudoku_4.constraints

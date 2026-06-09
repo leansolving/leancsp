@@ -62,14 +62,14 @@ def ramsey_constraints (n : ℕ) : List (TaggedConstraint (ramsey_num_edges n)) 
       else none
     else none
 
-def ramsey_r33_csp (n : ℕ) : HomogeneousCSP :=
+def ramsey_r33_csp (n : ℕ) : IntCSP :=
   ⟨ramsey_num_edges n, ramsey_bounds n ++ ramsey_constraints n⟩
 
 -- K₅ is 2-colourable with no monochromatic triangle (SAT).
-def ramsey_3_3_K5 : HomogeneousCSP := ramsey_r33_csp 5
+def ramsey_3_3_K5 : IntCSP := ramsey_r33_csp 5
 
 -- R(3,3) = 6: K₆ forces a monochromatic triangle (UNSAT).
-def ramsey_3_3_K6 : HomogeneousCSP := ramsey_r33_csp 6
+def ramsey_3_3_K6 : IntCSP := ramsey_r33_csp 6
 
 def main : IO Unit := do
   saveAllBackendsAutoTimed ramsey_3_3_K6

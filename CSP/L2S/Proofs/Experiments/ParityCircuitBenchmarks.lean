@@ -84,10 +84,10 @@ def gateToConstraint (num_vars : ℕ) (g : Gate) : Option (TaggedConstraint num_
 def gatesToConstraints (num_vars : ℕ) (gates : List Gate) : List (TaggedConstraint num_vars) :=
   gates.filterMap (gateToConstraint num_vars)
 
-/-- Convert a circuit to a HomogeneousCSP.
+/-- Convert a circuit to a IntCSP.
     Variables: indices 0 to total_nodes-1
     Constraints: bounds {0,1}, gate constraints, output=1 for each output node -/
-def circuitCSP (c : Circuit) : HomogeneousCSP :=
+def circuitCSP (c : Circuit) : IntCSP :=
   let n := total_nodes c
   -- Bound all variables to {0, 1}
   let bounds := (List.finRange n).map fun i => bound i 0 1
@@ -99,7 +99,7 @@ def circuitCSP (c : Circuit) : HomogeneousCSP :=
   ⟨n, bounds ++ gateConstrs ++ outputConstrs⟩
 
 /-- Convert a circuit to a CSP with an input fixed to a specific Boolean value -/
-def circuitCSPWithFixedInput (c : Circuit) (i : ℕ) (val : Bool) : HomogeneousCSP :=
+def circuitCSPWithFixedInput (c : Circuit) (i : ℕ) (val : Bool) : IntCSP :=
   let base := circuitCSP c
   let fixVal : ℤ := if val then 1 else 0
   if h : i < base.num_vars then
@@ -108,7 +108,7 @@ def circuitCSPWithFixedInput (c : Circuit) (i : ℕ) (val : Bool) : HomogeneousC
     base
 
 /-- Helper to add multiple fixed-input constraints to a CSP -/
-def addFixedInputConstraints (csp : HomogeneousCSP) (inputs : List ℕ) (val : Bool) : HomogeneousCSP :=
+def addFixedInputConstraints (csp : IntCSP) (inputs : List ℕ) (val : Bool) : IntCSP :=
   let fixVal : ℤ := if val then 1 else 0
   inputs.foldl (fun acc i =>
     if h : i < acc.num_vars then
@@ -117,7 +117,7 @@ def addFixedInputConstraints (csp : HomogeneousCSP) (inputs : List ℕ) (val : B
 
 /-- Convert a circuit to a CSP with half of the inputs fixed to the optimal value.
     Fixes inputs 0 to (numInputs/2 - 1). -/
-def circuitCSPWithHalfFixedInputs (c : Circuit) (val : Bool) : HomogeneousCSP :=
+def circuitCSPWithHalfFixedInputs (c : Circuit) (val : Bool) : IntCSP :=
   let base := circuitCSP c
   let halfInputs := c.num_inputs / 2
   let inputsToFix := List.range halfInputs

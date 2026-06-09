@@ -19,7 +19,7 @@ If UNSAT: transition relation prevents RED→YELLOW. If SAT: bug found.
 -/
 
 -- General BMC formulation parameterized by number of time steps
-def bounded_model_checking_k (k : ℕ) (h_k : k ≥ 3) : HomogeneousCSP :=
+def bounded_model_checking_k (k : ℕ) (h_k : k ≥ 3) : IntCSP :=
   let nvars := k
 
   -- All state variables have domain {0,1,2}
@@ -45,7 +45,7 @@ def bounded_model_checking_k (k : ℕ) (h_k : k ≥ 3) : HomogeneousCSP :=
   ⟨nvars, bounds ++ initial ++ transitions ++ safety_violation⟩
 
 -- Instantiate with k=5 time steps
-def bounded_model_checking : HomogeneousCSP :=
+def bounded_model_checking : IntCSP :=
   bounded_model_checking_k 5 (by decide)
 
 def main : IO Unit := do

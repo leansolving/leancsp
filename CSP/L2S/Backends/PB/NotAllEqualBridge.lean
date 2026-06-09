@@ -40,11 +40,11 @@ end-to-end consumer of `encodeNeConst`.
 
 /-- **Bridge.** A satisfied corpus `schur_triple v1 v2 v3` constraint makes the
     three assigned values not all equal.  Mirrors `bound_sat` / `alldifferent_sat`. -/
-theorem schur_triple_sat {n : ℕ} (v1 v2 v3 : HomogeneousVarIndex n)
-    (a : HomogeneousAssignment n)
-    (h : HomogeneousCSP.satisfiesConstraint (schur_triple v1 v2 v3) a) :
+theorem schur_triple_sat {n : ℕ} (v1 v2 v3 : VarType n)
+    (a : IntAssignment n)
+    (h : IntCSP.satisfiesConstraintInt (schur_triple v1 v2 v3) a) :
     a v1 ≠ a v2 ∨ a v1 ≠ a v3 ∨ a v2 ≠ a v3 := by
-  simp only [HomogeneousCSP.satisfiesConstraint, schur_triple,
+  simp only [IntCSP.satisfiesConstraintInt, schur_triple,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     extractValues, CSP.map_assignment, List.ofFn_succ, List.ofFn_zero,
     _root_.Vector.get, decide_eq_true_eq] at h
@@ -54,11 +54,11 @@ theorem schur_triple_sat {n : ℕ} (v1 v2 v3 : HomogeneousVarIndex n)
     edge, pattern `ne`) makes the two assigned values differ.  Mirrors
     `schur_triple_sat`; the binary checker `binary_dynamic_constraint` reduces the
     same way once `binary_constraint` is unfolded. -/
-theorem not_equal_sat {n : ℕ} (v1 v2 : HomogeneousVarIndex n)
-    (a : HomogeneousAssignment n)
-    (h : HomogeneousCSP.satisfiesConstraint (not_equal v1 v2) a) :
+theorem not_equal_sat {n : ℕ} (v1 v2 : VarType n)
+    (a : IntAssignment n)
+    (h : IntCSP.satisfiesConstraintInt (not_equal v1 v2) a) :
     a v1 ≠ a v2 := by
-  simp only [HomogeneousCSP.satisfiesConstraint, not_equal,
+  simp only [IntCSP.satisfiesConstraintInt, not_equal,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.binary_dynamic_constraint, CSP.binary_constraint,
     CSP.map_assignment, _root_.Vector.get, decide_eq_true_eq] at h
@@ -67,11 +67,11 @@ theorem not_equal_sat {n : ℕ} (v1 v2 : HomogeneousVarIndex n)
 /-- **Bridge.** A satisfied corpus `not_equals_const v c` constraint (forbidden
     colour, pattern `ne_const`) makes the assigned value differ from `c`.  Mirrors
     `bound_sat`; the unary checker reduces once `unary_constraint` is unfolded. -/
-theorem not_equals_const_sat {n : ℕ} (v : HomogeneousVarIndex n) (c : ℤ)
-    (a : HomogeneousAssignment n)
-    (h : HomogeneousCSP.satisfiesConstraint (not_equals_const v c) a) :
+theorem not_equals_const_sat {n : ℕ} (v : VarType n) (c : ℤ)
+    (a : IntAssignment n)
+    (h : IntCSP.satisfiesConstraintInt (not_equals_const v c) a) :
     a v ≠ c := by
-  simp only [HomogeneousCSP.satisfiesConstraint, not_equals_const,
+  simp only [IntCSP.satisfiesConstraintInt, not_equals_const,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.unary_dynamic_constraint, CSP.unary_constraint,
     CSP.map_assignment, _root_.Vector.get, decide_eq_true_eq] at h
@@ -82,11 +82,11 @@ theorem not_equals_const_sat {n : ℕ} (v : HomogeneousVarIndex n) (c : ℤ)
     twin of `not_equals_const_sat`; the unary checker `decide (x = c)` reduces the same
     way once `unary_constraint` is unfolded.  Powers the Sudoku-with-clues family
     (`Sudoku.lean`). -/
-theorem equals_const_sat {n : ℕ} (v : HomogeneousVarIndex n) (c : ℤ)
-    (a : HomogeneousAssignment n)
-    (h : HomogeneousCSP.satisfiesConstraint (equals_const v c) a) :
+theorem equals_const_sat {n : ℕ} (v : VarType n) (c : ℤ)
+    (a : IntAssignment n)
+    (h : IntCSP.satisfiesConstraintInt (equals_const v c) a) :
     a v = c := by
-  simp only [HomogeneousCSP.satisfiesConstraint, equals_const,
+  simp only [IntCSP.satisfiesConstraintInt, equals_const,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.unary_dynamic_constraint, CSP.unary_constraint,
     CSP.map_assignment, _root_.Vector.get, decide_eq_true_eq] at h
@@ -152,11 +152,11 @@ theorem extend_sat_encodeNotAllEqualMulti {S : CSPSig} (a : Fin S.nInt → Int)
 
 /-- **Bridge.** A satisfied `alldifferent scope` constraint makes the assigned values
     along the scope pairwise distinct (`Nodup`).  Mirrors `bound_sat` / `linear_le_sat`. -/
-theorem alldifferent_sat {n m : ℕ} (scope : _root_.Vector (HomogeneousVarIndex n) m)
-    (a : HomogeneousAssignment n)
-    (h : HomogeneousCSP.satisfiesConstraint (alldifferent scope) a) :
+theorem alldifferent_sat {n m : ℕ} (scope : _root_.Vector (VarType n) m)
+    (a : IntAssignment n)
+    (h : IntCSP.satisfiesConstraintInt (alldifferent scope) a) :
     (scope.toList.map a).Nodup := by
-  simp only [HomogeneousCSP.satisfiesConstraint, alldifferent,
+  simp only [IntCSP.satisfiesConstraintInt, alldifferent,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     decide_eq_true_eq] at h
   rwa [extractValues_map_assignment] at h

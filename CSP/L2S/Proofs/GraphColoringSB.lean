@@ -29,7 +29,7 @@ def edge_constraints (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) : Lis
   edges.map (fun (u,v) => not_equal u v)
 
 /- CSP: bound + edges constraints -/
-def graph_coloring_csp (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) (colors : ℕ) : HomogeneousCSP :=
+def graph_coloring_csp (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) (colors : ℕ) : IntCSP :=
   ⟨ nodes ,
     bound_constraints nodes colors ++ edge_constraints nodes edges ⟩
 
@@ -43,7 +43,7 @@ def sb_constraint (nodes : ℕ) (h_nodes : 0 < nodes) : TaggedConstraint nodes :
   equals_const ⟨0, h_nodes⟩ 0
 
 /- Extended CSP (including the SBC) -/
-def extended_graph_coloring_csp (nodes : ℕ) (h_nodes : 0 < nodes) (edges : List (Fin nodes × Fin nodes)) (colors : ℕ) : HomogeneousCSP :=
+def extended_graph_coloring_csp (nodes : ℕ) (h_nodes : 0 < nodes) (edges : List (Fin nodes × Fin nodes)) (colors : ℕ) : IntCSP :=
   (graph_coloring_csp nodes edges colors).addConstraint (sb_constraint nodes h_nodes)
 
 
@@ -52,7 +52,7 @@ def extended_graph_coloring_csp (nodes : ℕ) (h_nodes : 0 < nodes) (edges : Lis
 -- ============================================================================
 
 /-- Color swap: swaps color 0 with color c, leaves others unchanged -/
-def color_swap (c : ℤ) : Equiv.Perm HomogeneousDomain :=
+def color_swap (c : ℤ) : Equiv.Perm IntDomain :=
   Equiv.swap 0 c
 
 -- ============================================================================
@@ -87,8 +87,8 @@ lemma intervalPreserving_color_swap (colors : ℕ) (c : ℤ)
 
 /-- Not-equal constraints are preserved by any permutation (due to injectivity) -/
 lemma not_equal_preserved_by_swap {num_vars : ℕ}
-    (δ : Equiv.Perm HomogeneousDomain)
-    (u v : HomogeneousVarIndex num_vars) :
+    (δ : Equiv.Perm IntDomain)
+    (u v : VarType num_vars) :
     taggedConstraintDomainSymmetric (not_equal u v) δ := by
   unfold taggedConstraintDomainSymmetric constraintDomainSymmetric
   intro assignment h_sat
@@ -145,16 +145,16 @@ theorem sb_constraint_is_domain_symmetry_breaking (nodes colors : ℕ)
     constructor
     · exact DomainSymmetry.identity_is_symmetry _
     · intro tc h_tc_mem
-      simp only [HomogeneousCSP.addConstraint] at h_tc_mem
+      simp only [IntCSP.addConstraint] at h_tc_mem
       obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
       · rw [h_sbc]
-        unfold HomogeneousCSP.satisfiesConstraint sb_constraint equals_const
+        unfold IntCSP.satisfiesConstraintInt sb_constraint equals_const
         unfold CSP.satisfies_dynamic_constraint CSP.unary_dynamic_constraint
         unfold CSP.satisfies_constraint CSP.sat CSP.unary_constraint CSP.map_assignment
         simp only [_root_.Vector.get, decide_eq_true_iff, Function.comp_apply]
         simp only [DomainSymmetry.identity, Equiv.refl_apply]
         exact h
-      · unfold HomogeneousCSP.isSolution at h_sol
+      · unfold IntCSP.isSolutionInt at h_sol
         simp only [DomainSymmetry.identity]
         exact h_sol tc h_orig
   · let c := assignment ⟨0, h_nodes⟩
@@ -164,7 +164,7 @@ theorem sb_constraint_is_domain_symmetry_breaking (nodes colors : ℕ)
         simp only [List.mem_append, List.mem_map, List.mem_finRange]
         left
         use ⟨0, h_nodes⟩
-      unfold HomogeneousCSP.isSolution HomogeneousCSP.satisfiesConstraint at h_sol
+      unfold IntCSP.isSolutionInt IntCSP.satisfiesConstraintInt at h_sol
       have h_sat_bound := h_sol (bound ⟨0, h_nodes⟩ 0 (colors - 1)) h_bound
       unfold bound CSP.satisfies_dynamic_constraint at h_sat_bound
       simp only [CSP.satisfies_constraint, CSP.sat, CSP.map_assignment, extractValues, _root_.Vector.get, List.ofFn] at h_sat_bound
@@ -178,10 +178,10 @@ theorem sb_constraint_is_domain_symmetry_breaking (nodes colors : ℕ)
     constructor
     · exact color_swap_is_symmetry nodes colors edges c h_colors h_c_in_bounds
     · intro tc h_tc_mem
-      simp only [HomogeneousCSP.addConstraint] at h_tc_mem
+      simp only [IntCSP.addConstraint] at h_tc_mem
       obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
       · rw [h_sbc]
-        unfold HomogeneousCSP.satisfiesConstraint sb_constraint equals_const
+        unfold IntCSP.satisfiesConstraintInt sb_constraint equals_const
         unfold CSP.satisfies_dynamic_constraint CSP.unary_dynamic_constraint
         unfold CSP.satisfies_constraint CSP.sat CSP.unary_constraint CSP.map_assignment
         simp only [_root_.Vector.get, decide_eq_true_iff, Function.comp_apply]

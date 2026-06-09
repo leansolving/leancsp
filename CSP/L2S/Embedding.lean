@@ -6,7 +6,7 @@ namespace CSP.L2S
 /-!
 # L2M Embedding Theory
 
-Formal proofs that L2M HomogeneousCSPs embed into the heterogeneous framework with zero cost.
+Formal proofs that L2M IntCSPs embed into the heterogeneous framework with zero cost.
 
 ## Main Results
 
@@ -17,15 +17,15 @@ Formal proofs that L2M HomogeneousCSPs embed into the heterogeneous framework wi
 
 -/
 
-open HomogeneousCSP
+open IntCSP
 
 -- ============================================================================
 -- Embedding into Heterogeneous Framework
 -- ============================================================================
 
 /-- The constant domain type function for homogeneous CSPs -/
-def constantDomainType : HomogeneousVarIndex n → Type :=
-  fun _ => HomogeneousDomain
+def constantDomainType : VarType n → Type :=
+  fun _ => IntDomain
 
 /--
 Zero-cost embedding into the general heterogeneous framework.
@@ -35,8 +35,8 @@ This embedding:
 - Extracts dynamic checkers from tagged constraints
 - Is provably identity at runtime (zero overhead)
 -/
-def toHeterogeneous (csp : HomogeneousCSP) :
-    CSP (HomogeneousVarIndex csp.num_vars) constantDomainType :=
+def toHeterogeneous (csp : IntCSP) :
+    CSP (VarType csp.num_vars) constantDomainType :=
   { domain := fun _ => Set.univ
     constraints := csp.constraints.map (·.dynamic) }
 
@@ -50,28 +50,28 @@ The embedding preserves solution checking.
 A homogeneous assignment is a solution of the L2M CSP if and only if
 it's a solution of the embedded heterogeneous CSP.
 -/
-theorem isSolution_iff_heterogeneous (csp : HomogeneousCSP)
-    (assignment : HomogeneousAssignment csp.num_vars) :
-    isSolution csp assignment ↔ is_solution (toHeterogeneous csp) assignment := by
-  simp only [isSolution, is_solution, toHeterogeneous, valid_assignment]
+theorem isSolution_iff_heterogeneous (csp : IntCSP)
+    (assignment : IntAssignment csp.num_vars) :
+    isSolutionInt csp assignment ↔ is_solution (toHeterogeneous csp) assignment := by
+  simp only [isSolutionInt, is_solution, toHeterogeneous, valid_assignment]
   simp only [Set.mem_univ, forall_true_iff, true_and]
   constructor
   · intro h c hc
     obtain ⟨tc, htc, heq⟩ := List.mem_map.mp hc
     rw [← heq]
-    simp only [satisfiesConstraint] at h
+    simp only [satisfiesConstraintInt] at h
     exact h tc htc
   · intro h tc htc
     have : tc.dynamic ∈ List.map TaggedConstraint.dynamic csp.constraints := by
       apply List.mem_map_of_mem
       exact htc
-    simp only [satisfiesConstraint]
+    simp only [satisfiesConstraintInt]
     exact h tc.dynamic this
 
 /-- The embedding preserves satisfiability -/
-theorem isSatisfiable_iff_heterogeneous (csp : HomogeneousCSP) :
-    isSatisfiable csp ↔ is_satisfiable (toHeterogeneous csp) := by
-  simp only [isSatisfiable, is_satisfiable]
+theorem isSatisfiable_iff_heterogeneous (csp : IntCSP) :
+    isSatisfiableInt csp ↔ is_satisfiable (toHeterogeneous csp) := by
+  simp only [isSatisfiableInt, is_satisfiable]
   constructor
   · intro ⟨assignment, h_sol⟩
     use assignment
@@ -86,8 +86,8 @@ theorem isSatisfiable_iff_heterogeneous (csp : HomogeneousCSP) :
 -- ============================================================================
 
 /-- The embedding function from L2M integer CSPs to heterogeneous CSPs -/
-def embed (csp : HomogeneousCSP) :
-    CSP (HomogeneousVarIndex csp.num_vars) (constantDomainType) :=
+def embed (csp : IntCSP) :
+    CSP (VarType csp.num_vars) (constantDomainType) :=
   toHeterogeneous csp
 
 -- ============================================================================
@@ -95,7 +95,7 @@ def embed (csp : HomogeneousCSP) :
 -- ============================================================================
 
 /-- The L2M embedding has zero runtime overhead (proven definitionally equal) -/
-theorem embed_zero_overhead (csp : HomogeneousCSP) :
+theorem embed_zero_overhead (csp : IntCSP) :
     embed csp = ⟨fun _ => Set.univ, csp.constraints.map (·.dynamic)⟩ := by
   simp [embed, toHeterogeneous]
 
@@ -104,22 +104,22 @@ theorem embed_zero_overhead (csp : HomogeneousCSP) :
 -- ============================================================================
 
 /-- The embedding preserves solution checking -/
-theorem embedding_preserves_solutions (csp : HomogeneousCSP) :
-    ∀ assignment, isSolution csp assignment ↔
+theorem embedding_preserves_solutions (csp : IntCSP) :
+    ∀ assignment, isSolutionInt csp assignment ↔
     is_solution (embed csp) assignment := by
   intro assignment
   simp [embed]
   exact isSolution_iff_heterogeneous csp assignment
 
 /-- The embedding preserves satisfiability -/
-theorem embedding_preserves_satisfiability (csp : HomogeneousCSP) :
-    isSatisfiable csp ↔ is_satisfiable (embed csp) := by
+theorem embedding_preserves_satisfiability (csp : IntCSP) :
+    isSatisfiableInt csp ↔ is_satisfiable (embed csp) := by
   simp [embed]
   exact isSatisfiable_iff_heterogeneous csp
 
 /-- Solution space isomorphism -/
-theorem solution_space_isomorphism (csp : HomogeneousCSP) :
-    {assignment | isSolution csp assignment} =
+theorem solution_space_isomorphism (csp : IntCSP) :
+    {assignment | isSolutionInt csp assignment} =
     {assignment | is_solution (embed csp) assignment} := by
   ext assignment
   exact embedding_preserves_solutions csp assignment
@@ -133,7 +133,7 @@ theorem mkEmpty_embedding_preservation (num_vars : ℕ) :
     CSP.mk (fun _ => Set.univ) [] := by
   simp [embed, toHeterogeneous, mkEmpty]
 
-theorem addConstraint_embedding_commutes (csp : HomogeneousCSP)
+theorem addConstraint_embedding_commutes (csp : IntCSP)
     (constraint : TaggedConstraint csp.num_vars) :
     embed (csp.addConstraint constraint) =
     add_constraint (embed csp) constraint.dynamic := by
@@ -144,11 +144,11 @@ theorem addConstraint_embedding_commutes (csp : HomogeneousCSP)
 -- ============================================================================
 
 /-- Extract dynamic constraints from unified CSP -/
-def extractDynamicConstraints (csp : HomogeneousCSP) :
+def extractDynamicConstraints (csp : IntCSP) :
     List (DynamicConstraint (Fin csp.num_vars) (fun _ => ℤ)) :=
   csp.constraints.map (·.dynamic)
 
-theorem extractDynamicConstraints_correct (csp : HomogeneousCSP) :
+theorem extractDynamicConstraints_correct (csp : IntCSP) :
     extractDynamicConstraints csp =
     (embed csp).constraints := by
   rfl
@@ -162,14 +162,14 @@ theorem extractDynamicConstraints_correct (csp : HomogeneousCSP) :
 lemma constantDomainType_eq {n : ℕ} (v : Fin n) :
   constantDomainType v = ℤ := rfl
 
-/-- HomogeneousVarIndex is definitionally equal to Fin -/
+/-- VarType is definitionally equal to Fin -/
 @[simp]
-lemma HomogeneousVarIndex_def (n : ℕ) :
-  HomogeneousVarIndex n = Fin n := rfl
+lemma VarType_def (n : ℕ) :
+  VarType n = Fin n := rfl
 
-/-- HomogeneousDomain is definitionally equal to ℤ -/
+/-- IntDomain is definitionally equal to ℤ -/
 @[simp]
-lemma HomogeneousDomain_def :
-  HomogeneousDomain = ℤ := rfl
+lemma IntDomain_def :
+  IntDomain = ℤ := rfl
 
 end CSP.L2S

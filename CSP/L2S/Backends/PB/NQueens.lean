@@ -91,10 +91,10 @@ def nqUser : List (PBConstr (PBVar nqSig)) :=
 /-- **Bridge.** The columns `alldifferent (Vector.ofFn id)` constraint makes the
     two row values differ.  Reduces the arity-2 `Nodup` checker directly (the
     scope `Vector.ofFn id` evaluates pointwise via `vget`). -/
-theorem nq_cols_sat (a : HomogeneousAssignment 2)
-    (h : HomogeneousCSP.satisfiesConstraint (alldifferent (_root_.Vector.ofFn id)) a) :
+theorem nq_cols_sat (a : IntAssignment 2)
+    (h : IntCSP.satisfiesConstraintInt (alldifferent (_root_.Vector.ofFn id)) a) :
     a (0 : Fin 2) ≠ a (1 : Fin 2) := by
-  simp only [HomogeneousCSP.satisfiesConstraint, alldifferent,
+  simp only [IntCSP.satisfiesConstraintInt, alldifferent,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, extractValues, vget, id_eq, decide_eq_true_eq,
     List.ofFn_succ, List.ofFn_zero, List.nodup_cons, List.mem_cons,
@@ -103,10 +103,10 @@ theorem nq_cols_sat (a : HomogeneousAssignment 2)
 
 /-- **Bridge.** The positive-diagonal `alldifferent_diag_pos 2` constraint makes
     `a 0 + 0` and `a 1 + 1` differ, i.e. `a 0 ≠ a 1 + 1`. -/
-theorem nq_diag_pos_sat (a : HomogeneousAssignment 2)
-    (h : HomogeneousCSP.satisfiesConstraint (alldifferent_diag_pos 2) a) :
+theorem nq_diag_pos_sat (a : IntAssignment 2)
+    (h : IntCSP.satisfiesConstraintInt (alldifferent_diag_pos 2) a) :
     a (0 : Fin 2) ≠ a (1 : Fin 2) + 1 := by
-  simp only [HomogeneousCSP.satisfiesConstraint, alldifferent_diag_pos,
+  simp only [IntCSP.satisfiesConstraintInt, alldifferent_diag_pos,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, vget, decide_eq_true_eq,
     List.ofFn_succ, List.ofFn_zero, List.nodup_cons, List.mem_cons,
@@ -116,10 +116,10 @@ theorem nq_diag_pos_sat (a : HomogeneousAssignment 2)
 
 /-- **Bridge.** The negative-diagonal `alldifferent_diag_neg 2` constraint makes
     `a 0 - 0` and `a 1 - 1` differ, i.e. `a 0 ≠ a 1 - 1`. -/
-theorem nq_diag_neg_sat (a : HomogeneousAssignment 2)
-    (h : HomogeneousCSP.satisfiesConstraint (alldifferent_diag_neg 2) a) :
+theorem nq_diag_neg_sat (a : IntAssignment 2)
+    (h : IntCSP.satisfiesConstraintInt (alldifferent_diag_neg 2) a) :
     a (0 : Fin 2) ≠ a (1 : Fin 2) - 1 := by
-  simp only [HomogeneousCSP.satisfiesConstraint, alldifferent_diag_neg,
+  simp only [IntCSP.satisfiesConstraintInt, alldifferent_diag_neg,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, vget, decide_eq_true_eq,
     List.ofFn_succ, List.ofFn_zero, List.nodup_cons, List.mem_cons,
@@ -209,12 +209,12 @@ theorem nq_no_sol : ¬ ∃ (a : Fin nqSig.nInt → Int) (_ : Fin nqSig.nBool →
     `a 0, a 1`, the generic spine `csp_unsat_generic` turns those into a PB model
     via the Big-M `encodeLinearNe` encoding, and the committed certificate
     `nq_formulaUnsat` contradicts it. -/
-theorem nqueens_2_unsat : ¬ (nqueens_csp 2).isSatisfiable := by
+theorem nqueens_2_unsat : ¬ (nqueens_csp 2).isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Every row lies in `{1,2}` (from its `bound`).
   have hdom : ∀ i : Fin nqSig.nInt, a i ∈ nqSig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 1 (2 : ℕ)) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 1 (2 : ℕ)) a := by
       apply hsol
       show bound i 1 (2 : ℕ) ∈ queens_bounds 2 ++
         [alldifferent (_root_.Vector.ofFn id), alldifferent_diag_pos 2, alldifferent_diag_neg 2]
@@ -290,7 +290,7 @@ theorem nq3Sum12 (a : Fin nq3Sig.nInt → Int) :
   simp only [nq3Terms12, List.map_cons, List.map_nil, List.sum_cons, List.sum_nil]; ring
 
 /-- The column variables as the scope of the corpus `alldifferent` (`Vector.ofFn id`). -/
-def nq3Scope : _root_.Vector (HomogeneousVarIndex 3) 3 := _root_.Vector.ofFn id
+def nq3Scope : _root_.Vector (VarType 3) 3 := _root_.Vector.ofFn id
 
 /-- The column variable list `[0,1,2]` (the `alldifferent` scope as a `List`). -/
 def nq3Vars : List (Fin nq3Sig.nInt) := nq3Scope.toList
@@ -324,19 +324,19 @@ def nq3User : List (PBConstr (PBVar nq3Sig)) :=
 
 /-- **Bridge.** The columns `alldifferent (Vector.ofFn id)` constraint makes the
     three row values pairwise distinct (reuses `alldifferent_sat`). -/
-theorem nq3_cols_sat (a : HomogeneousAssignment 3)
-    (h : HomogeneousCSP.satisfiesConstraint (alldifferent nq3Scope) a) :
+theorem nq3_cols_sat (a : IntAssignment 3)
+    (h : IntCSP.satisfiesConstraintInt (alldifferent nq3Scope) a) :
     (nq3Vars.map a).Nodup :=
   alldifferent_sat nq3Scope a h
 
 /-- **Bridge.** The positive-diagonal `alldifferent_diag_pos 3` constraint
     (`Nodup [a 0, a 1 + 1, a 2 + 2]`) makes the three positive diagonals pairwise
     distinct. -/
-theorem nq3_diag_pos_sat (a : HomogeneousAssignment 3)
-    (h : HomogeneousCSP.satisfiesConstraint (alldifferent_diag_pos 3) a) :
+theorem nq3_diag_pos_sat (a : IntAssignment 3)
+    (h : IntCSP.satisfiesConstraintInt (alldifferent_diag_pos 3) a) :
     a (0 : Fin 3) ≠ a (1 : Fin 3) + 1 ∧ a (0 : Fin 3) ≠ a (2 : Fin 3) + 2 ∧
       a (1 : Fin 3) + 1 ≠ a (2 : Fin 3) + 2 := by
-  simp only [HomogeneousCSP.satisfiesConstraint, alldifferent_diag_pos,
+  simp only [IntCSP.satisfiesConstraintInt, alldifferent_diag_pos,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, vget, decide_eq_true_eq,
     List.ofFn_succ, List.ofFn_zero, List.nodup_cons, List.mem_cons,
@@ -347,11 +347,11 @@ theorem nq3_diag_pos_sat (a : HomogeneousAssignment 3)
 /-- **Bridge.** The negative-diagonal `alldifferent_diag_neg 3` constraint
     (`Nodup [a 0, a 1 - 1, a 2 - 2]`) makes the three negative diagonals pairwise
     distinct. -/
-theorem nq3_diag_neg_sat (a : HomogeneousAssignment 3)
-    (h : HomogeneousCSP.satisfiesConstraint (alldifferent_diag_neg 3) a) :
+theorem nq3_diag_neg_sat (a : IntAssignment 3)
+    (h : IntCSP.satisfiesConstraintInt (alldifferent_diag_neg 3) a) :
     a (0 : Fin 3) ≠ a (1 : Fin 3) - 1 ∧ a (0 : Fin 3) ≠ a (2 : Fin 3) - 2 ∧
       a (1 : Fin 3) - 1 ≠ a (2 : Fin 3) - 2 := by
-  simp only [HomogeneousCSP.satisfiesConstraint, alldifferent_diag_neg,
+  simp only [IntCSP.satisfiesConstraintInt, alldifferent_diag_neg,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, vget, decide_eq_true_eq,
     List.ofFn_succ, List.ofFn_zero, List.nodup_cons, List.mem_cons,
@@ -535,11 +535,11 @@ theorem nq3_no_sol : ¬ ∃ (a : Fin nq3Sig.nInt → Int) (_ : Fin nq3Sig.nBool 
     `csp_unsat_generic` turns those into a PB model (columns via aux-free
     `encodeAllDifferent`, diagonals via Big-M `encodeLinearNe`), and the committed
     certificate `nq3_formulaUnsat` contradicts it. -/
-theorem nqueens_3_unsat : ¬ (nqueens_csp 3).isSatisfiable := by
+theorem nqueens_3_unsat : ¬ (nqueens_csp 3).isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   have hdom : ∀ i : Fin nq3Sig.nInt, a i ∈ nq3Sig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 1 (3 : ℕ)) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 1 (3 : ℕ)) a := by
       apply hsol
       show bound i 1 (3 : ℕ) ∈ queens_bounds 3 ++
         [alldifferent (_root_.Vector.ofFn id), alldifferent_diag_pos 3, alldifferent_diag_neg 3]

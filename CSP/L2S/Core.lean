@@ -11,11 +11,11 @@ namespace CSP.L2S
 
 Unified CSP framework combining Homogeneous integer domains with Tagged constraints
 for direct MiniZinc translation. This eliminates the two-layer structure and provides
-a single `HomogeneousCSP` type that is both proof-ready and MiniZinc-translatable.
+a single `IntCSP` type that is both proof-ready and MiniZinc-translatable.
 
 ## Design
 
-- **Single Structure**: One `HomogeneousCSP` type (not base + tagged)
+- **Single Structure**: One `IntCSP` type (not base + tagged)
 - **Dual Representation**: Each constraint has semantic pattern + dynamic checker
 - **Integer Domains**: All variables have type `ℤ` (unlimited range, negatives supported)
 - **Direct Translation**: MiniZinc generation without structure conversion
@@ -28,21 +28,21 @@ a single `HomogeneousCSP` type that is both proof-ready and MiniZinc-translatabl
 -- ============================================================================
 
 /-- Integer domain for all variables -/
-abbrev HomogeneousDomain := ℤ
+abbrev IntDomain := ℤ
 
 /-- Variable indices are finite -/
-abbrev HomogeneousVarIndex (n : ℕ) := Fin n
+abbrev VarType (n : ℕ) := Fin n
 
 /-- DecidableEq instance for variable indices -/
-instance {n : ℕ} : DecidableEq (HomogeneousVarIndex n) := inferInstance
+instance {n : ℕ} : DecidableEq (VarType n) := inferInstance
 
 /-- Abbreviation for homogeneous constraints -/
-abbrev HomogeneousConstraint (n : ℕ) :=
-  DynamicConstraint (HomogeneousVarIndex n) (fun _ => HomogeneousDomain)
+abbrev IntConstraint (n : ℕ) :=
+  DynamicConstraint (VarType n) (fun _ => IntDomain)
 
 /-- Abbreviation for homogeneous assignments -/
-abbrev HomogeneousAssignment (n : ℕ) :=
-  HomogeneousVarIndex n → HomogeneousDomain
+abbrev IntAssignment (n : ℕ) :=
+  VarType n → IntDomain
 
 -- ============================================================================
 -- Relational Operators (for sum and other constraints)
@@ -164,7 +164,7 @@ structure TaggedConstraint (num_vars : ℕ) where
   /-- The semantic pattern for translation -/
   pattern : ConstraintPattern num_vars
   /-- The dynamic checker for proof verification -/
-  dynamic : HomogeneousConstraint num_vars
+  dynamic : IntConstraint num_vars
 
 -- ============================================================================
 -- Unified Homogeneous CSP Structure
@@ -180,37 +180,37 @@ This single structure eliminates the two-layer approach:
 
 All variables have integer domain `ℤ` with bounds specified via bound constraint patterns.
 -/
-structure HomogeneousCSP where
+structure IntCSP where
   /-- Number of variables in the CSP -/
   num_vars : ℕ
   /-- List of tagged constraints (pattern + checker) -/
   constraints : List (TaggedConstraint num_vars)
 
-namespace HomogeneousCSP
+namespace IntCSP
 
 -- ============================================================================
 -- Solution Checking
 -- ============================================================================
 
 /-- Check if a constraint is satisfied by an assignment -/
-def satisfiesConstraint (c : TaggedConstraint n) (assignment : HomogeneousAssignment n) : Prop :=
+def satisfiesConstraintInt (c : TaggedConstraint n) (assignment : IntAssignment n) : Prop :=
   satisfies_dynamic_constraint c.dynamic assignment
 
 /-- Check if an assignment is a solution to the CSP -/
-def isSolution (csp : HomogeneousCSP) (assignment : HomogeneousAssignment csp.num_vars) : Prop :=
-  ∀ c ∈ csp.constraints, satisfiesConstraint c assignment
+def isSolutionInt (csp : IntCSP) (assignment : IntAssignment csp.num_vars) : Prop :=
+  ∀ c ∈ csp.constraints, satisfiesConstraintInt c assignment
 
 /-- Check if a CSP is satisfiable (has at least one solution) -/
-def isSatisfiable (csp : HomogeneousCSP) : Prop :=
-  ∃ assignment, isSolution csp assignment
+def isSatisfiableInt (csp : IntCSP) : Prop :=
+  ∃ assignment, isSolutionInt csp assignment
 
 -- ============================================================================
 -- Bound Extraction (for MiniZinc Variable Declarations)
 -- ============================================================================
 
 /-- Extract bounds for a variable from bound constraint patterns -/
-def extractVariableBounds (csp : HomogeneousCSP)
-    (var : HomogeneousVarIndex csp.num_vars) : ℤ × ℤ :=
+def extractVariableBounds (csp : IntCSP)
+    (var : VarType csp.num_vars) : ℤ × ℤ :=
   -- Scan through constraints looking for bound patterns for this variable
   let bounds := csp.constraints.filterMap fun tc =>
     match tc.pattern with
@@ -223,8 +223,8 @@ def extractVariableBounds (csp : HomogeneousCSP)
   | (lb, ub) :: _ => (lb, ub)  -- Use first bound found
 
 /-- Extract bounds for all variables -/
-def extractAllBounds (csp : HomogeneousCSP) :
-    HomogeneousVarIndex csp.num_vars → (ℤ × ℤ) :=
+def extractAllBounds (csp : IntCSP) :
+    VarType csp.num_vars → (ℤ × ℤ) :=
   fun var => extractVariableBounds csp var
 
 -- ============================================================================
@@ -232,18 +232,18 @@ def extractAllBounds (csp : HomogeneousCSP) :
 -- ============================================================================
 
 /-- Create empty CSP with specified number of variables -/
-def mkEmpty (num_vars : ℕ) : HomogeneousCSP where
+def mkEmpty (num_vars : ℕ) : IntCSP where
   num_vars := num_vars
   constraints := []
 
 /-- Add a constraint to an existing CSP -/
-def addConstraint (csp : HomogeneousCSP)
-    (constraint : TaggedConstraint csp.num_vars) : HomogeneousCSP :=
+def addConstraint (csp : IntCSP)
+    (constraint : TaggedConstraint csp.num_vars) : IntCSP :=
   { csp with constraints := constraint :: csp.constraints }
 
 /-- Add multiple constraints -/
-def addConstraints (csp : HomogeneousCSP)
-    (new_constraints : List (TaggedConstraint csp.num_vars)) : HomogeneousCSP :=
+def addConstraints (csp : IntCSP)
+    (new_constraints : List (TaggedConstraint csp.num_vars)) : IntCSP :=
   { csp with constraints := new_constraints ++ csp.constraints }
 
 
@@ -253,11 +253,11 @@ def addConstraints (csp : HomogeneousCSP)
 -- ============================================================================
 
 /-- Count constraints in a CSP -/
-def constraintCount (csp : HomogeneousCSP) : ℕ :=
+def constraintCount (csp : IntCSP) : ℕ :=
   csp.constraints.length
 
 /-- Get all variable indices -/
-def allVars (csp : HomogeneousCSP) : List (HomogeneousVarIndex csp.num_vars) :=
+def allVars (csp : IntCSP) : List (VarType csp.num_vars) :=
   List.ofFn id
 
 /-- Helper function to convert a list of natural numbers to a vector of Fin with bounds checking.
@@ -276,31 +276,31 @@ def listToFinVector (inputs : List ℕ) (num_nodes : ℕ) :
   else
     none
 
-end HomogeneousCSP
+end IntCSP
 
 -- ============================================================================
 -- Extracting Constraints from Built CSPs
 -- ============================================================================
 
 /-- Get all constraints from a CSP -/
-def getConstraints (csp : HomogeneousCSP) : List (TaggedConstraint csp.num_vars) :=
+def getConstraints (csp : IntCSP) : List (TaggedConstraint csp.num_vars) :=
   csp.constraints
 
 /-- Extract all constraint patterns (semantic representation) -/
-def getPatterns (csp : HomogeneousCSP) : List (ConstraintPattern csp.num_vars) :=
+def getPatterns (csp : IntCSP) : List (ConstraintPattern csp.num_vars) :=
   csp.constraints.map (·.pattern)
 
 /-- Count total number of constraints -/
-def countConstraints (csp : HomogeneousCSP) : ℕ :=
+def countConstraints (csp : IntCSP) : ℕ :=
   csp.constraints.length
 
 /-- Count constraints of a specific type -/
-def countConstraintsByPattern (csp : HomogeneousCSP)
+def countConstraintsByPattern (csp : IntCSP)
     (pred : ConstraintPattern csp.num_vars → Bool) : ℕ :=
   (getPatterns csp).filter pred |>.length
 
 /-- Count bound constraints -/
-def countBoundConstraints (csp : HomogeneousCSP) : ℕ :=
+def countBoundConstraints (csp : IntCSP) : ℕ :=
   countConstraintsByPattern csp fun p =>
     match p with
     | ConstraintPattern.bound _ _ _ => true
@@ -315,12 +315,12 @@ def countBoundConstraints (csp : HomogeneousCSP) : ℕ :=
 section Examples
 
 /-- Example: Simple 2-variable CSP with no constraints -/
-def example_2var : HomogeneousCSP :=
-  HomogeneousCSP.mkEmpty 2
+def example_2var : IntCSP :=
+  IntCSP.mkEmpty 2
 
 /-- Example: CSP with bound constraints -/
-def example_with_bounds : HomogeneousCSP :=
-  let csp := HomogeneousCSP.mkEmpty 3
+def example_with_bounds : IntCSP :=
+  let csp := IntCSP.mkEmpty 3
   -- Note: In practice, bounds are added via Builder API
   -- This is just for illustration
   csp

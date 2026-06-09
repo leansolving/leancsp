@@ -349,12 +349,12 @@ theorem schur3_no_sol : ¬ ∃ (a : Fin schur3Sig.nInt → Int) (_ : Fin schur3S
     PB constraints (`Σⱼ ⟦xⱼ = v⟧ ≤ 2`), the generic spine `csp_unsat_generic`
     builds the PB model, and the committed certificate `schur3_formulaUnsat`
     contradicts it. -/
-theorem schur_3_14_unsat : ¬ schur_3_14.isSatisfiable := by
+theorem schur_3_14_unsat : ¬ schur_3_14.isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Every colour lies in `{1,2,3}` (from its `bound`).
   have hdom : ∀ i : Fin schur3Sig.nInt, a i ∈ schur3Sig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 1 (3 : ℕ)) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 1 (3 : ℕ)) a := by
       apply hsol
       exact List.mem_append_left _ (List.mem_map.mpr ⟨i, List.mem_finRange i, rfl⟩)
     obtain ⟨h1, h2⟩ := bound_sat i 1 (3 : ℕ) a hb

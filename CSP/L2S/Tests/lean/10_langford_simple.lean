@@ -40,7 +40,7 @@ def langford_bounds (n m : ℕ) : List (TaggedConstraint (n * m)) :=
 
 def make_spacing_constraint (num_vars : ℕ) (var1 var2 : ℕ) (d : ℕ)
     (h1 : var1 < num_vars) (h2 : var2 < num_vars) : TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 2 :=
+  let scope : _root_.Vector (VarType num_vars) 2 :=
     ⟨#[⟨var2, h2⟩, ⟨var1, h1⟩], rfl⟩
   let coeffs : _root_.Vector ℤ 2 := ⟨#[1, -1], rfl⟩
   linear_eq scope coeffs (d + 1 : ℤ)
@@ -58,7 +58,7 @@ def langford_2_3_alldifferent : TaggedConstraint 6 :=
   alldifferent (_root_.Vector.ofFn id)
 
 -- L(2,3) complete CSP
-def langford_2_3 : HomogeneousCSP :=
+def langford_2_3 : IntCSP :=
   ⟨6,
    langford_bounds 3 2 ++
    langford_2_3_spacing ++
@@ -68,7 +68,7 @@ def langford_2_3 : HomogeneousCSP :=
 -- Digit d (1-indexed) uses variables 2(d-1) and 2(d-1)+1; the spacing constraint
 -- forces its two copies to be exactly d+1 positions apart, and all positions differ.
 -- L(2,n) is solvable iff n ≡ 0 or 3 (mod 4); n = 6 and n = 9 are UNSAT.
-def langford_2n_csp (n : ℕ) : HomogeneousCSP :=
+def langford_2n_csp (n : ℕ) : IntCSP :=
   let nv := n * 2
   let spacing := (List.range n).filterMap fun d0 =>
     let v1 := d0 * 2
@@ -82,10 +82,10 @@ def langford_2n_csp (n : ℕ) : HomogeneousCSP :=
   ⟨nv, langford_bounds n 2 ++ spacing ++ [alldiff]⟩
 
 -- L(2,6): UNSAT (6 ≡ 2 mod 4). veripb benchmark `langford6`.
-def langford_2_6 : HomogeneousCSP := langford_2n_csp 6
+def langford_2_6 : IntCSP := langford_2n_csp 6
 
 -- L(2,9): UNSAT (9 ≡ 1 mod 4). veripb benchmark `langford9`.
-def langford_2_9 : HomogeneousCSP := langford_2n_csp 9
+def langford_2_9 : IntCSP := langford_2n_csp 9
 
 def main : IO Unit := do
   saveAllBackendsAutoTimed langford_2_3

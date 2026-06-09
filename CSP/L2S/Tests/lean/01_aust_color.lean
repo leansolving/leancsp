@@ -19,12 +19,12 @@ def bound_constraints (nodes : ℕ) (colors : ℕ) : List (TaggedConstraint node
 def edge_constraints (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) : List (TaggedConstraint nodes) :=
   edges.map (fun (u,v) => not_equal u v)
 
-def graph_coloring_csp (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) (colors : ℕ) : HomogeneousCSP :=
+def graph_coloring_csp (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) (colors : ℕ) : IntCSP :=
   ⟨ nodes ,
     bound_constraints nodes colors ++ edge_constraints nodes edges ⟩
 
 
-def australia : HomogeneousCSP :=
+def australia : IntCSP :=
   let nodes := 7
   let edges := [
     (0,1),  -- wa != nt

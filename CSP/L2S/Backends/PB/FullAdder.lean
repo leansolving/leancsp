@@ -160,12 +160,12 @@ theorem fa_no_sol : ¬ ∃ (a : Fin faSig.nInt → Int) (_ : Fin faSig.nBool →
     bridge gives `L ≠ 0`, the generic spine `csp_unsat_generic` turns those into a PB
     model (linear `≤` halves + Big-M `≠`), and the committed certificate
     `fa_formulaUnsat` contradicts it.  **The 3-input XOR needs no `BoolExpr` compiler.** -/
-theorem full_adder_correct_unsat : ¬ full_adder_verification.isSatisfiable := by
+theorem full_adder_correct_unsat : ¬ full_adder_verification.isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Every circuit variable lies in `{0,1}` (from its `bound`).
   have hdom : ∀ i : Fin faSig.nInt, a i ∈ faSig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 0 1) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 0 1) a := by
       apply hsol
       show bound i 0 1 ∈ full_adder_verification.constraints
       unfold full_adder_verification

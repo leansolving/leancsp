@@ -20,7 +20,7 @@ Constraints: Task precedence, machine mutex (using disjunctive), makespan deadli
 -/
 
 -- Job-shop scheduling with flexible machine orderings
-def jobshop_mutex : HomogeneousCSP :=
+def jobshop_mutex : IntCSP :=
   let njobs := 3
   let ntasks_per_job := 3
   let nvars := njobs * ntasks_per_job  -- 9 variables

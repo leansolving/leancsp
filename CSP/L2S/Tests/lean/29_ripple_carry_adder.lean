@@ -18,7 +18,7 @@ Variables: 28 total
 Result: 28 variables, 22 constraints
 -/
 
-def ripple_carry_adder_4bit : HomogeneousCSP :=
+def ripple_carry_adder_4bit : IntCSP :=
   let nvars := 29
   let bounds := (List.finRange nvars).map fun i => bound i 0 1
 

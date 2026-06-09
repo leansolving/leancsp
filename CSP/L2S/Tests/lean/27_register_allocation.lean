@@ -19,11 +19,11 @@ Constraints: Pre-coloring + interference (graph coloring)
 -/
 
 -- Helper to create all variables scope
-def allVars6 : _root_.Vector (HomogeneousVarIndex 6) 6 :=
+def allVars6 : _root_.Vector (VarType 6) 6 :=
   _root_.Vector.ofFn id
 
 -- Register allocation CSP (6 virtual registers, 3 physical registers)
-def register_allocation : HomogeneousCSP :=
+def register_allocation : IntCSP :=
   let nvars := 6
   let nregs := 3  -- Physical registers r0, r1, r2
 

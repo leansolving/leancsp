@@ -43,11 +43,11 @@ list, so corpus-constraint membership is direct (no `filterMap`/`foldl` navigati
 
 /-! ### Pure-`ℤ` helper lemmas
 
-`omega` does not unfold the `HomogeneousDomain := ℤ` abbreviation, so it cannot
+`omega` does not unfold the `IntDomain := ℤ` abbreviation, so it cannot
 reason about `a i` (an `omega`-opaque atom) on the corpus side — in particular it
 cannot discharge the `% 2` of the XOR checker or the `≠`→sum step.  We isolate those
 two facts as pure-`ℤ` lemmas (where `omega` is at home) and apply them to the
-`HomogeneousDomain` values, which are *defeq* to `ℤ`. -/
+`IntDomain` values, which are *defeq* to `ℤ`. -/
 
 /-- The exact linear characterisation of 2-input XOR over `{0,1}`: from
     `(X + Y) mod 2 = R` and `X, Y ∈ {0,1}`, the four linear bounds follow (the value
@@ -70,12 +70,12 @@ generically over the variable count `n`. -/
 /-- **Bridge.** A satisfied 2-input `xor_all [x,y] r` over `{0,1}` (`r = (x+y) mod 2`)
     gives the four exact XOR bounds.  Reduces the `getLast?`/`dropLast`/`sum % 2`
     checker, then applies `xor_facts_int` to the `{0,1}` values. -/
-theorem xor_all2_full_sat {n : ℕ} (x y r : Fin n) (a : HomogeneousAssignment n)
+theorem xor_all2_full_sat {n : ℕ} (x y r : Fin n) (a : IntAssignment n)
     (hx0 : 0 ≤ a x) (hx1 : a x ≤ 1) (hy0 : 0 ≤ a y) (hy1 : a y ≤ 1)
-    (h : HomogeneousCSP.satisfiesConstraint
-      (xor_all (⟨#[x, y], rfl⟩ : _root_.Vector (HomogeneousVarIndex n) 2) r) a) :
+    (h : IntCSP.satisfiesConstraintInt
+      (xor_all (⟨#[x, y], rfl⟩ : _root_.Vector (VarType n) 2) r) a) :
     a r ≤ a x + a y ∧ a x - a y ≤ a r ∧ a y - a x ≤ a r ∧ a r ≤ 2 - a x - a y := by
-  simp only [HomogeneousCSP.satisfiesConstraint, xor_all,
+  simp only [IntCSP.satisfiesConstraintInt, xor_all,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, extractValues, _root_.Vector.get, _root_.Vector.append,
     List.ofFn_succ, List.ofFn_zero, List.getLast?, List.dropLast,
@@ -89,10 +89,10 @@ theorem xor_all2_full_sat {n : ℕ} (x y r : Fin n) (a : HomogeneousAssignment n
 
 /-- **Bridge.** A satisfied `not_gate i o` gives `a o = 1 - a i` (the exact NOT
     relation; the checker `decide (z = 1 - x)` reduces directly). -/
-theorem not_gate_eq_sat {n : ℕ} (i o : Fin n) (a : HomogeneousAssignment n)
-    (h : HomogeneousCSP.satisfiesConstraint (not_gate i o) a) :
+theorem not_gate_eq_sat {n : ℕ} (i o : Fin n) (a : IntAssignment n)
+    (h : IntCSP.satisfiesConstraintInt (not_gate i o) a) :
     a o = 1 - a i := by
-  simp only [HomogeneousCSP.satisfiesConstraint, not_gate,
+  simp only [IntCSP.satisfiesConstraintInt, not_gate,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, extractValues, _root_.Vector.get,
     List.ofFn_succ, List.ofFn_zero, decide_eq_true_eq] at h
@@ -101,12 +101,12 @@ theorem not_gate_eq_sat {n : ℕ} (i o : Fin n) (a : HomogeneousAssignment n)
 /-- **Bridge.** A satisfied 2-input `and_all [x,y] r` over `{0,1}` (`r = min(x,y)`)
     gives the three exact AND bounds (the lower bound `x + y - 1 ≤ r` uses the upper
     domain bounds).  The `foldl`-min checker is reduced then `split_ifs` + `linarith`. -/
-theorem and_all2_full_sat {n : ℕ} (x y r : Fin n) (a : HomogeneousAssignment n)
+theorem and_all2_full_sat {n : ℕ} (x y r : Fin n) (a : IntAssignment n)
     (hx : a x ≤ 1) (hy : a y ≤ 1)
-    (h : HomogeneousCSP.satisfiesConstraint
-      (and_all (⟨#[x, y], rfl⟩ : _root_.Vector (HomogeneousVarIndex n) 2) r) a) :
+    (h : IntCSP.satisfiesConstraintInt
+      (and_all (⟨#[x, y], rfl⟩ : _root_.Vector (VarType n) 2) r) a) :
     a r ≤ a x ∧ a r ≤ a y ∧ a x + a y - 1 ≤ a r := by
-  simp only [HomogeneousCSP.satisfiesConstraint, and_all,
+  simp only [IntCSP.satisfiesConstraintInt, and_all,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, extractValues, _root_.Vector.get, _root_.Vector.append,
     List.ofFn_succ, List.ofFn_zero, List.getLast?, List.dropLast,
@@ -121,12 +121,12 @@ theorem and_all2_full_sat {n : ℕ} (x y r : Fin n) (a : HomogeneousAssignment n
 /-- **Bridge.** A satisfied 2-input `or_all [x,y] r` over `{0,1}` (`r = max(x,y)`)
     gives the three exact OR bounds (the upper bound `r ≤ x + y` uses the lower
     domain bounds).  The `foldl`-max checker is reduced then `split_ifs` + `linarith`. -/
-theorem or_all2_full_sat {n : ℕ} (x y r : Fin n) (a : HomogeneousAssignment n)
+theorem or_all2_full_sat {n : ℕ} (x y r : Fin n) (a : IntAssignment n)
     (hx : 0 ≤ a x) (hy : 0 ≤ a y)
-    (h : HomogeneousCSP.satisfiesConstraint
-      (or_all (⟨#[x, y], rfl⟩ : _root_.Vector (HomogeneousVarIndex n) 2) r) a) :
+    (h : IntCSP.satisfiesConstraintInt
+      (or_all (⟨#[x, y], rfl⟩ : _root_.Vector (VarType n) 2) r) a) :
     a x ≤ a r ∧ a y ≤ a r ∧ a r ≤ a x + a y := by
-  simp only [HomogeneousCSP.satisfiesConstraint, or_all,
+  simp only [IntCSP.satisfiesConstraintInt, or_all,
     CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
     CSP.map_assignment, extractValues, _root_.Vector.get, _root_.Vector.append,
     List.ofFn_succ, List.ofFn_zero, List.getLast?, List.dropLast,
@@ -330,7 +330,7 @@ theorem xor_no_sol : ¬ ∃ (a : Fin xorSig.nInt → Int) (_ : Fin xorSig.nBool 
     encoder, and the committed certificate `xor_formulaUnsat` contradicts it.
     No Tseitin / `BoolExpr` machinery — every arity-2 gate is exactly linear
     over `{0,1}`. -/
-theorem xor_equivalence_unsat : ¬ xor_equivalence.isSatisfiable := by
+theorem xor_equivalence_unsat : ¬ xor_equivalence.isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Reduce the corpus solution to one over the explicit constraint list (defeq).
   have hsol' : ∀ c ∈ ((List.finRange 8).map (fun i => bound i 0 1) ++
@@ -340,11 +340,11 @@ theorem xor_equivalence_unsat : ¬ xor_equivalence.isSatisfiable := by
        and_all (⟨#[(3:Fin 8), (1:Fin 8)], rfl⟩) (6:Fin 8),
        or_all (⟨#[(5:Fin 8), (6:Fin 8)], rfl⟩) (7:Fin 8)] ++
       [not_equal (2:Fin 8) (7:Fin 8)]),
-      HomogeneousCSP.satisfiesConstraint c a := hsol
+      IntCSP.satisfiesConstraintInt c a := hsol
   -- Every node lies in the Boolean domain {0,1}.
   have hdom : ∀ i : Fin xorSig.nInt, a i ∈ xorSig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 0 1) a :=
+    have hb : IntCSP.satisfiesConstraintInt (bound i 0 1) a :=
       hsol' (bound i 0 1)
         (List.mem_append_left _ (List.mem_append_left _ (List.mem_append_left _
           (List.mem_map.mpr ⟨i, List.mem_finRange i, rfl⟩))))

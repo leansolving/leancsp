@@ -40,7 +40,7 @@ UNSAT core.
 /-- The contradictory-clue instance: the corpus 2×2 binary Latin square
     (`latin_square_csp 2`) with two clues pinning cell `(0,0)`'s value-1 and value-2
     indicators (variables 0 and 1) *both* to `1`, violating cell `(0,0)`'s `sum_eq`. -/
-def latin_2_contradictory : HomogeneousCSP :=
+def latin_2_contradictory : IntCSP :=
   (latin_square_csp 2).addConstraints
     [equals_const ⟨0, by decide⟩ 1, equals_const ⟨1, by decide⟩ 1]
 
@@ -98,17 +98,17 @@ theorem latin_formulaUnsat :
     the generic spine `csp_unsat_generic` turns those into a PB model via the aux-free
     `encodeLinearLe` encoder, and the committed certificate `latin_formulaUnsat` contradicts
     it (two indicators cannot both be `1` while summing to at most `1`). -/
-theorem latin_2_contradictory_unsat : ¬ latin_2_contradictory.isSatisfiable := by
+theorem latin_2_contradictory_unsat : ¬ latin_2_contradictory.isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Expose the constraint list as the explicit append (defeq through `addConstraints`).
   have hsol' : ∀ c ∈ [equals_const (⟨0, by decide⟩ : Fin (latin_square_csp 2).num_vars) 1,
       equals_const (⟨1, by decide⟩ : Fin (latin_square_csp 2).num_vars) 1] ++
         (latin_square_csp 2).constraints,
-      HomogeneousCSP.satisfiesConstraint c a := hsol
+      IntCSP.satisfiesConstraintInt c a := hsol
   -- Every indicator lies in `{0,1}` (from its `bound`).
   have hdom : ∀ i : Fin latinSig.nInt, a i ∈ latinSig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 0 1) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 0 1) a := by
       apply hsol'
       apply List.mem_append_right
       show bound i 0 1 ∈ (latin_square_csp 2).constraints
@@ -121,7 +121,7 @@ theorem latin_2_contradictory_unsat : ¬ latin_2_contradictory.isSatisfiable := 
     exact mem_domainValues.mpr ⟨h1, h2⟩
   -- Cell (0,0)'s `sum_eq` bounds its two indicators: `a 0 + a 1 ≤ 1`.
   have hcell : a (0 : Fin 8) + a (1 : Fin 8) ≤ 1 := by
-    have hc : HomogeneousCSP.satisfiesConstraint
+    have hc : IntCSP.satisfiesConstraintInt
         (sum_eq (indices_to_vector 8 (cell_value_indices 2 0 0) (by
           intro idx h_in
           have : idx ∈ (List.range 2).map (latin_idx 2 0 0) := h_in

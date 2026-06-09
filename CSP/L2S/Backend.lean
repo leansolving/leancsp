@@ -5,7 +5,7 @@ namespace CSP.L2S
 /-!
 # Backend Abstraction for Translators
 
-Unified interface for translating HomogeneousCSP to various solver formats.
+Unified interface for translating IntCSP to various solver formats.
 
 ## Design Principles
 - Backend selected at runtime (not typeclass inference)
@@ -56,18 +56,18 @@ structure Backend where
   name : String
 
   /-- Generate file header (logic declaration, includes, etc.) -/
-  header : (csp : HomogeneousCSP) → BackendOptions → List String
+  header : (csp : IntCSP) → BackendOptions → List String
 
   /-- Generate file footer (solve statement, check-sat, etc.) -/
-  footer : (csp : HomogeneousCSP) → BackendOptions → List String
+  footer : (csp : IntCSP) → BackendOptions → List String
 
   /-- Generate variable declarations -/
-  varDecls : (csp : HomogeneousCSP) →
+  varDecls : (csp : IntCSP) →
              (Fin csp.num_vars → (ℤ × ℤ)) →
              List String
 
   /-- Generate domain assertions (separate from declarations) -/
-  domainAsserts : (csp : HomogeneousCSP) →
+  domainAsserts : (csp : IntCSP) →
                   (Fin csp.num_vars → (ℤ × ℤ)) →
                   List String
 
@@ -82,7 +82,7 @@ structure Backend where
 
 /-- Unified translation driver -/
 def translateWith (backend : Backend) (opts : BackendOptions)
-    (csp : HomogeneousCSP) : Except TranslatorError String := do
+    (csp : IntCSP) : Except TranslatorError String := do
   -- Extract bounds
   let bounds := csp.extractAllBounds
 

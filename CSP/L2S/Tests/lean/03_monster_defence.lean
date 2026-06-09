@@ -19,11 +19,11 @@ def heterogeneous_bounds (domains : List (ℤ × ℤ)) :
     let (lb, ub) := domains[i.val]!
     bound i lb ub
 
-def alldifferent_heterogeneous_csp (domains : List (ℤ × ℤ)) : HomogeneousCSP :=
+def alldifferent_heterogeneous_csp (domains : List (ℤ × ℤ)) : IntCSP :=
   let n := domains.length
   ⟨n, heterogeneous_bounds domains ++ [alldifferent (_root_.Vector.ofFn id)]⟩
 
-def monster_defence : HomogeneousCSP :=
+def monster_defence : IntCSP :=
   let domains := [(1, 3), (2, 3), (2, 3), (1, 5), (3, 6)]
   alldifferent_heterogeneous_csp domains
 

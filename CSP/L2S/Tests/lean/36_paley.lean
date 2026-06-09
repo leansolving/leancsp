@@ -4,7 +4,7 @@ import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
 open CSP.L2S.Tests.Timed
-open CSP.L2S.HomogeneousCSP   -- for `listToFinVector`
+open CSP.L2S.IntCSP   -- for `listToFinVector`
 
 /-!
 # Paley Graph Independent Sets
@@ -55,11 +55,11 @@ def paley_at_least (p target : ℕ) : List (TaggedConstraint p) :=
   | some ⟨_, sc⟩ => [at_least_k sc target]
   | none => []
 
-def paley_csp (p target : ℕ) : HomogeneousCSP :=
+def paley_csp (p target : ℕ) : IntCSP :=
   ⟨p, paley_bounds p ++ paley_edge_constraints p ++ paley_at_least p target⟩
 
 -- Paley(13): independence number is 3, so a size-4 independent set is UNSAT.
-def paley_13_4 : HomogeneousCSP := paley_csp 13 4
+def paley_13_4 : IntCSP := paley_csp 13 4
 
 def main : IO Unit := do
   saveAllBackendsAutoTimed paley_13_4

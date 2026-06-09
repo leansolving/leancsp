@@ -36,7 +36,7 @@ Classic puzzle - counting soldiers problem
 -/
 
 -- Complete CSP with modulo constraints
-def army_problem : HomogeneousCSP :=
+def army_problem : IntCSP :=
   ⟨1,  -- Single variable
    [ bound ⟨0, by decide⟩ 100 800,        -- Domain: 100..800
      modulo ⟨0, by decide⟩ 5 2,           -- army mod 5 = 2

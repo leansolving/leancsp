@@ -76,24 +76,24 @@ def make_schur_constraints (n : ℕ) (triples : List (ℕ × ℕ × ℕ)) :
     else none
 
 -- General parametric Schur CSP
-def schur_csp (n c : ℕ) : HomogeneousCSP :=
+def schur_csp (n c : ℕ) : IntCSP :=
   let triples := generate_schur_triples n
   ⟨n, schur_bounds n c ++ make_schur_constraints n triples⟩
 
 -- S(2) = 4: Test with n=4, c=2 (should be solvable)
-def schur_2_4 : HomogeneousCSP := schur_csp 4 2
+def schur_2_4 : IntCSP := schur_csp 4 2
 
 -- S(3) = 13: Test with n=13, c=3 (should be solvable)
-def schur_3_13 : HomogeneousCSP := schur_csp 13 3
+def schur_3_13 : IntCSP := schur_csp 13 3
 
 -- Small test: n=3, c=2 (definitely solvable, only one triple: (0,1,2))
-def schur_small : HomogeneousCSP := schur_csp 3 2
+def schur_small : IntCSP := schur_csp 3 2
 
 -- S(2) = 4: {1,…,5} cannot be 2-coloured sum-free (UNSAT). veripb benchmark `schur5`.
-def schur_2_5 : HomogeneousCSP := schur_csp 5 2
+def schur_2_5 : IntCSP := schur_csp 5 2
 
 -- S(3) = 13: {1,…,14} cannot be 3-coloured sum-free (UNSAT). veripb benchmark `schur14_3`.
-def schur_3_14 : HomogeneousCSP := schur_csp 14 3
+def schur_3_14 : IntCSP := schur_csp 14 3
 
 def main : IO Unit := do
   saveAllBackendsAutoTimed schur_3_13

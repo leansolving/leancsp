@@ -22,12 +22,12 @@ def all_mark_pairs (m : ℕ) : List (ℕ × ℕ) :=
 def make_diff_constraint (num_vars : ℕ) (i j d : ℕ)
     (hi : i < num_vars) (hj : j < num_vars) (hd : d < num_vars) :
     TaggedConstraint num_vars :=
-  let scope : _root_.Vector (HomogeneousVarIndex num_vars) 3 :=
+  let scope : _root_.Vector (VarType num_vars) 3 :=
     ⟨#[⟨j, hj⟩, ⟨i, hi⟩, ⟨d, hd⟩], rfl⟩
   let coeffs : _root_.Vector ℤ 3 := ⟨#[1, -1, -1], rfl⟩
   linear_eq scope coeffs 0
 
-def golomb_csp (m num_vars : ℕ) : HomogeneousCSP :=
+def golomb_csp (m num_vars : ℕ) : IntCSP :=
   let upper_bound := m * m
   let pairs := all_mark_pairs m
 
@@ -58,7 +58,7 @@ def golomb_csp (m num_vars : ℕ) : HomogeneousCSP :=
   let num_diffs := pairs.length
   let diff_var_list := (List.range num_diffs).filterMap fun k =>
     if h : m + k < num_vars then some ⟨m + k, h⟩ else none
-  let diff_vars : _root_.Vector (HomogeneousVarIndex num_vars) diff_var_list.length :=
+  let diff_vars : _root_.Vector (VarType num_vars) diff_var_list.length :=
     ⟨diff_var_list.toArray, by simp⟩
   let alldiff := alldifferent diff_vars
 
@@ -75,7 +75,7 @@ def golomb_csp (m num_vars : ℕ) : HomogeneousCSP :=
 
   ⟨num_vars, bounds_list ++ first_zero_list ++ increasing ++ diff_defs ++ [alldiff] ++ sym_break_list⟩
 
-def golomb_8 : HomogeneousCSP :=
+def golomb_8 : IntCSP :=
   golomb_csp 8 36
 
 def main : IO Unit := do

@@ -7,7 +7,7 @@ import Mathlib.Tactic.Linarith
 
 namespace CSP.L2S
 
-open HomogeneousCSP
+open IntCSP
 
 /-!
 # Unreachable Input Elimination

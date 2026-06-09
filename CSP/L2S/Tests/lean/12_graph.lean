@@ -92,7 +92,7 @@ def graph_alldifferent (n : ℕ) : TaggedConstraint n :=
   alldifferent (_root_.Vector.ofFn id)
 
 -- Complete graph numbering CSP
-def graph_numbering : HomogeneousCSP :=
+def graph_numbering : IntCSP :=
   let n := 8
   let min_diff := 2
   ⟨n,

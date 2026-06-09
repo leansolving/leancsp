@@ -12,7 +12,7 @@ import Batteries.Data.List.Lemmas
 
 open CSP.L2S
 
-open HomogeneousCSP
+open IntCSP
 
 /-!
 # Circuit Twin Input Symmetry Breaking (Generalized)
@@ -205,7 +205,7 @@ lemma total_nodes_gt_num_inputs (circuit : Circuit) :
     - Gate logic constraints (AND, OR, XOR, NOT)
 
     This is the gate-only version suitable for circuit structure verification. -/
-def circuit_verification_base_csp (circuit : Circuit) : HomogeneousCSP :=
+def circuit_verification_base_csp (circuit : Circuit) : IntCSP :=
   let total_nodes := circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1
 
   -- Bounds for all nodes (typically [0,1] for Boolean circuits)
@@ -241,7 +241,7 @@ def circuit_verification_extended_csp (circuit : Circuit)
     (twin_inputs : List ℕ)
     (h_nonempty : twin_inputs ≠ [])
     (h_valid : twin_inputs_valid circuit twin_inputs) :
-    HomogeneousCSP :=
+    IntCSP :=
   let base := circuit_verification_base_csp circuit
   base.addConstraint (twin_ordering_constraint circuit twin_inputs h_nonempty h_valid)
 
@@ -511,15 +511,15 @@ axiom gate_constraint_preserved_by_twin_perm
     (h_valid : twin_inputs_valid circuit twin_inputs)
     (h_twins : inputs_are_mutually_twins circuit twin_inputs)
     (σ : Equiv.Perm (Fin twin_inputs.length))
-    (assignment : HomogeneousAssignment
+    (assignment : IntAssignment
       (circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1))
     (tc : TaggedConstraint
       (circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1))
     (h_tc_gate : tc ∈ make_gate_constraints
       (circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1)
       circuit.gates)
-    (h_sat : HomogeneousCSP.satisfiesConstraint tc assignment) :
-    HomogeneousCSP.satisfiesConstraint tc
+    (h_sat : IntCSP.satisfiesConstraintInt tc assignment) :
+    IntCSP.satisfiesConstraintInt tc
       (assignment ∘ ↑(extend_twin_permutation circuit twin_inputs h_valid σ))
 
 /-- **Result 1**: Twin permutation is a variable symmetry (GATE-ONLY VERSION)
@@ -541,7 +541,7 @@ theorem twin_permutation_is_variable_symmetry
     VariableSymmetry
       (circuit_verification_base_csp circuit)
       (extend_twin_permutation circuit twin_inputs h_valid σ) := by
-  unfold VariableSymmetry HomogeneousCSP.isSolution
+  unfold VariableSymmetry IntCSP.isSolutionInt
   intro assignment h_sol tc h_tc_mem
 
   let csp := circuit_verification_base_csp circuit
@@ -580,7 +580,7 @@ theorem twin_permutation_is_variable_symmetry
   · -- Case 2: Circuit gate constraint
     -- Use the axiom that gate constraints are preserved by twin permutations
     have h_tc_from_gates : tc ∈ make_gate_constraints total_nodes circuit.gates := h_circuit
-    have h_tc_sat : HomogeneousCSP.satisfiesConstraint tc assignment := by
+    have h_tc_sat : IntCSP.satisfiesConstraintInt tc assignment := by
       apply h_sol
       unfold circuit_verification_base_csp
       simp only []
@@ -609,11 +609,11 @@ axiom ordering_constraint_satisfied_by_sort
     (twin_inputs : List ℕ)
     (h_nonempty : twin_inputs ≠ [])
     (h_valid : twin_inputs_valid circuit twin_inputs)
-    (assignment : HomogeneousAssignment
+    (assignment : IntAssignment
       (circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1))
     (σ : Equiv.Perm (Fin twin_inputs.length)) :
     let β := extend_twin_permutation circuit twin_inputs h_valid σ
-    HomogeneousCSP.satisfiesConstraint
+    IntCSP.satisfiesConstraintInt
       (twin_ordering_constraint circuit twin_inputs h_nonempty h_valid)
       (assignment ∘ ↑β)
 
@@ -673,7 +673,7 @@ theorem twin_ordering_is_variable_symmetry_breaking
 
     -- The extended CSP = base CSP with ordering constraint added
     -- addConstraint prepends the new constraint to the list (using ::)
-    simp only [HomogeneousCSP.addConstraint] at h_constr_mem
+    simp only [IntCSP.addConstraint] at h_constr_mem
 
     -- h_constr_mem now has form: constr ∈ ordering_constraint :: original_constraints
     cases h_constr_mem with
@@ -792,11 +792,11 @@ lemma twin_inputs_example_twins : inputs_are_mutually_twins three_input_or_parti
       rcases h_j with (rfl | rfl) <;> simp at h
 
 /-- Base CSP: circuit gates only (no additional constraints) -/
-def partial_twins_base : HomogeneousCSP :=
+def partial_twins_base : IntCSP :=
   circuit_verification_base_csp three_input_or_partial_twins
 
 /-- Extended CSP: base + ordering on twins 0,1 only (leaves input 2 free) -/
-def partial_twins_extended : HomogeneousCSP :=
+def partial_twins_extended : IntCSP :=
   circuit_verification_extended_csp three_input_or_partial_twins
     twin_inputs_example (by simp [twin_inputs_example]) twin_inputs_example_valid
 

@@ -4,7 +4,7 @@ import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
 open CSP.L2S.Tests.Timed
-open CSP.L2S.HomogeneousCSP
+open CSP.L2S.IntCSP
 
 /-!
 # Circuit Equivalence Checking with Proper Circuit Structure
@@ -120,7 +120,7 @@ Node allocation:
 Returns CSP with negated equivalence constraints: output1_i ≠ output2_i for each output.
 -/
 def circuits_equivalence_csp (circuit1 circuit2 : Circuit)
-    (circuit1_outputs circuit2_outputs : List ℕ) : HomogeneousCSP :=
+    (circuit1_outputs circuit2_outputs : List ℕ) : IntCSP :=
 
   -- Calculate total nodes needed. We assume that both circuits share the same inputs
   let num_shared_inputs := circuit1.num_inputs
@@ -184,7 +184,7 @@ def xor_decomposed : Circuit := {
 Equivalence CSP for two XOR implementations.
 Expected: UNSATISFIABLE (circuits are equivalent)
 -/
-def xor_equivalence : HomogeneousCSP :=
+def xor_equivalence : IntCSP :=
   circuits_equivalence_csp xor_direct xor_decomposed [2] [7]
 
 -- ============================================================================

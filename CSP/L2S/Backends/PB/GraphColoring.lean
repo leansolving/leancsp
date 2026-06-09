@@ -110,12 +110,12 @@ theorem gc_no_sol : ¬ ∃ (a : Fin gcSig.nInt → Int) (_ : Fin gcSig.nBool →
     PB pipeline: the `not_equal` bridge turns any solution into a "differ" fact on
     each edge, the generic spine `csp_unsat_generic` turns those into a PB model, and
     the committed certificate `gc_formulaUnsat` contradicts it. -/
-theorem k3_2col_unsat : ¬ k3_2col.isSatisfiable := by
+theorem k3_2col_unsat : ¬ k3_2col.isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Every colour lies in `{1,2}` (from its `bound`).
   have hdom : ∀ i : Fin gcSig.nInt, a i ∈ gcSig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 1 (2 : ℕ)) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 1 (2 : ℕ)) a := by
       apply hsol
       exact List.mem_append_left _ (List.mem_map.mpr ⟨i, List.mem_finRange i, rfl⟩)
     obtain ⟨h1, h2⟩ := bound_sat i 1 (2 : ℕ) a hb
@@ -215,12 +215,12 @@ theorem gc4_no_sol : ¬ ∃ (a : Fin gc4Sig.nInt → Int) (_ : Fin gc4Sig.nBool 
     verified PB pipeline: each edge becomes an `alldifferent` over its endpoints, the
     generic spine `csp_unsat_generic` turns those into a PB model, and the committed
     certificate `gc4_formulaUnsat` contradicts it. -/
-theorem k4_3col_unsat : ¬ k4_3col.isSatisfiable := by
+theorem k4_3col_unsat : ¬ k4_3col.isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Every colour lies in `{1,2,3}` (from its `bound`).
   have hdom : ∀ i : Fin gc4Sig.nInt, a i ∈ gc4Sig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 1 (3 : ℕ)) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 1 (3 : ℕ)) a := by
       apply hsol
       exact List.mem_append_left _ (List.mem_map.mpr ⟨i, List.mem_finRange i, rfl⟩)
     obtain ⟨h1, h2⟩ := bound_sat i 1 (3 : ℕ) a hb

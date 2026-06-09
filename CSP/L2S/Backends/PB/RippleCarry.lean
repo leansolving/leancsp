@@ -174,10 +174,10 @@ theorem rc_no_sol : ¬ ∃ (a : Fin rcSig.nInt → Int) (_ : Fin rcSig.nBool →
     the four stage identities (`fa_identity` per full adder) combine (carries cancel) to
     `L = 0`, the negated-property `linear_ne` bridge gives `L ≠ 0`, and the committed
     certificate `rc_formulaUnsat` closes it.  **No `BoolExpr` compiler.** -/
-theorem ripple_carry_4bit_correct_unsat : ¬ ripple_carry_adder_4bit.isSatisfiable := by
+theorem ripple_carry_4bit_correct_unsat : ¬ ripple_carry_adder_4bit.isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Flatten the solution hypothesis into one named fact per constraint.
-  unfold HomogeneousCSP.isSolution ripple_carry_adder_4bit at hsol
+  unfold IntCSP.isSolutionInt ripple_carry_adder_4bit at hsol
   simp only [List.append_assoc, List.cons_append, List.nil_append,
     List.forall_mem_append, List.forall_mem_cons] at hsol
   obtain ⟨hbounds, hc0, hs0sum, hs0ab, hs0ac, hs0bc, hs0cout,

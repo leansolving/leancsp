@@ -56,14 +56,14 @@ def vdw_constraints (n : ℕ) (triples : List (ℕ × ℕ × ℕ)) : List (Tagge
       else none
     else none
 
-def vdw_csp (n : ℕ) : HomogeneousCSP :=
+def vdw_csp (n : ℕ) : IntCSP :=
   ⟨n, vdw_bounds n ++ vdw_constraints n (vdw_ap_triples n)⟩
 
 -- {1,…,8} is still colourable without a monochromatic 3-AP (SAT).
-def vdw_2_3_8 : HomogeneousCSP := vdw_csp 8
+def vdw_2_3_8 : IntCSP := vdw_csp 8
 
 -- W(2,3) = 9: {1,…,9} forces a monochromatic 3-AP (UNSAT).
-def vdw_2_3_9 : HomogeneousCSP := vdw_csp 9
+def vdw_2_3_9 : IntCSP := vdw_csp 9
 
 def main : IO Unit := do
   saveAllBackendsAutoTimed vdw_2_3_9

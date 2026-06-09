@@ -131,12 +131,12 @@ theorem fc_no_sol : ¬ ∃ (a : Fin fcSig.nInt → Int) (_ : Fin fcSig.nBool →
     `not_equals_const` bridges turn any solution into "differ" facts on the edge and
     the forbidden colours, the generic spine `csp_unsat_generic` turns those into a PB
     model, and the committed certificate `fc_formulaUnsat` contradicts it. -/
-theorem k2_forbidden_unsat : ¬ k2_forbidden.isSatisfiable := by
+theorem k2_forbidden_unsat : ¬ k2_forbidden.isSatisfiableInt := by
   rintro ⟨a, hsol⟩
   -- Every colour lies in `{1,2}` (from its `bound`).
   have hdom : ∀ i : Fin fcSig.nInt, a i ∈ fcSig.values i := by
     intro i
-    have hb : HomogeneousCSP.satisfiesConstraint (bound i 1 (2 : ℕ)) a := by
+    have hb : IntCSP.satisfiesConstraintInt (bound i 1 (2 : ℕ)) a := by
       apply hsol
       apply List.mem_append_left
       apply List.mem_append_left

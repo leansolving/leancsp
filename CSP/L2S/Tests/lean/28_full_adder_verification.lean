@@ -22,7 +22,7 @@ Variables:
 Result: 8 variables, 6 constraints
 -/
 
-def full_adder_verification : HomogeneousCSP :=
+def full_adder_verification : IntCSP :=
   let nvars := 8
   let bounds := (List.finRange nvars).map fun i => bound i 0 1
 

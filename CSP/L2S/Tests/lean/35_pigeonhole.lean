@@ -40,20 +40,20 @@ def php_bounds (pigeons holes : ℕ) : List (TaggedConstraint pigeons) :=
 def php_alldiff (pigeons : ℕ) : TaggedConstraint pigeons :=
   alldifferent (_root_.Vector.ofFn id)
 
-def php_csp (pigeons holes : ℕ) : HomogeneousCSP :=
+def php_csp (pigeons holes : ℕ) : IntCSP :=
   ⟨pigeons, php_bounds pigeons holes ++ [php_alldiff pigeons]⟩
 
 -- 3 pigeons into 2 holes (UNSAT).
-def php_3_2 : HomogeneousCSP := php_csp 3 2
+def php_3_2 : IntCSP := php_csp 3 2
 
 -- 5 pigeons into 4 holes (UNSAT).
-def php_5_4 : HomogeneousCSP := php_csp 5 4
+def php_5_4 : IntCSP := php_csp 5 4
 
 -- 7 pigeons into 6 holes (UNSAT).
-def php_7_6 : HomogeneousCSP := php_csp 7 6
+def php_7_6 : IntCSP := php_csp 7 6
 
 -- 9 pigeons into 8 holes (UNSAT).
-def php_9_8 : HomogeneousCSP := php_csp 9 8
+def php_9_8 : IntCSP := php_csp 9 8
 
 def main : IO Unit := do
   saveAllBackendsAutoTimed php_3_2
