@@ -70,10 +70,60 @@ theorem toFinList_map (a : Fin S.nInt → Int) (vars : List ℕ)
     have ih' := ih (fun v hv => hwf v (by simp [hv]))
     simp only [List.filterMap_cons, hx, dite_true, List.map_cons, ih', valAt]
 
-/-- The value list used for `alldifferent`/`ne` encodings: the union of the variables'
-    domains. -/
+/-- The value list used for `alldifferent`/`ne`/`schur` encodings: the union of the
+    variables' domains. -/
 def domOf (S : CSPSig) (vars : List (Fin S.nInt)) : List Int :=
   (vars.flatMap (fun i => S.values i)).dedup
+
+/-! ### Linear / cardinality relations via a single dispatcher -/
+
+/-- Encode a relation `Σ termᵢ (op) target` to the matching linear encoder.  `≠`
+    (which needs a fresh aux variable) encodes to `[]` for now. -/
+def encodeRel (S : CSPSig) (op : RelOp) (terms : List (Int × Fin S.nInt))
+    (target : Int) : List (EncConstr S) :=
+  match op with
+  | .LE => [encLinearLe terms target]
+  | .GE => [encLinearGe terms target]
+  | .LT => [encLinearLt terms target]
+  | .GT => [encLinearGt terms target]
+  | .EQ => [encLinearEq terms target]
+  | .NE => []
+
+/-- Every `encodeRel` entry is aux-free. -/
+theorem encodeRel_setsAux (op : RelOp) (terms : List (Int × Fin S.nInt)) (target : Int)
+    (a : Fin S.nInt → Int) (e : EncConstr S) (he : e ∈ encodeRel S op terms target) :
+    e.setsAux a = [] := by
+  cases op <;> simp only [encodeRel] at he
+  case NE => exact absurd he (by simp)
+  all_goals (rw [List.mem_singleton] at he; subst he; rfl)
+
+/-- `encodeRel` soundness: the arithmetic relation on the assignment gives every
+    emitted entry's precondition. -/
+theorem encodeRel_sound (op : RelOp) (terms : List (Int × Fin S.nInt)) (target : Int)
+    (a : Fin S.nInt → Int)
+    (hpat : relHolds op (terms.map (fun p => p.1 * a p.2)).sum target)
+    (e : EncConstr S) (he : e ∈ encodeRel S op terms target) : e.pre a := by
+  cases op <;> simp only [encodeRel] at he
+  case NE => exact absurd he (by simp)
+  all_goals (rw [List.mem_singleton] at he; subst he; exact hpat)
+
+/-- The linear term list `coeffs · (toFinList vars)` sums to the `patternHolds`
+    `zipWith`-form on in-range indices. -/
+theorem linTerms_sum (a : Fin S.nInt → Int) (coeffs : List Int) (vars : List ℕ)
+    (hwf : ∀ v ∈ vars, v < S.nInt) :
+    ((coeffs.zip (toFinList S vars)).map (fun p => p.1 * a p.2)).sum
+      = (List.zipWith (· * ·) coeffs (vars.map (valAt a))).sum := by
+  rw [List.map_zip_eq_zipWith, ← toFinList_map a vars hwf, List.zipWith_map_right]; rfl
+
+/-- The unit-coefficient term list of `toFinList vars` sums to the plain value sum. -/
+theorem unitTerms_sum (a : Fin S.nInt → Int) (vars : List ℕ)
+    (hwf : ∀ v ∈ vars, v < S.nInt) :
+    (((toFinList S vars).map (fun v => ((1 : Int), v))).map (fun p => p.1 * a p.2)).sum
+      = (vars.map (valAt a)).sum := by
+  have h1 : ((toFinList S vars).map (fun v => ((1 : Int), v))).map (fun p => p.1 * a p.2)
+      = (toFinList S vars).map a := by
+    rw [List.map_map]; exact List.map_congr_left (fun v _ => by simp)
+  rw [h1, toFinList_map a vars hwf]
 
 /-! ### `encodePattern` -/
 
@@ -96,6 +146,19 @@ def encodePattern (S : CSPSig) : IntConstraint S.nInt → List (EncConstr S)
       if _ : ∀ v ∈ vars, v < S.nInt then [encAtMostK (toFinList S vars) (k : Int)] else []
   | .at_least_k vars k =>
       if _ : ∀ v ∈ vars, v < S.nInt then [encAtLeastK (toFinList S vars) (k : Int)] else []
+  | .linear vars coeffs op target =>
+      if _ : ∀ v ∈ vars, v < S.nInt then
+        encodeRel S op (coeffs.zip (toFinList S vars)) target
+      else []
+  | .sum vars op target =>
+      if _ : ∀ v ∈ vars, v < S.nInt then
+        encodeRel S op ((toFinList S vars).map (fun v => ((1 : Int), v))) target
+      else []
+  | .schur_triple v1 v2 v3 =>
+      if h : v1 < S.nInt ∧ v2 < S.nInt ∧ v3 < S.nInt then
+        [encNotAllEqualMulti [⟨v1, h.1⟩, ⟨v2, h.2.1⟩, ⟨v3, h.2.2⟩]
+          (domOf S [⟨v1, h.1⟩, ⟨v2, h.2.1⟩, ⟨v3, h.2.2⟩])]
+      else []
   | _ => []
 
 /-- Every entry `encodePattern` emits is aux-free. -/
@@ -108,6 +171,18 @@ theorem encodePattern_setsAux (c : IntConstraint S.nInt) (a : Fin S.nInt → Int
   case ne_const v c => simp only [encodePattern] at he; split at he <;> simp_all [encNeConst]
   case at_most_k vars k => simp only [encodePattern] at he; split at he <;> simp_all [encAtMostK]
   case at_least_k vars k => simp only [encodePattern] at he; split at he <;> simp_all [encAtLeastK]
+  case linear vars coeffs op target =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case sum vars op target =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case schur_triple v1 v2 v3 =>
+    simp only [encodePattern] at he; split at he
+    · rw [List.mem_singleton] at he; subst he; simp [encNotAllEqualMulti]
+    · exact absurd he (by simp)
   all_goals (simp only [encodePattern] at he; exact absurd he (by simp))
 
 /-- **Generic per-constraint soundness.**  Each emitted entry's precondition follows from
@@ -165,6 +240,35 @@ theorem encodePattern_sound (c : IntConstraint S.nInt) (a : Fin S.nInt → Int)
         rw [List.mem_singleton] at he; subst he
         show (k : Int) ≤ ((toFinList S vars).map a).sum
         rw [toFinList_map a vars hwf]; exact hpat
+      · exact absurd he (by simp)
+  case linear vars coeffs op target =>
+      simp only [encodePattern] at he
+      split at he
+      · rename_i hwf
+        refine encodeRel_sound op (coeffs.zip (toFinList S vars)) target a ?_ e he
+        rw [linTerms_sum a coeffs vars hwf]; exact hpat
+      · exact absurd he (by simp)
+  case sum vars op target =>
+      simp only [encodePattern] at he
+      split at he
+      · rename_i hwf
+        refine encodeRel_sound op ((toFinList S vars).map (fun v => ((1 : Int), v))) target a ?_ e he
+        rw [unitTerms_sum a vars hwf]; exact hpat
+      · exact absurd he (by simp)
+  case schur_triple v1 v2 v3 =>
+      simp only [encodePattern] at he
+      split at he
+      · rename_i h
+        rw [List.mem_singleton] at he; subst he
+        have hp : a ⟨v1, h.1⟩ ≠ a ⟨v2, h.2.1⟩ ∨ a ⟨v1, h.1⟩ ≠ a ⟨v3, h.2.2⟩ ∨
+            a ⟨v2, h.2.1⟩ ≠ a ⟨v3, h.2.2⟩ := by
+          simpa only [patternHolds, valAt, h.1, h.2.1, h.2.2, dite_true] using hpat
+        show ∃ i ∈ [(⟨v1, h.1⟩ : Fin S.nInt), ⟨v2, h.2.1⟩, ⟨v3, h.2.2⟩],
+          ∃ i' ∈ [(⟨v1, h.1⟩ : Fin S.nInt), ⟨v2, h.2.1⟩, ⟨v3, h.2.2⟩], a i ≠ a i'
+        rcases hp with hp | hp | hp
+        · exact ⟨_, by simp, _, by simp, hp⟩
+        · exact ⟨_, by simp, _, by simp, hp⟩
+        · exact ⟨_, by simp, _, by simp, hp⟩
       · exact absurd he (by simp)
   all_goals (simp only [encodePattern] at he; exact absurd he (by simp))
 
