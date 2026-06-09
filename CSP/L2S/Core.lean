@@ -292,6 +292,15 @@ namespace IntCSP
 def satisfiesConstraintInt (c : IntConstraint n) (assignment : IntAssignment n) : Prop :=
   patternHolds c assignment
 
+/-- Satisfaction is exactly satisfaction of the real underlying general constraint. -/
+theorem satisfiesConstraintInt_iff_toDynamic {n : ℕ} (c : IntConstraint n)
+    (a : IntAssignment n) :
+    satisfiesConstraintInt c a ↔ satisfies_dynamic_constraint (toDynamic c) a := by
+  have hfun : (fun i => a ((_root_.Vector.ofFn (id : Fin n → Fin n)).get i)) = a := by
+    funext i; congr 1; simp [_root_.Vector.get]
+  unfold satisfiesConstraintInt toDynamic satisfies_dynamic_constraint satisfies_constraint
+  simp only [CSP.sat, map_assignment, hfun, decide_eq_true_eq]
+
 /-- Check if an assignment is a solution to the CSP -/
 def isSolutionInt (csp : IntCSP) (assignment : IntAssignment csp.num_vars) : Prop :=
   ∀ c ∈ csp.constraints, satisfiesConstraintInt c assignment

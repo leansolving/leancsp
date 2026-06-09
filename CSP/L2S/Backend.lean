@@ -74,11 +74,11 @@ structure Backend where
   /-- Translate a constraint pattern -/
   translatePattern : {n : ℕ} →
                      BackendOptions →
-                     ConstraintPattern n →
+                     IntConstraint n →
                      Except TranslatorError (List String)
 
   /-- Should this pattern be skipped in constraint section? -/
-  skipInConstraints : {n : ℕ} → ConstraintPattern n → Bool
+  skipInConstraints : {n : ℕ} → IntConstraint n → Bool
 
 /-- Unified translation driver -/
 def translateWith (backend : Backend) (opts : BackendOptions)
@@ -95,9 +95,9 @@ def translateWith (backend : Backend) (opts : BackendOptions)
   -- Translate constraints
   let mut constraints : List String := []
   for tc in csp.constraints do
-    if backend.skipInConstraints tc.pattern then
+    if backend.skipInConstraints tc then
       continue
-    match backend.translatePattern opts tc.pattern with
+    match backend.translatePattern opts tc with
     | .ok lines => constraints := constraints ++ lines
     | .error e =>
         if opts.strict then

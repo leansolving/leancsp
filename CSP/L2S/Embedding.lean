@@ -38,7 +38,7 @@ This embedding:
 def toHeterogeneous (csp : IntCSP) :
     CSP (VarType csp.num_vars) constantDomainType :=
   { domain := fun _ => Set.univ
-    constraints := csp.constraints.map (·.dynamic) }
+    constraints := csp.constraints.map toDynamic }
 
 -- ============================================================================
 -- Fundamental Theorems
@@ -59,14 +59,10 @@ theorem isSolution_iff_heterogeneous (csp : IntCSP)
   · intro h c hc
     obtain ⟨tc, htc, heq⟩ := List.mem_map.mp hc
     rw [← heq]
-    simp only [satisfiesConstraintInt] at h
-    exact h tc htc
+    exact (satisfiesConstraintInt_iff_toDynamic tc assignment).mp (h tc htc)
   · intro h tc htc
-    have : tc.dynamic ∈ List.map TaggedConstraint.dynamic csp.constraints := by
-      apply List.mem_map_of_mem
-      exact htc
-    simp only [satisfiesConstraintInt]
-    exact h tc.dynamic this
+    refine (satisfiesConstraintInt_iff_toDynamic tc assignment).mpr (h (toDynamic tc) ?_)
+    exact List.mem_map.mpr ⟨tc, htc, rfl⟩
 
 /-- The embedding preserves satisfiability -/
 theorem isSatisfiable_iff_heterogeneous (csp : IntCSP) :
@@ -96,7 +92,7 @@ def embed (csp : IntCSP) :
 
 /-- The L2M embedding has zero runtime overhead (proven definitionally equal) -/
 theorem embed_zero_overhead (csp : IntCSP) :
-    embed csp = ⟨fun _ => Set.univ, csp.constraints.map (·.dynamic)⟩ := by
+    embed csp = ⟨fun _ => Set.univ, csp.constraints.map toDynamic⟩ := by
   simp [embed, toHeterogeneous]
 
 -- ============================================================================
@@ -134,9 +130,9 @@ theorem mkEmpty_embedding_preservation (num_vars : ℕ) :
   simp [embed, toHeterogeneous, mkEmpty]
 
 theorem addConstraint_embedding_commutes (csp : IntCSP)
-    (constraint : TaggedConstraint csp.num_vars) :
+    (constraint : IntConstraint csp.num_vars) :
     embed (csp.addConstraint constraint) =
-    add_constraint (embed csp) constraint.dynamic := by
+    add_constraint (embed csp) (toDynamic constraint) := by
   simp [embed, toHeterogeneous, addConstraint, add_constraint]
 
 -- ============================================================================
@@ -146,7 +142,7 @@ theorem addConstraint_embedding_commutes (csp : IntCSP)
 /-- Extract dynamic constraints from unified CSP -/
 def extractDynamicConstraints (csp : IntCSP) :
     List (DynamicConstraint (Fin csp.num_vars) (fun _ => ℤ)) :=
-  csp.constraints.map (·.dynamic)
+  csp.constraints.map toDynamic
 
 theorem extractDynamicConstraints_correct (csp : IntCSP) :
     extractDynamicConstraints csp =

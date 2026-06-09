@@ -126,15 +126,15 @@ def constraintVariableSymmetric {num_vars : ℕ}
 
 /-- A tagged constraint is domain symmetric if its dynamic part is -/
 def taggedConstraintDomainSymmetric {num_vars : ℕ}
-    (tc : TaggedConstraint num_vars)
+    (tc : IntConstraint num_vars)
     (δ : Equiv.Perm IntDomain) : Prop :=
-  constraintDomainSymmetric tc.dynamic δ
+  constraintDomainSymmetric (toDynamic tc) δ
 
 /-- A tagged constraint is variable symmetric if its dynamic part is -/
 def taggedConstraintVariableSymmetric {num_vars : ℕ}
-    (tc : TaggedConstraint num_vars)
+    (tc : IntConstraint num_vars)
     (β : Equiv.Perm (VarType num_vars)) : Prop :=
-  constraintVariableSymmetric tc.dynamic β
+  constraintVariableSymmetric (toDynamic tc) β
 
 -- ============================================================================
 -- Symmetry Preservation Theorems
@@ -148,7 +148,9 @@ theorem domain_symmetry_preserves_solutions (csp : IntCSP)
   intro assignment h_solution tc h_tc_mem
   have h_symmetric := h_constraints tc h_tc_mem
   unfold taggedConstraintDomainSymmetric constraintDomainSymmetric at h_symmetric
-  exact h_symmetric assignment (h_solution tc h_tc_mem)
+  rw [IntCSP.satisfiesConstraintInt_iff_toDynamic]
+  exact h_symmetric assignment
+    ((IntCSP.satisfiesConstraintInt_iff_toDynamic tc assignment).mp (h_solution tc h_tc_mem))
 
 /-- Variable symmetries preserve solutions when all constraints are symmetric -/
 theorem variable_symmetry_preserves_solutions (csp : IntCSP)
@@ -158,7 +160,9 @@ theorem variable_symmetry_preserves_solutions (csp : IntCSP)
   intro assignment h_solution tc h_tc_mem
   have h_symmetric := h_constraints tc h_tc_mem
   unfold taggedConstraintVariableSymmetric constraintVariableSymmetric at h_symmetric
-  exact h_symmetric assignment (h_solution tc h_tc_mem)
+  rw [IntCSP.satisfiesConstraintInt_iff_toDynamic]
+  exact h_symmetric assignment
+    ((IntCSP.satisfiesConstraintInt_iff_toDynamic tc assignment).mp (h_solution tc h_tc_mem))
 
 -- ============================================================================
 -- Symmetry Breaking Constraints
@@ -167,7 +171,7 @@ theorem variable_symmetry_preserves_solutions (csp : IntCSP)
 /-- A domain symmetry breaking constraint: for every solution, there exists a domain
     symmetry transforming it to a solution of the extended CSP -/
 def domainSymmetryBreakingConstraint (csp : IntCSP)
-    (c : TaggedConstraint csp.num_vars) : Prop :=
+    (c : IntConstraint csp.num_vars) : Prop :=
   ∀ assignment : IntAssignment csp.num_vars,
   isSolutionInt csp assignment →
   ∃ δ : Equiv.Perm IntDomain,
@@ -177,7 +181,7 @@ def domainSymmetryBreakingConstraint (csp : IntCSP)
 /-- A variable symmetry breaking constraint: for every solution, there exists a variable
     symmetry transforming it to a solution of the extended CSP -/
 def variableSymmetryBreakingConstraint (csp : IntCSP)
-    (c : TaggedConstraint csp.num_vars) : Prop :=
+    (c : IntConstraint csp.num_vars) : Prop :=
   ∀ assignment : IntAssignment csp.num_vars,
   isSolutionInt csp assignment →
   ∃ β : Equiv.Perm (VarType csp.num_vars),
@@ -186,7 +190,7 @@ def variableSymmetryBreakingConstraint (csp : IntCSP)
 
 /-- General symmetry breaking constraint: breaks either domain or variable symmetries -/
 def symmetryBreakingConstraint (csp : IntCSP)
-    (c : TaggedConstraint csp.num_vars) : Prop :=
+    (c : IntConstraint csp.num_vars) : Prop :=
   domainSymmetryBreakingConstraint csp c ∨
   variableSymmetryBreakingConstraint csp c
 
@@ -196,7 +200,7 @@ def symmetryBreakingConstraint (csp : IntCSP)
 
 /-- Domain symmetry breaking constraints preserve satisfiability -/
 theorem domainSymmetryBreaking_preserves_satisfiability
-    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : IntConstraint csp.num_vars)
     (h_satisfiable : isSatisfiableInt csp)
     (h_sbc : domainSymmetryBreakingConstraint csp c) :
     isSatisfiableInt (csp.addConstraint c) := by
@@ -206,7 +210,7 @@ theorem domainSymmetryBreaking_preserves_satisfiability
 
 /-- Variable symmetry breaking constraints preserve satisfiability -/
 theorem variableSymmetryBreaking_preserves_satisfiability
-    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : IntConstraint csp.num_vars)
     (h_satisfiable : isSatisfiableInt csp)
     (h_sbc : variableSymmetryBreakingConstraint csp c) :
     isSatisfiableInt (csp.addConstraint c) := by
@@ -216,7 +220,7 @@ theorem variableSymmetryBreaking_preserves_satisfiability
 
 /-- General symmetry breaking preserves satisfiability -/
 theorem symmetryBreaking_preserves_satisfiability
-    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : IntConstraint csp.num_vars)
     (h_satisfiable : isSatisfiableInt csp)
     (h_sbc : symmetryBreakingConstraint csp c) :
     isSatisfiableInt (csp.addConstraint c) := by
@@ -231,7 +235,7 @@ theorem symmetryBreaking_preserves_satisfiability
 
 /-- Domain symmetry breaking implies equisatisfiability -/
 theorem domainSymmetryBreaking_equisatisfiability
-    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : IntConstraint csp.num_vars)
     (h_sbc : domainSymmetryBreakingConstraint csp c) :
     equisatisfiable csp (csp.addConstraint c) := by
   constructor
@@ -250,7 +254,7 @@ theorem domainSymmetryBreaking_equisatisfiability
 
 /-- Variable symmetry breaking implies equisatisfiability -/
 theorem variableSymmetryBreaking_equisatisfiability
-    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : IntConstraint csp.num_vars)
     (h_sbc : variableSymmetryBreakingConstraint csp c) :
     equisatisfiable csp (csp.addConstraint c) := by
   constructor
@@ -269,7 +273,7 @@ theorem variableSymmetryBreaking_equisatisfiability
 
 /-- General symmetry breaking implies equisatisfiability -/
 theorem symmetryBreaking_equisatisfiability
-    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : IntConstraint csp.num_vars)
     (h_sbc : symmetryBreakingConstraint csp c) :
     equisatisfiable csp (csp.addConstraint c) := by
   unfold symmetryBreakingConstraint at h_sbc
@@ -283,7 +287,7 @@ theorem symmetryBreaking_equisatisfiability
 
 /-- Domain symmetry breaking preserves heterogeneous equisatisfiability via embedding -/
 theorem domainSymmetryBreaking_heterogeneous_equisatisfiability
-    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : IntConstraint csp.num_vars)
     (h_sbc : domainSymmetryBreakingConstraint csp c) :
     CSP.equisatisfiable (embed csp) (embed (csp.addConstraint c)) := by
   have h_native := domainSymmetryBreaking_equisatisfiability csp c h_sbc
@@ -300,7 +304,7 @@ theorem domainSymmetryBreaking_heterogeneous_equisatisfiability
 
 /-- Variable symmetry breaking preserves heterogeneous equisatisfiability via embedding -/
 theorem variableSymmetryBreaking_heterogeneous_equisatisfiability
-    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : IntConstraint csp.num_vars)
     (h_sbc : variableSymmetryBreakingConstraint csp c) :
     CSP.equisatisfiable (embed csp) (embed (csp.addConstraint c)) := by
   have h_native := variableSymmetryBreaking_equisatisfiability csp c h_sbc
@@ -317,7 +321,7 @@ theorem variableSymmetryBreaking_heterogeneous_equisatisfiability
 
 /-- General symmetry breaking preserves heterogeneous equisatisfiability via embedding -/
 theorem symmetryBreaking_heterogeneous_equisatisfiability
-    (csp : IntCSP) (c : TaggedConstraint csp.num_vars)
+    (csp : IntCSP) (c : IntConstraint csp.num_vars)
     (h_sbc : symmetryBreakingConstraint csp c) :
     CSP.equisatisfiable (embed csp) (embed (csp.addConstraint c)) := by
   unfold symmetryBreakingConstraint at h_sbc
@@ -346,9 +350,9 @@ def intervalPreserving (δ : Equiv.Perm ℤ) (lb ub : ℤ) : Prop :=
   ∀ d : ℤ, (lb ≤ d ∧ d ≤ ub) ↔ (lb ≤ δ d ∧ δ d ≤ ub)
 
 /-- Helper: Extract the bound constraint from a tagged constraint if it is one -/
-def isBoundConstraint {num_vars : ℕ} (tc : TaggedConstraint num_vars) : Option (ℕ × ℤ × ℤ) :=
-  match tc.pattern with
-  | ConstraintPattern.bound var lb ub => some (var, lb, ub)
+def isBoundConstraint {num_vars : ℕ} (tc : IntConstraint num_vars) : Option (ℕ × ℤ × ℤ) :=
+  match tc with
+  | IntConstraint.bound var lb ub => some (var, lb, ub)
   | _ => none
 
 /-- Interval-preserving domain permutations preserve individual bound constraints -/
@@ -356,22 +360,10 @@ theorem intervalPreserving_preserves_bound {num_vars : ℕ}
     (δ : Equiv.Perm IntDomain) (v : VarType num_vars) (lb ub : ℤ)
     (h_interval : intervalPreserving δ lb ub)
     (assignment : IntAssignment num_vars) :
-    satisfies_dynamic_constraint (bound v lb ub).dynamic assignment ↔
-    satisfies_dynamic_constraint (bound v lb ub).dynamic (δ ∘ assignment) := by
-  -- Unfold constraint satisfaction definitions
-  simp only [bound, satisfies_dynamic_constraint, satisfies_constraint, sat]
-  -- The constraint has scope #v[v], so map_assignment extracts assignment at v
-  have h1 : extractValues (map_assignment assignment (⟨#[v], rfl⟩ : _root_.Vector _ 1)) = [assignment v] := by
-    simp [extractValues, map_assignment, List.ofFn, _root_.Vector.get]
-    rfl
-  have h2 : extractValues (map_assignment (δ ∘ assignment) (⟨#[v], rfl⟩ : _root_.Vector _ 1)) = [δ (assignment v)] := by
-    simp [extractValues, map_assignment, List.ofFn, _root_.Vector.get, Function.comp_apply]
-    rfl
-  -- Rewrite using these simplifications
-  rw [h1, h2]
-  -- Now both sides match on [val] giving: decide (lb ≤ val ∧ val ≤ ub) = true
-  simp only [decide_eq_true_iff]
-  -- Apply interval preservation
+    IntCSP.satisfiesConstraintInt (bound v lb ub) assignment ↔
+    IntCSP.satisfiesConstraintInt (bound v lb ub) (δ ∘ assignment) := by
+  simp only [IntCSP.satisfiesConstraintInt, bound, patternHolds, valAt, v.is_lt, dif_pos,
+    Fin.eta, Function.comp_apply]
   exact h_interval (assignment v)
 
 /-- Domain permutation preserves a list of bound constraints when interval-preserving -/
@@ -381,9 +373,9 @@ theorem domainSymmetry_preserves_bound_list {num_vars : ℕ}
     (h_interval : ∀ (v lb ub), (v, lb, ub) ∈ bounds → intervalPreserving δ lb ub)
     (assignment : IntAssignment num_vars) :
     (∀ (v lb ub), (v, lb, ub) ∈ bounds →
-      satisfies_dynamic_constraint (bound v lb ub).dynamic assignment) ↔
+      IntCSP.satisfiesConstraintInt (bound v lb ub) assignment) ↔
     (∀ (v lb ub), (v, lb, ub) ∈ bounds →
-      satisfies_dynamic_constraint (bound v lb ub).dynamic (δ ∘ assignment)) := by
+      IntCSP.satisfiesConstraintInt (bound v lb ub) (δ ∘ assignment)) := by
   constructor
   · intro h v lb ub h_mem
     have h_sat := h v lb ub h_mem
@@ -399,34 +391,10 @@ theorem variableSymmetry_preserves_bound {num_vars : ℕ}
     (β : Equiv.Perm (VarType num_vars))
     (v : VarType num_vars) (lb ub : ℤ)
     (assignment : IntAssignment num_vars) :
-    satisfies_dynamic_constraint (bound v lb ub).dynamic assignment ↔
-    satisfies_dynamic_constraint (bound (β v) lb ub).dynamic (assignment ∘ β.symm) := by
-  -- Unfold constraint satisfaction definitions
-  simp only [bound, satisfies_dynamic_constraint, satisfies_constraint, sat]
-  -- Show that both sides extract the same value
-  have h1 : extractValues (map_assignment assignment (⟨#[v], rfl⟩ : _root_.Vector _ 1)) = [assignment v] := by
-    simp [extractValues, map_assignment, List.ofFn, _root_.Vector.get]
-    rfl
-  have h2 : extractValues (map_assignment (assignment ∘ β.symm) (⟨#[β v], rfl⟩ : _root_.Vector _ 1)) = [assignment v] := by
-    -- The key property: (assignment ∘ β.symm) (β v) = assignment v
-    have key : (assignment ∘ β.symm) (β v) = assignment v := by
-      simp only [Function.comp_apply]
-      rw [Equiv.symm_apply_apply]
-    -- Unfold and use List.ofFn lemma for Fin 1
-    unfold extractValues map_assignment
-    let scope := (⟨#[β v], rfl⟩ : _root_.Vector _ 1)
-    have list_eq : List.ofFn (fun i : Fin 1 => (assignment ∘ β.symm) (scope.get i)) =
-                   [(assignment ∘ β.symm) (scope.get ⟨0, by norm_num⟩)] := by
-      rw [List.ofFn_succ, List.ofFn_zero]
-      rfl
-    rw [list_eq]
-    -- Show that scope.get ⟨0, _⟩ = β v
-    have scope_eq : scope.get ⟨0, by norm_num⟩ = β v := by
-      simp only [_root_.Vector.get, scope]
-      rfl
-    rw [scope_eq, key]
-  -- Rewrite using these simplifications
-  rw [h1, h2]
+    IntCSP.satisfiesConstraintInt (bound v lb ub) assignment ↔
+    IntCSP.satisfiesConstraintInt (bound (β v) lb ub) (assignment ∘ β.symm) := by
+  simp only [IntCSP.satisfiesConstraintInt, bound, patternHolds, valAt, Fin.is_lt, dif_pos,
+    Fin.eta, Function.comp_apply, Equiv.symm_apply_apply]
 
 -- ============================================================================
 -- Utility Functions
