@@ -63,12 +63,20 @@ def toCSPSig (csp : IntCSP) (lb ub : Fin csp.num_vars → ℤ)
 
 /-! ### Bridge: `bound` satisfaction ⇒ in-range -/
 
+/-- `valAt a v.val = a v` for a `Fin n` index. -/
+theorem valAt_eq {n : ℕ} (a : IntAssignment n) (v : Fin n) : valAt a v.val = a v := by
+  simp [valAt, v.is_lt]
+
+/-- Mapping `valAt a` over the `ℕ`-projected scope equals mapping `a` over it. -/
+theorem map_valAt {n : ℕ} (a : IntAssignment n) (l : List (Fin n)) :
+    (l.map (·.val)).map (valAt a) = l.map a := by
+  rw [List.map_map]; exact List.map_congr_left (fun v _ => valAt_eq a v)
+
 /-- A satisfied `bound v lb ub` constraint pins `a v` to the interval `[lb, ub]`. -/
 theorem bound_sat {n : ℕ} (v : Fin n) (lb ub : ℤ) (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (bound v lb ub) a) : lb ≤ a v ∧ a v ≤ ub := by
-  simp only [IntCSP.satisfiesConstraintInt, bound, CSP.satisfies_dynamic_constraint,
-    CSP.satisfies_constraint, CSP.sat, extractValues, CSP.map_assignment, List.ofFn_succ,
-    List.ofFn_zero, _root_.Vector.get, decide_eq_true_eq] at h
+  simp only [IntCSP.satisfiesConstraintInt, bound, patternHolds, valAt, v.is_lt, dif_pos,
+    Fin.eta] at h
   exact h
 
 /-! ### Bridge: `linear_le` satisfaction ⇒ the spine's linear `≤` -/
@@ -90,11 +98,9 @@ theorem linear_le_sat {n m : ℕ} (scope : _root_.Vector (VarType n) m)
     (coeffs : _root_.Vector ℤ m) (target : ℤ) (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (linear_le scope coeffs target) a) :
     (((coeffs.toList.zip scope.toList)).map (fun p => p.1 * a p.2)).sum ≤ target := by
-  simp only [IntCSP.satisfiesConstraintInt, linear_le, linear_rel,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    decide_eq_true_eq] at h
-  rw [extractValues_map_assignment, List.zipWith_map_right] at h
-  -- h : (List.zipWith (fun c sv => c * a sv) coeffs.toList scope.toList).sum ≤ target
+  simp only [IntCSP.satisfiesConstraintInt, linear_le, linear_rel, patternHolds, relHolds,
+    map_valAt] at h
+  rw [List.zipWith_map_right] at h
   rw [List.map_zip_eq_zipWith]
   exact h
 
@@ -106,10 +112,9 @@ theorem linear_eq_sat {n m : ℕ} (scope : _root_.Vector (VarType n) m)
     (coeffs : _root_.Vector ℤ m) (target : ℤ) (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (linear_eq scope coeffs target) a) :
     (((coeffs.toList.zip scope.toList)).map (fun p => p.1 * a p.2)).sum = target := by
-  simp only [IntCSP.satisfiesConstraintInt, linear_eq, linear_rel,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    decide_eq_true_eq] at h
-  rw [extractValues_map_assignment, List.zipWith_map_right] at h
+  simp only [IntCSP.satisfiesConstraintInt, linear_eq, linear_rel, patternHolds, relHolds,
+    map_valAt] at h
+  rw [List.zipWith_map_right] at h
   rw [List.map_zip_eq_zipWith]
   exact h
 
@@ -122,10 +127,9 @@ theorem linear_ne_sat {n m : ℕ} (scope : _root_.Vector (VarType n) m)
     (coeffs : _root_.Vector ℤ m) (target : ℤ) (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (linear_ne scope coeffs target) a) :
     (((coeffs.toList.zip scope.toList)).map (fun p => p.1 * a p.2)).sum ≠ target := by
-  simp only [IntCSP.satisfiesConstraintInt, linear_ne, linear_rel,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    decide_eq_true_eq] at h
-  rw [extractValues_map_assignment, List.zipWith_map_right] at h
+  simp only [IntCSP.satisfiesConstraintInt, linear_ne, linear_rel, patternHolds, relHolds,
+    map_valAt] at h
+  rw [List.zipWith_map_right] at h
   rw [List.map_zip_eq_zipWith]
   exact h
 
@@ -138,10 +142,8 @@ theorem sum_eq_sat {n m : ℕ} (scope : _root_.Vector (VarType n) m) (target : �
     (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (sum_eq scope target) a) :
     (scope.toList.map a).sum = target := by
-  simp only [IntCSP.satisfiesConstraintInt, sum_eq, sum_rel,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    decide_eq_true_eq] at h
-  rwa [extractValues_map_assignment] at h
+  simp only [IntCSP.satisfiesConstraintInt, sum_eq, sum_rel, patternHolds, relHolds, map_valAt] at h
+  exact h
 
 /-- A satisfied `at_most_k scope k` constraint gives the cardinality bound
     `Σ a(scopeᵢ) ≤ k` over the (Boolean `{0,1}`) scope.  The `≤`-direction
@@ -152,10 +154,8 @@ theorem at_most_k_sat {n m : ℕ} (scope : _root_.Vector (VarType n) m) (k : ℕ
     (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (at_most_k scope k) a) :
     (scope.toList.map a).sum ≤ (k : ℤ) := by
-  simp only [IntCSP.satisfiesConstraintInt, at_most_k,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    decide_eq_true_eq] at h
-  rwa [extractValues_map_assignment] at h
+  simp only [IntCSP.satisfiesConstraintInt, at_most_k, patternHolds, map_valAt] at h
+  exact h
 
 /-- A satisfied `at_least_k scope k` constraint gives the cardinality bound
     `k ≤ Σ a(scopeᵢ)` over the (Boolean `{0,1}`) scope.  The `≥`-direction
@@ -165,10 +165,8 @@ theorem at_least_k_sat {n m : ℕ} (scope : _root_.Vector (VarType n) m) (k : �
     (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (at_least_k scope k) a) :
     (k : ℤ) ≤ (scope.toList.map a).sum := by
-  simp only [IntCSP.satisfiesConstraintInt, at_least_k,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    decide_eq_true_eq] at h
-  rwa [extractValues_map_assignment] at h
+  simp only [IntCSP.satisfiesConstraintInt, at_least_k, patternHolds, map_valAt] at h
+  exact h
 
 /-! ### The generic `IntCSP` UNSAT theorem -/
 

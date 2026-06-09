@@ -44,10 +44,7 @@ theorem schur_triple_sat {n : ℕ} (v1 v2 v3 : VarType n)
     (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (schur_triple v1 v2 v3) a) :
     a v1 ≠ a v2 ∨ a v1 ≠ a v3 ∨ a v2 ≠ a v3 := by
-  simp only [IntCSP.satisfiesConstraintInt, schur_triple,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    extractValues, CSP.map_assignment, List.ofFn_succ, List.ofFn_zero,
-    _root_.Vector.get, decide_eq_true_eq] at h
+  simp only [IntCSP.satisfiesConstraintInt, schur_triple, patternHolds, valAt_eq] at h
   exact h
 
 /-- **Bridge.** A satisfied corpus `not_equal v1 v2` constraint (graph-colouring
@@ -58,10 +55,7 @@ theorem not_equal_sat {n : ℕ} (v1 v2 : VarType n)
     (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (not_equal v1 v2) a) :
     a v1 ≠ a v2 := by
-  simp only [IntCSP.satisfiesConstraintInt, not_equal,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.binary_dynamic_constraint, CSP.binary_constraint,
-    CSP.map_assignment, _root_.Vector.get, decide_eq_true_eq] at h
+  simp only [IntCSP.satisfiesConstraintInt, not_equal, patternHolds, valAt_eq] at h
   exact h
 
 /-- **Bridge.** A satisfied corpus `not_equals_const v c` constraint (forbidden
@@ -71,10 +65,7 @@ theorem not_equals_const_sat {n : ℕ} (v : VarType n) (c : ℤ)
     (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (not_equals_const v c) a) :
     a v ≠ c := by
-  simp only [IntCSP.satisfiesConstraintInt, not_equals_const,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.unary_dynamic_constraint, CSP.unary_constraint,
-    CSP.map_assignment, _root_.Vector.get, decide_eq_true_eq] at h
+  simp only [IntCSP.satisfiesConstraintInt, not_equals_const, patternHolds, valAt_eq] at h
   exact h
 
 /-- **Bridge.** A satisfied corpus `equals_const v c` constraint (a fixed value /
@@ -86,10 +77,7 @@ theorem equals_const_sat {n : ℕ} (v : VarType n) (c : ℤ)
     (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (equals_const v c) a) :
     a v = c := by
-  simp only [IntCSP.satisfiesConstraintInt, equals_const,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.unary_dynamic_constraint, CSP.unary_constraint,
-    CSP.map_assignment, _root_.Vector.get, decide_eq_true_eq] at h
+  simp only [IntCSP.satisfiesConstraintInt, equals_const, patternHolds, valAt_eq] at h
   exact h
 
 /-- **Bridge.** A normalized `encodeNeConst j val` constraint (`xⱼ ≠ val`, aux-free)
@@ -156,10 +144,8 @@ theorem alldifferent_sat {n m : ℕ} (scope : _root_.Vector (VarType n) m)
     (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (alldifferent scope) a) :
     (scope.toList.map a).Nodup := by
-  simp only [IntCSP.satisfiesConstraintInt, alldifferent,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    decide_eq_true_eq] at h
-  rwa [extractValues_map_assignment] at h
+  simp only [IntCSP.satisfiesConstraintInt, alldifferent, patternHolds, map_valAt] at h
+  exact h
 
 /-- **Bridge.** A normalized `encodeAllDifferent` constraint is modelled by
     `extend a bA auxA` (`alldifferent` is aux-free) whenever the recovered values are
