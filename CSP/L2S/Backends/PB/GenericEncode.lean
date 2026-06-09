@@ -210,4 +210,14 @@ theorem csp_unsat (csp : IntCSP)
     obtain ⟨c, hc, hce⟩ := he
     exact encodePattern_sound c a (hsol c hc) e hce
 
+/-- **File-based generic UNSAT.**  `csp_unsat_file csp numVars "certs/foo.pbp"` is
+    `csp_unsat csp cert` with the VeriPB kernel proof loaded from a committed file at
+    compile time (`include_str`) and re-checked by PBLean via `native_decide`.  The
+    formula is inferred from `csp`; `numVars` is the OPB `#variable=` count
+    (`Σ (cspSig csp).width`).  This keeps the (large) certificate out of the source and
+    makes regeneration a pure file overwrite.  See `scripts/gen_cert.sh`. -/
+macro "csp_unsat_file " csp:term:max numVars:term:max path:str : term =>
+  `(csp_unsat $csp
+      (VeriPB.Reflect.checkProof_sound _ $numVars (include_str $path) (by native_decide)))
+
 end CSP.L2S.PB

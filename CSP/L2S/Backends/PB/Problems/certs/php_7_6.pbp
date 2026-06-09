@@ -1,0 +1,7 @@
+pseudo-Boolean proof version 3.0
+f 34;
+rup >= 0 : ~ ;
+pol 35 29 1000000000000000 * + 30 1000000000000000 * + 31 1000000000000000 * + 32 1000000000000000 * + 33 1000000000000000 * + 34 1000000000000000 * +;
+output NONE ;
+conclusion UNSAT : 36;
+end pseudo-Boolean proof;

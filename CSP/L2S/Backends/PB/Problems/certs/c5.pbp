@@ -1,0 +1,13 @@
+pseudo-Boolean proof version 3.0
+f 10;
+rup >= 0 : ~ ;
+pol 6 7 + 3 + 10 + 2 + s;
+rup 1 ~x2 >= 1 : ~ 12 1;
+rup 1 ~x5 >= 1 : ~ 12 9;
+rup 1 x3 >= 1 : ~ 13 4;
+rup 1 x4 >= 1 : ~ 14 8;
+rup 1 x3 1 x4 >= 2 : 15 16 ~;
+pol 5 17 +;
+output NONE ;
+conclusion UNSAT : 18;
+end pseudo-Boolean proof;
