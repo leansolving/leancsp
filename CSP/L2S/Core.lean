@@ -147,7 +147,7 @@ inductive IntConstraint (num_vars : ℕ)
 
   -- Unknown pattern (fallback)
   | unknown (arity : ℕ) (scope : List ℕ)
-  deriving Repr
+  deriving Repr, DecidableEq
 
 -- ============================================================================
 -- Pattern Semantics (meaning of a constraint from its `pattern`)

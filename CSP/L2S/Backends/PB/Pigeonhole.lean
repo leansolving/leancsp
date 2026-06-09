@@ -2,6 +2,7 @@ import CSP.L2S.Backends.PB.Adapter
 import CSP.L2S.Backends.PB.AllDifferent
 import CSP.L2S.Backends.PB.Extend
 import CSP.L2S.Backends.PB.NotAllEqualBridge
+import CSP.L2S.Backends.PB.GenericEncode
 import CSP.L2S.Tests.lean.«35_pigeonhole»
 
 namespace CSP.L2S.PB.Pigeonhole
@@ -344,5 +345,12 @@ theorem php_9_8_unsat : ¬ php_9_8.isSatisfiableInt := by
         [1, 2, 3, 4, 5, 6, 7, 8] c hc hnodup'
     · exact php9_formulaUnsat
   exact key ⟨a, fun _ => false, hdom, hnodup⟩
+
+/-- **End-to-end pigeonhole UNSAT (`php_9_8`) — the single generic theorem.**  The same
+    `php9KernelProof` certificate, now applied through the assumption-free `csp_unsat`:
+    no per-instance signature, bridges, or `csp_unsat_generic` glue. -/
+theorem php_9_8_unsat_generic : ¬ php_9_8.isSatisfiableInt :=
+  csp_unsat php_9_8
+    (VeriPB.Reflect.checkProof_sound _ 63 php9KernelProof (by native_decide))
 
 end CSP.L2S.PB.Pigeonhole
