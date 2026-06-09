@@ -94,11 +94,10 @@ def nqUser : List (PBConstr (PBVar nqSig)) :=
 theorem nq_cols_sat (a : IntAssignment 2)
     (h : IntCSP.satisfiesConstraintInt (alldifferent (_root_.Vector.ofFn id)) a) :
     a (0 : Fin 2) ≠ a (1 : Fin 2) := by
-  simp only [IntCSP.satisfiesConstraintInt, alldifferent,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.map_assignment, extractValues, vget, id_eq, decide_eq_true_eq,
-    List.ofFn_succ, List.ofFn_zero, List.nodup_cons, List.mem_cons,
-    List.not_mem_nil, List.nodup_nil, or_false, and_true, not_false_eq_true] at h
+  simp only [IntCSP.satisfiesConstraintInt, alldifferent, patternHolds, map_valAt] at h
+  simp only [_root_.Vector.toList_ofFn, List.ofFn_succ, List.ofFn_zero, id_eq,
+    List.map_cons, List.map_nil, List.nodup_cons, List.mem_cons,
+    List.not_mem_nil, List.nodup_nil, or_false, and_true, not_false_eq_true, Fin.isValue] at h
   exact h
 
 /-- **Bridge.** The positive-diagonal `alldifferent_diag_pos 2` constraint makes
@@ -106,26 +105,26 @@ theorem nq_cols_sat (a : IntAssignment 2)
 theorem nq_diag_pos_sat (a : IntAssignment 2)
     (h : IntCSP.satisfiesConstraintInt (alldifferent_diag_pos 2) a) :
     a (0 : Fin 2) ≠ a (1 : Fin 2) + 1 := by
-  simp only [IntCSP.satisfiesConstraintInt, alldifferent_diag_pos,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.map_assignment, vget, decide_eq_true_eq,
-    List.ofFn_succ, List.ofFn_zero, List.nodup_cons, List.mem_cons,
-    List.not_mem_nil, List.nodup_nil, or_false, and_true, not_false_eq_true,
-    Fin.val_succ, Fin.val_zero, Nat.cast_zero, Nat.cast_one, Nat.cast_add, add_zero] at h
-  exact h
+  simp only [IntCSP.satisfiesConstraintInt, alldifferent_diag_pos, patternHolds] at h
+  simp only [List.range_succ, List.range_zero, List.map_cons, List.map_nil, List.nil_append,
+    List.cons_append, List.zip_cons_cons, List.zip_nil_right, valAt, List.nodup_cons,
+    List.mem_cons, List.not_mem_nil, List.nodup_nil, or_false, and_true,
+    not_false_eq_true] at h
+  rw [dif_pos (by omega), dif_pos (by omega)] at h
+  simpa using h
 
 /-- **Bridge.** The negative-diagonal `alldifferent_diag_neg 2` constraint makes
     `a 0 - 0` and `a 1 - 1` differ, i.e. `a 0 ≠ a 1 - 1`. -/
 theorem nq_diag_neg_sat (a : IntAssignment 2)
     (h : IntCSP.satisfiesConstraintInt (alldifferent_diag_neg 2) a) :
     a (0 : Fin 2) ≠ a (1 : Fin 2) - 1 := by
-  simp only [IntCSP.satisfiesConstraintInt, alldifferent_diag_neg,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.map_assignment, vget, decide_eq_true_eq,
-    List.ofFn_succ, List.ofFn_zero, List.nodup_cons, List.mem_cons,
-    List.not_mem_nil, List.nodup_nil, or_false, and_true, not_false_eq_true,
-    Fin.val_succ, Fin.val_zero, Nat.cast_zero, Nat.cast_one, Nat.cast_add, sub_zero] at h
-  exact h
+  simp only [IntCSP.satisfiesConstraintInt, alldifferent_diag_neg, patternHolds] at h
+  simp only [List.range_succ, List.range_zero, List.map_cons, List.map_nil, List.nil_append,
+    List.cons_append, List.zip_cons_cons, List.zip_nil_right, valAt, List.nodup_cons,
+    List.mem_cons, List.not_mem_nil, List.nodup_nil, or_false, and_true,
+    not_false_eq_true] at h
+  rw [dif_pos (by omega), dif_pos (by omega)] at h
+  simpa [sub_eq_add_neg] using h
 
 /-! ### The PB certificate -/
 
@@ -336,13 +335,16 @@ theorem nq3_diag_pos_sat (a : IntAssignment 3)
     (h : IntCSP.satisfiesConstraintInt (alldifferent_diag_pos 3) a) :
     a (0 : Fin 3) ≠ a (1 : Fin 3) + 1 ∧ a (0 : Fin 3) ≠ a (2 : Fin 3) + 2 ∧
       a (1 : Fin 3) + 1 ≠ a (2 : Fin 3) + 2 := by
-  simp only [IntCSP.satisfiesConstraintInt, alldifferent_diag_pos,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.map_assignment, vget, decide_eq_true_eq,
-    List.ofFn_succ, List.ofFn_zero, List.nodup_cons, List.mem_cons,
-    List.not_mem_nil, List.nodup_nil, or_false, and_true, not_false_eq_true, not_or,
-    Fin.val_succ, Fin.val_zero, Nat.cast_zero, Nat.cast_one, Nat.cast_add, add_zero] at h
-  exact ⟨h.1.1, h.1.2, h.2⟩
+  simp only [IntCSP.satisfiesConstraintInt, alldifferent_diag_pos, patternHolds] at h
+  simp only [List.range_succ, List.range_zero, List.map_cons, List.map_nil, List.nil_append,
+    List.cons_append, List.zip_cons_cons, List.zip_nil_right, valAt, List.nodup_cons,
+    List.mem_cons, List.not_mem_nil, List.nodup_nil, or_false, and_true, not_false_eq_true,
+    not_or] at h
+  rw [dif_pos (by omega), dif_pos (by omega), dif_pos (by omega)] at h
+  refine ⟨?_, ?_, ?_⟩
+  · simpa using h.1.1
+  · simpa using h.1.2
+  · simpa using h.2
 
 /-- **Bridge.** The negative-diagonal `alldifferent_diag_neg 3` constraint
     (`Nodup [a 0, a 1 - 1, a 2 - 2]`) makes the three negative diagonals pairwise
@@ -351,13 +353,16 @@ theorem nq3_diag_neg_sat (a : IntAssignment 3)
     (h : IntCSP.satisfiesConstraintInt (alldifferent_diag_neg 3) a) :
     a (0 : Fin 3) ≠ a (1 : Fin 3) - 1 ∧ a (0 : Fin 3) ≠ a (2 : Fin 3) - 2 ∧
       a (1 : Fin 3) - 1 ≠ a (2 : Fin 3) - 2 := by
-  simp only [IntCSP.satisfiesConstraintInt, alldifferent_diag_neg,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.map_assignment, vget, decide_eq_true_eq,
-    List.ofFn_succ, List.ofFn_zero, List.nodup_cons, List.mem_cons,
-    List.not_mem_nil, List.nodup_nil, or_false, and_true, not_false_eq_true, not_or,
-    Fin.val_succ, Fin.val_zero, Nat.cast_zero, Nat.cast_one, Nat.cast_add, sub_zero] at h
-  exact ⟨h.1.1, h.1.2, h.2⟩
+  simp only [IntCSP.satisfiesConstraintInt, alldifferent_diag_neg, patternHolds] at h
+  simp only [List.range_succ, List.range_zero, List.map_cons, List.map_nil, List.nil_append,
+    List.cons_append, List.zip_cons_cons, List.zip_nil_right, valAt, List.nodup_cons,
+    List.mem_cons, List.not_mem_nil, List.nodup_nil, or_false, and_true, not_false_eq_true,
+    not_or] at h
+  rw [dif_pos (by omega), dif_pos (by omega), dif_pos (by omega)] at h
+  refine ⟨?_, ?_, ?_⟩
+  · simpa [sub_eq_add_neg] using h.1.1
+  · simpa [sub_eq_add_neg] using h.1.2
+  · simpa [sub_eq_add_neg] using h.2
 
 /-! ### The PB certificate -/
 

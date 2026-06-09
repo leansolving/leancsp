@@ -75,16 +75,9 @@ theorem xor_all2_full_sat {n : ℕ} (x y r : Fin n) (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt
       (xor_all (⟨#[x, y], rfl⟩ : _root_.Vector (VarType n) 2) r) a) :
     a r ≤ a x + a y ∧ a x - a y ≤ a r ∧ a y - a x ≤ a r ∧ a r ≤ 2 - a x - a y := by
-  simp only [IntCSP.satisfiesConstraintInt, xor_all,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.map_assignment, extractValues, _root_.Vector.get, _root_.Vector.append,
-    List.ofFn_succ, List.ofFn_zero, List.getLast?, List.dropLast,
-    List.sum_cons, List.sum_nil, List.getLast,
-    Array.getElem_append, Fin.cast, Fin.val_zero, Fin.val_succ,
-    decide_eq_true_eq] at h
-  simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.reduceAdd,
-    Nat.reduceLT, Nat.reduceSub, List.getElem_toArray, List.getElem_cons_zero,
-    List.getElem_cons_succ, dite_true, dite_false, add_zero] at h
+  simp only [IntCSP.satisfiesConstraintInt, xor_all, patternHolds, map_valAt, valAt_eq] at h
+  simp only [_root_.Vector.toList_mk, List.map_cons, List.map_nil, List.sum_cons,
+    List.sum_nil, add_zero] at h
   exact xor_facts_int (a x) (a y) (a r) hx0 hx1 hy0 hy1 h
 
 /-- **Bridge.** A satisfied `not_gate i o` gives `a o = 1 - a i` (the exact NOT
@@ -92,10 +85,7 @@ theorem xor_all2_full_sat {n : ℕ} (x y r : Fin n) (a : IntAssignment n)
 theorem not_gate_eq_sat {n : ℕ} (i o : Fin n) (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (not_gate i o) a) :
     a o = 1 - a i := by
-  simp only [IntCSP.satisfiesConstraintInt, not_gate,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.map_assignment, extractValues, _root_.Vector.get,
-    List.ofFn_succ, List.ofFn_zero, decide_eq_true_eq] at h
+  simp only [IntCSP.satisfiesConstraintInt, not_gate, patternHolds, valAt_eq] at h
   exact h
 
 /-- **Bridge.** A satisfied 2-input `and_all [x,y] r` over `{0,1}` (`r = min(x,y)`)
@@ -106,16 +96,10 @@ theorem and_all2_full_sat {n : ℕ} (x y r : Fin n) (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt
       (and_all (⟨#[x, y], rfl⟩ : _root_.Vector (VarType n) 2) r) a) :
     a r ≤ a x ∧ a r ≤ a y ∧ a x + a y - 1 ≤ a r := by
-  simp only [IntCSP.satisfiesConstraintInt, and_all,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.map_assignment, extractValues, _root_.Vector.get, _root_.Vector.append,
-    List.ofFn_succ, List.ofFn_zero, List.getLast?, List.dropLast,
-    List.foldl, List.head!, List.getLast, List.isEmpty, lt_self_iff_false,
-    if_false, Bool.false_eq_true, decide_eq_true_eq,
-    Array.getElem_append, Fin.cast, Fin.val_zero, Fin.val_succ] at h
-  simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.reduceAdd,
-    Nat.reduceLT, Nat.reduceSub, List.getElem_toArray, List.getElem_cons_zero,
-    List.getElem_cons_succ, dite_true, dite_false] at h
+  simp only [IntCSP.satisfiesConstraintInt, and_all, patternHolds, map_valAt, valAt_eq] at h
+  simp only [_root_.Vector.toList_mk, List.map_cons, List.map_nil, List.headI,
+    List.foldl_cons, List.foldl_nil, ne_eq] at h
+  obtain ⟨-, h⟩ := h
   split_ifs at h <;> exact ⟨by linarith, by linarith, by linarith⟩
 
 /-- **Bridge.** A satisfied 2-input `or_all [x,y] r` over `{0,1}` (`r = max(x,y)`)
@@ -126,16 +110,10 @@ theorem or_all2_full_sat {n : ℕ} (x y r : Fin n) (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt
       (or_all (⟨#[x, y], rfl⟩ : _root_.Vector (VarType n) 2) r) a) :
     a x ≤ a r ∧ a y ≤ a r ∧ a r ≤ a x + a y := by
-  simp only [IntCSP.satisfiesConstraintInt, or_all,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.map_assignment, extractValues, _root_.Vector.get, _root_.Vector.append,
-    List.ofFn_succ, List.ofFn_zero, List.getLast?, List.dropLast,
-    List.foldl, List.head!, List.getLast, List.isEmpty, lt_self_iff_false,
-    if_false, Bool.false_eq_true, decide_eq_true_eq,
-    Array.getElem_append, Fin.cast, Fin.val_zero, Fin.val_succ] at h
-  simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.reduceAdd,
-    Nat.reduceLT, Nat.reduceSub, List.getElem_toArray, List.getElem_cons_zero,
-    List.getElem_cons_succ, dite_true, dite_false] at h
+  simp only [IntCSP.satisfiesConstraintInt, or_all, patternHolds, map_valAt, valAt_eq] at h
+  simp only [_root_.Vector.toList_mk, List.map_cons, List.map_nil, List.headI,
+    List.foldl_cons, List.foldl_nil, ne_eq] at h
+  obtain ⟨-, h⟩ := h
   split_ifs at h <;> exact ⟨by linarith, by linarith, by linarith⟩
 
 /-! ### The signature and PB encoding -/

@@ -54,16 +54,9 @@ theorem and_all2_lower_sat (x y r : Fin 7) (a : IntAssignment 7)
     (h : IntCSP.satisfiesConstraintInt
       (and_all (⟨#[x, y], rfl⟩ : _root_.Vector (VarType 7) 2) r) a) :
     a x + a y - 1 ≤ a r := by
-  simp only [IntCSP.satisfiesConstraintInt, and_all,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.map_assignment, extractValues, _root_.Vector.get, _root_.Vector.append,
-    List.ofFn_succ, List.ofFn_zero, List.getLast?, List.dropLast,
-    List.foldl, List.head!, List.getLast, List.isEmpty, lt_self_iff_false,
-    if_false, Bool.false_eq_true, decide_eq_true_eq,
-    Array.getElem_append, Fin.cast, Fin.val_zero, Fin.val_succ] at h
-  simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.reduceAdd,
-    Nat.reduceLT, Nat.reduceSub, List.getElem_toArray, List.getElem_cons_zero,
-    List.getElem_cons_succ, dite_true, dite_false] at h
+  simp only [IntCSP.satisfiesConstraintInt, and_all, patternHolds, map_valAt, valAt_eq] at h
+  simp only [_root_.Vector.toList_mk, List.map_cons, List.map_nil, List.headI,
+    List.foldl_cons, List.foldl_nil, ne_eq] at h
   split_ifs at h <;> linarith
 
 /-- **Bridge.** A satisfied ternary `or_all [g₁,g₂,g₃] r` over `{0,1}` (`r = max`)
@@ -72,16 +65,9 @@ theorem or_all3_le_sat (g1 g2 g3 r : Fin 7) (a : IntAssignment 7)
     (h : IntCSP.satisfiesConstraintInt
       (or_all (⟨#[g1, g2, g3], rfl⟩ : _root_.Vector (VarType 7) 3) r) a) :
     a g1 ≤ a r ∧ a g2 ≤ a r ∧ a g3 ≤ a r := by
-  simp only [IntCSP.satisfiesConstraintInt, or_all,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.map_assignment, extractValues, _root_.Vector.get, _root_.Vector.append,
-    List.ofFn_succ, List.ofFn_zero, List.getLast?, List.dropLast,
-    List.foldl, List.head!, List.getLast, List.isEmpty, lt_self_iff_false,
-    if_false, Bool.false_eq_true, decide_eq_true_eq,
-    Array.getElem_append, Fin.cast, Fin.val_zero, Fin.val_succ] at h
-  simp only [List.size_toArray, List.length_cons, List.length_nil, Nat.reduceAdd,
-    Nat.reduceLT, Nat.reduceSub, List.getElem_toArray, List.getElem_cons_zero,
-    List.getElem_cons_succ, dite_true, dite_false] at h
+  simp only [IntCSP.satisfiesConstraintInt, or_all, patternHolds, map_valAt, valAt_eq] at h
+  simp only [_root_.Vector.toList_mk, List.map_cons, List.map_nil, List.headI,
+    List.foldl_cons, List.foldl_nil, ne_eq] at h
   split_ifs at h <;> exact ⟨by linarith, by linarith, by linarith⟩
 
 /-- **Bridge.** A satisfied ternary `at_least_k [x,y,z] 2` gives `a x + a y + a z ≥ 2`. -/
@@ -89,12 +75,9 @@ theorem at_least3_2_sat (x y z : Fin 7) (a : IntAssignment 7)
     (h : IntCSP.satisfiesConstraintInt
       (at_least_k (⟨#[x, y, z], rfl⟩ : _root_.Vector (VarType 7) 3) 2) a) :
     a x + a y + a z ≥ 2 := by
-  simp only [IntCSP.satisfiesConstraintInt, at_least_k,
-    CSP.satisfies_dynamic_constraint, CSP.satisfies_constraint, CSP.sat,
-    CSP.map_assignment, extractValues, _root_.Vector.get,
-    List.ofFn_succ, List.ofFn_zero, List.sum_cons, List.sum_nil,
-    Fin.cast, Fin.val_zero, Fin.val_succ, List.getElem_toArray,
-    List.getElem_cons_zero, List.getElem_cons_succ, decide_eq_true_eq] at h
+  simp only [IntCSP.satisfiesConstraintInt, at_least_k, patternHolds, map_valAt] at h
+  simp only [_root_.Vector.toList_mk, List.map_cons, List.map_nil, List.sum_cons,
+    List.sum_nil, add_zero] at h
   push_cast at h
   linarith
 
