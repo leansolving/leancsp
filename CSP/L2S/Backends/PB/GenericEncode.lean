@@ -42,9 +42,32 @@ def cspUb (csp : IntCSP) (i : Fin csp.num_vars) : ℤ :=
 theorem cspLb_le_cspUb (csp : IntCSP) (i : Fin csp.num_vars) : cspLb csp i ≤ cspUb csp i :=
   le_max_left _ _
 
-/-- The order-encoding signature derived from `csp`'s bounds. -/
+/-- `pairAux n = n·(n−1)/2`, recursively: the number of unordered pairs of `n` items
+    (the selectors an `alldifferentOffset`'s pairwise Big-M expansion owns). -/
+def pairAux : ℕ → ℕ
+  | 0 => 0
+  | n + 1 => n + pairAux n
+
+/-- Number of auxiliary selector variables a single constraint's encoding owns: one for a
+    Big-M general disequality (`linear`/`sum`/`*_rel_var` with op `.NE`), a pairwise block
+    for the offset all-different.  Everything else is aux-free. -/
+def auxCount {n : ℕ} : IntConstraint n → ℕ
+  | .linear _ _ .NE _ => 1
+  | .sum _ .NE _ => 1
+  | .sum_rel_var _ .NE _ => 1
+  | .linear_rel_var _ _ .NE _ => 1
+  | .alldifferentOffset vars offsets => pairAux (min vars.length offsets.length)
+  | _ => 0
+
+/-- Total auxiliary count of a CSP: the selectors its constraints' encodings own. -/
+def cspNAux (csp : IntCSP) : ℕ := (csp.constraints.map auxCount).sum
+
+/-- The order-encoding signature derived from `csp`'s bounds, sized to hold the Big-M
+    selector variables (`nAux := cspNAux csp`).  Aux-free CSPs have `cspNAux = 0`, so for
+    them this is definitionally the old `nAux = 0` signature (committed certificates stay
+    valid). -/
 def cspSig (csp : IntCSP) : CSPSig :=
-  toCSPSig csp (cspLb csp) (cspUb csp) (cspLb_le_cspUb csp)
+  { toCSPSig csp (cspLb csp) (cspUb csp) (cspLb_le_cspUb csp) with nAux := cspNAux csp }
 
 @[simp] theorem cspSig_nInt (csp : IntCSP) : (cspSig csp).nInt = csp.num_vars := rfl
 @[simp] theorem cspSig_values (csp : IntCSP) (i : Fin csp.num_vars) :
@@ -107,6 +130,34 @@ theorem encodeRel_sound (op : RelOp) (terms : List (Int × Fin S.nInt)) (target 
   case NE => exact absurd he (by simp)
   all_goals (rw [List.mem_singleton] at he; subst he; exact hpat)
 
+/-- Like `encodeRel`, but `≠` is encoded by the Big-M `encLinearNe` owning the selector
+    index `base` (dropped, soundly, if `base` is out of range — which never happens once
+    `nAux` is sized by `cspNAux`). -/
+def encodeRelAt (S : CSPSig) (base : ℕ) (op : RelOp) (terms : List (Int × Fin S.nInt))
+    (target : Int) : List (EncConstr S) :=
+  match op with
+  | .LE => [encLinearLe terms target]
+  | .GE => [encLinearGe terms target]
+  | .LT => [encLinearLt terms target]
+  | .GT => [encLinearGt terms target]
+  | .EQ => [encLinearEq terms target]
+  | .NE => if h : base < S.nAux then [encLinearNe terms target ⟨base, h⟩] else []
+
+/-- `encodeRelAt` soundness: the arithmetic relation gives every emitted entry's
+    precondition (the `≠` entry's precondition is exactly `relHolds .NE`). -/
+theorem encodeRelAt_sound (base : ℕ) (op : RelOp) (terms : List (Int × Fin S.nInt))
+    (target : Int) (a : Fin S.nInt → Int)
+    (hpat : relHolds op (terms.map (fun p => p.1 * a p.2)).sum target)
+    (e : EncConstr S) (he : e ∈ encodeRelAt S base op terms target) : e.pre a := by
+  cases op <;> simp only [encodeRelAt] at he
+  case NE =>
+    split at he
+    · rw [List.mem_singleton] at he; subst he
+      show (terms.map (fun p => p.1 * a p.2)).sum ≠ target
+      exact hpat
+    · exact absurd he (by simp)
+  all_goals (rw [List.mem_singleton] at he; subst he; exact hpat)
+
 /-- The linear term list `coeffs · (toFinList vars)` sums to the `patternHolds`
     `zipWith`-form on in-range indices. -/
 theorem linTerms_sum (a : Fin S.nInt → Int) (coeffs : List Int) (vars : List ℕ)
@@ -124,6 +175,68 @@ theorem unitTerms_sum (a : Fin S.nInt → Int) (vars : List ℕ)
       = (toFinList S vars).map a := by
     rw [List.map_map]; exact List.map_congr_left (fun v _ => by simp)
   rw [h1, toFinList_map a vars hwf]
+
+/-! ### Helpers for the trivial linear constructors -/
+
+/-- Shift a relation across subtraction: `op` of a difference vs `0` iff `op` of the
+    two sides.  Lets a binary/var-target comparison be encoded as `lhs − rhs (op) 0`. -/
+theorem relHolds_sub_zero (op : RelOp) (x y : Int) :
+    relHolds op (x - y) 0 ↔ relHolds op x y := by
+  cases op <;> simp only [relHolds] <;> omega
+
+/-- The two-term list `[(1,i), (-1,j)]` sums to `a i − a j`. -/
+theorem binTerms_sum (a : Fin S.nInt → Int) (i j : Fin S.nInt) :
+    ([((1 : Int), i), ((-1 : Int), j)].map (fun p => p.1 * a p.2)).sum = a i - a j := by
+  simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil]; ring
+
+/-- The one-term list `[(1,i)]` sums to `a i`. -/
+theorem unaryTerms_sum (a : Fin S.nInt → Int) (i : Fin S.nInt) :
+    ([((1 : Int), i)].map (fun p => p.1 * a p.2)).sum = a i := by
+  simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil]; ring
+
+/-- Appending a `−1`-coefficient term subtracts that variable from the sum. -/
+theorem appendNeg_sum (a : Fin S.nInt → Int) (terms : List (Int × Fin S.nInt))
+    (t : Fin S.nInt) :
+    ((terms ++ [((-1 : Int), t)]).map (fun p => p.1 * a p.2)).sum
+      = (terms.map (fun p => p.1 * a p.2)).sum - a t := by
+  simp only [List.map_append, List.sum_append, List.map_cons, List.map_nil, List.sum_cons,
+    List.sum_nil]; ring
+
+/-- Soundness for a binary comparison `i (op) j` encoded as `i − j (op) 0`. -/
+theorem encodeRel_bin_sound (op : RelOp) (i j : Fin S.nInt) (a : Fin S.nInt → Int)
+    (hpat : relHolds op (a i) (a j)) (e : EncConstr S)
+    (he : e ∈ encodeRel S op [((1 : Int), i), ((-1 : Int), j)] 0) : e.pre a := by
+  refine encodeRel_sound op _ 0 a ?_ e he
+  rw [binTerms_sum, relHolds_sub_zero]; exact hpat
+
+/-- Soundness for a unary comparison `i (op) c` encoded as the singleton term list. -/
+theorem encodeRel_unary_sound (op : RelOp) (i : Fin S.nInt) (c : Int) (a : Fin S.nInt → Int)
+    (hpat : relHolds op (a i) c) (e : EncConstr S)
+    (he : e ∈ encodeRel S op [((1 : Int), i)] c) : e.pre a := by
+  refine encodeRel_sound op _ c a ?_ e he
+  rw [unaryTerms_sum]; exact hpat
+
+/-- Soundness for a variable-target relation `Σ terms (op) (a t)`, encoded by moving the
+    target variable to the LHS with coefficient `−1` (target `0`).  `hsum` identifies the
+    encoded term-sum with the pattern's LHS.  Factored out so the `appendNeg_sum` /
+    `relHolds_sub_zero` reasoning over a *variable* `op` is elaborated once. -/
+theorem encodeRel_var_sound (op : RelOp) (terms : List (Int × Fin S.nInt)) (t : Fin S.nInt)
+    (a : Fin S.nInt → Int) (lhs : Int)
+    (hsum : (terms.map (fun p => p.1 * a p.2)).sum = lhs) (hpat : relHolds op lhs (a t))
+    (e : EncConstr S) (he : e ∈ encodeRel S op (terms ++ [((-1 : Int), t)]) 0) : e.pre a := by
+  refine encodeRel_sound op (terms ++ [((-1 : Int), t)]) 0 a ?_ e he
+  rw [appendNeg_sum, hsum, relHolds_sub_zero]; exact hpat
+
+/-- `encodeRelAt` analogue of `encodeRel_var_sound` (NE-aware, base-threaded).  Isolated so
+    the `appendNeg_sum` / `relHolds_sub_zero` reasoning over a *variable* `op` is elaborated
+    once rather than inside the per-constructor `cases`. -/
+theorem encodeRelAt_var_sound (base : ℕ) (op : RelOp) (terms : List (Int × Fin S.nInt))
+    (t : Fin S.nInt) (a : Fin S.nInt → Int) (lhs : Int)
+    (hsum : (terms.map (fun p => p.1 * a p.2)).sum = lhs) (hpat : relHolds op lhs (a t))
+    (e : EncConstr S) (he : e ∈ encodeRelAt S base op (terms ++ [((-1 : Int), t)]) 0) :
+    e.pre a := by
+  refine encodeRelAt_sound base op (terms ++ [((-1 : Int), t)]) 0 a ?_ e he
+  rw [appendNeg_sum, hsum, relHolds_sub_zero]; exact hpat
 
 /-! ### `encodePattern` -/
 
@@ -159,18 +272,100 @@ def encodePattern (S : CSPSig) : IntConstraint S.nInt → List (EncConstr S)
         [encNotAllEqualMulti [⟨v1, h.1⟩, ⟨v2, h.2.1⟩, ⟨v3, h.2.2⟩]
           (domOf S [⟨v1, h.1⟩, ⟨v2, h.2.1⟩, ⟨v3, h.2.2⟩])]
       else []
-  | _ => []
+  -- Binary comparisons `v1 (op) v2`, encoded as `v1 − v2 (op) 0`.
+  | .eq v1 v2 =>
+      if h : v1 < S.nInt ∧ v2 < S.nInt then
+        encodeRel S .EQ [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] 0 else []
+  | .lt v1 v2 =>
+      if h : v1 < S.nInt ∧ v2 < S.nInt then
+        encodeRel S .LT [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] 0 else []
+  | .le v1 v2 =>
+      if h : v1 < S.nInt ∧ v2 < S.nInt then
+        encodeRel S .LE [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] 0 else []
+  | .gt v1 v2 =>
+      if h : v1 < S.nInt ∧ v2 < S.nInt then
+        encodeRel S .GT [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] 0 else []
+  | .ge v1 v2 =>
+      if h : v1 < S.nInt ∧ v2 < S.nInt then
+        encodeRel S .GE [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] 0 else []
+  -- `iff` is value-equality over the {0,1}-or-wider domain; same as `eq`.
+  | .iff v1 v2 =>
+      if h : v1 < S.nInt ∧ v2 < S.nInt then
+        encodeRel S .EQ [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] 0 else []
+  -- `implies p q` is `q ≥ p` (Boolean order), encoded as `q − p ≥ 0`.
+  | .implies p q =>
+      if h : p < S.nInt ∧ q < S.nInt then
+        encodeRel S .GE [((1 : Int), ⟨q, h.2⟩), ((-1 : Int), ⟨p, h.1⟩)] 0 else []
+  -- Unary comparisons `v (op) c`.
+  | .lt_const v c =>
+      if h : v < S.nInt then encodeRel S .LT [((1 : Int), ⟨v, h⟩)] c else []
+  | .le_const v c =>
+      if h : v < S.nInt then encodeRel S .LE [((1 : Int), ⟨v, h⟩)] c else []
+  | .gt_const v c =>
+      if h : v < S.nInt then encodeRel S .GT [((1 : Int), ⟨v, h⟩)] c else []
+  | .ge_const v c =>
+      if h : v < S.nInt then encodeRel S .GE [((1 : Int), ⟨v, h⟩)] c else []
+  -- `exactly_k`: unit-coefficient sum `= k`.
+  | .exactly_k vars k =>
+      if _ : ∀ v ∈ vars, v < S.nInt then
+        encodeRel S .EQ ((toFinList S vars).map (fun v => ((1 : Int), v))) (k : Int) else []
+  -- Variable-target arithmetic: move the target variable to the LHS with coeff `−1`.
+  | .sum_rel_var vars op tvar =>
+      if h : (∀ v ∈ vars, v < S.nInt) ∧ tvar < S.nInt then
+        encodeRel S op
+          ((toFinList S vars).map (fun v => ((1 : Int), v)) ++ [((-1 : Int), ⟨tvar, h.2⟩)]) 0
+      else []
+  | .linear_rel_var vars coeffs op tvar =>
+      if h : (∀ v ∈ vars, v < S.nInt) ∧ tvar < S.nInt then
+        encodeRel S op (coeffs.zip (toFinList S vars) ++ [((-1 : Int), ⟨tvar, h.2⟩)]) 0
+      else []
+  -- Constructors not yet in the PB fragment (wired in later milestones, or genuinely
+  -- non-linear).  Each encodes to `[]` — sound, since dropping a constraint only weakens
+  -- the PB formula.  Listed explicitly (no wildcard) so each `encodePattern` equation lemma
+  -- is direct, keeping the soundness proofs' `simp only [encodePattern]` cheap.
+  | .alldifferentOffset _ _ => []
+  | .increasing _ => []
+  | .count _ _ _ => []
+  | .count_var _ _ _ => []
+  | .element _ _ _ => []
+  | .maximum _ _ => []
+  | .minimum _ _ => []
+  | .bound _ _ _ => []
+  | .abs_diff_rel _ _ _ _ => []
+  | .abs_diff_var _ _ _ => []
+  | .modulo _ _ _ => []
+  | .sliding_sum _ _ _ _ => []
+  | .not_gate _ _ => []
+  | .and_gate _ _ _ => []
+  | .or_gate _ _ _ => []
+  | .xor_gate _ _ _ => []
+  | .nand_gate _ _ _ => []
+  | .nor_gate _ _ _ => []
+  | .and_all _ _ => []
+  | .or_all _ _ => []
+  | .xor_all _ _ => []
+  | .if_then _ _ _ _ => []
+  | .if_then_or _ _ _ _ => []
+  | .product_rel_var _ _ _ => []
+  | .disjunctive _ _ => []
+  | .unknown _ _ => []
 
 /-- Every entry `encodePattern` emits is aux-free. -/
 theorem encodePattern_setsAux (c : IntConstraint S.nInt) (a : Fin S.nInt → Int)
     (e : EncConstr S) (he : e ∈ encodePattern S c) : e.setsAux a = [] := by
   cases c
-  case alldifferent vars => simp only [encodePattern] at he; split at he <;> simp_all [encAllDifferent]
-  case ne v1 v2 => simp only [encodePattern] at he; split at he <;> simp_all [encNotEqual]
-  case eq_const v c => simp only [encodePattern] at he; split at he <;> simp_all [encEqConst]
-  case ne_const v c => simp only [encodePattern] at he; split at he <;> simp_all [encNeConst]
-  case at_most_k vars k => simp only [encodePattern] at he; split at he <;> simp_all [encAtMostK]
-  case at_least_k vars k => simp only [encodePattern] at he; split at he <;> simp_all [encAtLeastK]
+  case alldifferent vars =>
+    simp only [encodePattern] at he; split at he <;> simp_all [encAllDifferent]
+  case ne v1 v2 =>
+    simp only [encodePattern] at he; split at he <;> simp_all [encNotEqual]
+  case eq_const v c =>
+    simp only [encodePattern] at he; split at he <;> simp_all [encEqConst]
+  case ne_const v c =>
+    simp only [encodePattern] at he; split at he <;> simp_all [encNeConst]
+  case at_most_k vars k =>
+    simp only [encodePattern] at he; split at he <;> simp_all [encAtMostK]
+  case at_least_k vars k =>
+    simp only [encodePattern] at he; split at he <;> simp_all [encAtLeastK]
   case linear vars coeffs op target =>
     simp only [encodePattern] at he; split at he
     · exact encodeRel_setsAux _ _ _ a e he
@@ -182,6 +377,62 @@ theorem encodePattern_setsAux (c : IntConstraint S.nInt) (a : Fin S.nInt → Int
   case schur_triple v1 v2 v3 =>
     simp only [encodePattern] at he; split at he
     · rw [List.mem_singleton] at he; subst he; simp [encNotAllEqualMulti]
+    · exact absurd he (by simp)
+  case eq v1 v2 =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case lt v1 v2 =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case le v1 v2 =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case gt v1 v2 =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case ge v1 v2 =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case iff v1 v2 =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case implies p q =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case lt_const v c =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case le_const v c =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case gt_const v c =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case ge_const v c =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case exactly_k vars k =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case sum_rel_var vars op tvar =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
+    · exact absurd he (by simp)
+  case linear_rel_var vars coeffs op tvar =>
+    simp only [encodePattern] at he; split at he
+    · exact encodeRel_setsAux _ _ _ a e he
     · exact absurd he (by simp)
   all_goals (simp only [encodePattern] at he; exact absurd he (by simp))
 
@@ -270,35 +521,1227 @@ theorem encodePattern_sound (c : IntConstraint S.nInt) (a : Fin S.nInt → Int)
         · exact ⟨_, by simp, _, by simp, hp⟩
         · exact ⟨_, by simp, _, by simp, hp⟩
       · exact absurd he (by simp)
+  case eq v1 v2 =>
+      simp only [encodePattern] at he; split at he
+      · rename_i h
+        refine encodeRel_bin_sound .EQ ⟨v1, h.1⟩ ⟨v2, h.2⟩ a ?_ e he
+        have hh : valAt a v1 = valAt a v2 := hpat
+        show a ⟨v1, h.1⟩ = a ⟨v2, h.2⟩
+        simpa only [valAt, h.1, h.2, dite_true] using hh
+      · exact absurd he (by simp)
+  case lt v1 v2 =>
+      simp only [encodePattern] at he; split at he
+      · rename_i h
+        refine encodeRel_bin_sound .LT ⟨v1, h.1⟩ ⟨v2, h.2⟩ a ?_ e he
+        have hh : valAt a v1 < valAt a v2 := hpat
+        show a ⟨v1, h.1⟩ < a ⟨v2, h.2⟩
+        simpa only [valAt, h.1, h.2, dite_true] using hh
+      · exact absurd he (by simp)
+  case le v1 v2 =>
+      simp only [encodePattern] at he; split at he
+      · rename_i h
+        refine encodeRel_bin_sound .LE ⟨v1, h.1⟩ ⟨v2, h.2⟩ a ?_ e he
+        have hh : valAt a v1 ≤ valAt a v2 := hpat
+        show a ⟨v1, h.1⟩ ≤ a ⟨v2, h.2⟩
+        simpa only [valAt, h.1, h.2, dite_true] using hh
+      · exact absurd he (by simp)
+  case gt v1 v2 =>
+      simp only [encodePattern] at he; split at he
+      · rename_i h
+        refine encodeRel_bin_sound .GT ⟨v1, h.1⟩ ⟨v2, h.2⟩ a ?_ e he
+        have hh : valAt a v1 > valAt a v2 := hpat
+        show a ⟨v1, h.1⟩ > a ⟨v2, h.2⟩
+        simpa only [valAt, h.1, h.2, dite_true] using hh
+      · exact absurd he (by simp)
+  case ge v1 v2 =>
+      simp only [encodePattern] at he; split at he
+      · rename_i h
+        refine encodeRel_bin_sound .GE ⟨v1, h.1⟩ ⟨v2, h.2⟩ a ?_ e he
+        have hh : valAt a v1 ≥ valAt a v2 := hpat
+        show a ⟨v1, h.1⟩ ≥ a ⟨v2, h.2⟩
+        simpa only [valAt, h.1, h.2, dite_true] using hh
+      · exact absurd he (by simp)
+  case iff v1 v2 =>
+      simp only [encodePattern] at he; split at he
+      · rename_i h
+        refine encodeRel_bin_sound .EQ ⟨v1, h.1⟩ ⟨v2, h.2⟩ a ?_ e he
+        have hh : valAt a v1 = valAt a v2 := hpat
+        show a ⟨v1, h.1⟩ = a ⟨v2, h.2⟩
+        simpa only [valAt, h.1, h.2, dite_true] using hh
+      · exact absurd he (by simp)
+  case implies p q =>
+      simp only [encodePattern] at he; split at he
+      · rename_i h
+        refine encodeRel_bin_sound .GE ⟨q, h.2⟩ ⟨p, h.1⟩ a ?_ e he
+        have hh : valAt a q ≥ valAt a p := hpat
+        show a ⟨q, h.2⟩ ≥ a ⟨p, h.1⟩
+        simpa only [valAt, h.1, h.2, dite_true] using hh
+      · exact absurd he (by simp)
+  case lt_const v c =>
+      simp only [encodePattern] at he; split at he
+      · rename_i h
+        refine encodeRel_unary_sound .LT ⟨v, h⟩ c a ?_ e he
+        have hh : valAt a v < c := hpat
+        show a ⟨v, h⟩ < c
+        simpa only [valAt, h, dite_true] using hh
+      · exact absurd he (by simp)
+  case le_const v c =>
+      simp only [encodePattern] at he; split at he
+      · rename_i h
+        refine encodeRel_unary_sound .LE ⟨v, h⟩ c a ?_ e he
+        have hh : valAt a v ≤ c := hpat
+        show a ⟨v, h⟩ ≤ c
+        simpa only [valAt, h, dite_true] using hh
+      · exact absurd he (by simp)
+  case gt_const v c =>
+      simp only [encodePattern] at he; split at he
+      · rename_i h
+        refine encodeRel_unary_sound .GT ⟨v, h⟩ c a ?_ e he
+        have hh : valAt a v > c := hpat
+        show a ⟨v, h⟩ > c
+        simpa only [valAt, h, dite_true] using hh
+      · exact absurd he (by simp)
+  case ge_const v c =>
+      simp only [encodePattern] at he; split at he
+      · rename_i h
+        refine encodeRel_unary_sound .GE ⟨v, h⟩ c a ?_ e he
+        have hh : valAt a v ≥ c := hpat
+        show a ⟨v, h⟩ ≥ c
+        simpa only [valAt, h, dite_true] using hh
+      · exact absurd he (by simp)
+  case exactly_k vars k =>
+      simp only [encodePattern] at he; split at he
+      · rename_i hwf
+        refine encodeRel_sound .EQ ((toFinList S vars).map (fun v => ((1 : Int), v)))
+          (k : Int) a ?_ e he
+        rw [unitTerms_sum a vars hwf]
+        show (vars.map (valAt a)).sum = (k : Int)
+        exact hpat
+      · exact absurd he (by simp)
+  case sum_rel_var vars op tvar =>
+      simp only [encodePattern] at he; split at he
+      · rename_i h
+        refine encodeRel_var_sound op ((toFinList S vars).map (fun v => ((1 : Int), v)))
+          ⟨tvar, h.2⟩ a ((vars.map (valAt a)).sum) (unitTerms_sum a vars h.1) ?_ e he
+        have hh : relHolds op ((vars.map (valAt a)).sum) (valAt a tvar) := hpat
+        simpa only [valAt, h.2, dite_true] using hh
+      · exact absurd he (by simp)
+  case linear_rel_var vars coeffs op tvar =>
+      simp only [encodePattern] at he; split at he
+      · rename_i h
+        refine encodeRel_var_sound op (coeffs.zip (toFinList S vars)) ⟨tvar, h.2⟩ a
+          (List.zipWith (· * ·) coeffs (vars.map (valAt a))).sum
+          (linTerms_sum a coeffs vars h.1) ?_ e he
+        have hh : relHolds op
+          (List.zipWith (· * ·) coeffs (vars.map (valAt a))).sum (valAt a tvar) := hpat
+        simpa only [valAt, h.2, dite_true] using hh
+      · exact absurd he (by simp)
   all_goals (simp only [encodePattern] at he; exact absurd he (by simp))
+
+/-! ### Boolean-gate fold bounds (over `{0,1}`)
+
+`and_all`/`or_all` reduce to the running `min`/`max` fold of `patternHolds`.  These pure-ℤ
+lemmas give the linear bounds the PB encoding emits: `min ≤ each ≤ … ≥ Σ−(n−1)` and dually
+`max ≥ each ≥ … ≤ Σ`. -/
+
+/-- The running-min fold is `≤` its seed. -/
+theorem foldl_minif_le_init (l : List ℤ) (init : ℤ) :
+    l.foldl (fun acc x => if x < acc then x else acc) init ≤ init := by
+  induction l generalizing init with
+  | nil => simp
+  | cons y ys ih => simp only [List.foldl_cons]; exact le_trans (ih _) (by split_ifs <;> omega)
+
+/-- The running-min fold is `≤` every element. -/
+theorem foldl_minif_le_mem (l : List ℤ) (init x : ℤ) (hx : x ∈ l) :
+    l.foldl (fun acc x => if x < acc then x else acc) init ≤ x := by
+  induction l generalizing init with
+  | nil => simp at hx
+  | cons y ys ih =>
+    simp only [List.foldl_cons]
+    rcases List.mem_cons.mp hx with rfl | hmem
+    · exact le_trans (foldl_minif_le_init ys _) (by split_ifs <;> omega)
+    · exact ih _ hmem
+
+/-- Over `{0,1}`, the running-min fold is `≥ seed + Σ − length` (the AND lower bound). -/
+theorem foldl_minif_ge_sum (l : List ℤ) (init : ℤ)
+    (hinit : 0 ≤ init ∧ init ≤ 1) (hl : ∀ x ∈ l, 0 ≤ x ∧ x ≤ 1) :
+    init + l.sum - (l.length : ℤ) ≤ l.foldl (fun acc x => if x < acc then x else acc) init := by
+  induction l generalizing init with
+  | nil => simp
+  | cons y ys ih =>
+    simp only [List.foldl_cons, List.sum_cons, List.length_cons]
+    have hy := hl y (by simp)
+    have hmin01 : 0 ≤ (if y < init then y else init) ∧ (if y < init then y else init) ≤ 1 := by
+      split_ifs <;> omega
+    refine le_trans ?_ (ih (if y < init then y else init) hmin01 (fun x hx => hl x (by simp [hx])))
+    split_ifs <;> push_cast <;> omega
+
+/-- The running-max fold is `≥` its seed. -/
+theorem foldl_maxif_ge_init (l : List ℤ) (init : ℤ) :
+    init ≤ l.foldl (fun acc x => if x > acc then x else acc) init := by
+  induction l generalizing init with
+  | nil => simp
+  | cons y ys ih => simp only [List.foldl_cons]; exact le_trans (by split_ifs <;> omega) (ih _)
+
+/-- The running-max fold is `≥` every element. -/
+theorem foldl_maxif_ge_mem (l : List ℤ) (init x : ℤ) (hx : x ∈ l) :
+    x ≤ l.foldl (fun acc x => if x > acc then x else acc) init := by
+  induction l generalizing init with
+  | nil => simp at hx
+  | cons y ys ih =>
+    simp only [List.foldl_cons]
+    rcases List.mem_cons.mp hx with rfl | hmem
+    · exact le_trans (by split_ifs <;> omega) (foldl_maxif_ge_init ys _)
+    · exact ih _ hmem
+
+/-- Over `{0,1}` (here only `0 ≤ ·` is needed), the running-max fold is `≤ seed + Σ`
+    (the OR upper bound). -/
+theorem foldl_maxif_le_sum (l : List ℤ) (init : ℤ)
+    (hinit : 0 ≤ init) (hl : ∀ x ∈ l, 0 ≤ x) :
+    l.foldl (fun acc x => if x > acc then x else acc) init ≤ init + l.sum := by
+  induction l generalizing init with
+  | nil => simp
+  | cons y ys ih =>
+    simp only [List.foldl_cons, List.sum_cons]
+    have hy := hl y (by simp)
+    have hmax0 : 0 ≤ (if y > init then y else init) := by split_ifs <;> omega
+    refine le_trans (ih (if y > init then y else init) hmax0 (fun x hx => hl x (by simp [hx]))) ?_
+    split_ifs <;> omega
+
+/-- An in-range index of `vars` lies in its `toFinList`. -/
+theorem mem_toFinList {vars : List ℕ} {v : ℕ} (hv : v < S.nInt) (hmem : v ∈ vars) :
+    (⟨v, hv⟩ : Fin S.nInt) ∈ toFinList S vars := by
+  unfold toFinList
+  exact List.mem_filterMap.mpr ⟨v, hmem, by rw [dif_pos hv]⟩
+
+/-- On in-range indices, `toFinList` is value-faithful: mapping `Fin.val` back recovers
+    the original `ℕ` list. -/
+theorem toFinList_val (vars : List ℕ) (hwf : ∀ v ∈ vars, v < S.nInt) :
+    (toFinList S vars).map Fin.val = vars := by
+  unfold toFinList
+  induction vars with
+  | nil => simp
+  | cons x xs ih =>
+    have hx : x < S.nInt := hwf x (by simp)
+    have ih' := ih (fun v hv => hwf v (by simp [hv]))
+    simp only [List.filterMap_cons, hx, dite_true, List.map_cons, ih']
+
+/-! ### Offset all-different: the pairwise Big-M expansion
+
+`alldifferentOffset vars offsets` (`(vars.zip offsets).map (vᵢ + oᵢ)` pairwise distinct —
+the N-Queens diagonals) decomposes into one Big-M disequality per pair:
+`vᵢ + oᵢ ≠ vⱼ + oⱼ ⟺ vᵢ − vⱼ ≠ oⱼ − oᵢ`, each owning one selector from a contiguous
+block threaded from `base`. -/
+
+/-- Pair the head `(v, o)` against each later entry, selectors `base, base+1, …`. -/
+def encodeOffsetHead (S : CSPSig) (v : Fin S.nInt) (o : ℤ) :
+    List (Fin S.nInt × ℤ) → ℕ → List (EncConstr S)
+  | [], _ => []
+  | (w, p) :: rest, base =>
+      encodeRelAt S base .NE [((1 : Int), v), ((-1 : Int), w)] (p - o)
+        ++ encodeOffsetHead S v o rest (base + 1)
+
+/-- All pairs of the zipped (variable, offset) list, selector blocks threaded. -/
+def encodeOffsetPairs (S : CSPSig) : List (Fin S.nInt × ℤ) → ℕ → List (EncConstr S)
+  | [], _ => []
+  | (v, o) :: rest, base =>
+      encodeOffsetHead S v o rest base ++ encodeOffsetPairs S rest (base + rest.length)
+
+/-- Soundness of the head expansion: if the head's shifted value differs from every later
+    entry's, every emitted Big-M precondition holds. -/
+theorem encodeOffsetHead_sound (v : Fin S.nInt) (o : ℤ) (l : List (Fin S.nInt × ℤ))
+    (base : ℕ) (a : Fin S.nInt → Int)
+    (hne : ∀ q ∈ l, a v + o ≠ a q.1 + q.2) :
+    ∀ e ∈ encodeOffsetHead S v o l base, e.pre a := by
+  induction l generalizing base with
+  | nil => intro e he; simp [encodeOffsetHead] at he
+  | cons hd rest ih =>
+    obtain ⟨w, p⟩ := hd
+    intro e he
+    simp only [encodeOffsetHead, List.mem_append] at he
+    rcases he with he | he
+    · refine encodeRelAt_sound base .NE [((1 : Int), v), ((-1 : Int), w)] (p - o) a ?_ e he
+      have h1 : a v + o ≠ a w + p := hne (w, p) (by simp)
+      rw [binTerms_sum]
+      show a v - a w ≠ p - o
+      omega
+    · exact ih (base + 1) (fun q hq => hne q (by simp [hq])) e he
+
+/-- Soundness of the pairwise expansion: pairwise-distinct shifted values give every
+    emitted Big-M precondition. -/
+theorem encodeOffsetPairs_sound (l : List (Fin S.nInt × ℤ)) (base : ℕ)
+    (a : Fin S.nInt → Int)
+    (hpw : List.Pairwise (fun p q => a p.1 + p.2 ≠ a q.1 + q.2) l) :
+    ∀ e ∈ encodeOffsetPairs S l base, e.pre a := by
+  induction l generalizing base with
+  | nil => intro e he; simp [encodeOffsetPairs] at he
+  | cons hd rest ih =>
+    obtain ⟨v, o⟩ := hd
+    rw [List.pairwise_cons] at hpw
+    intro e he
+    simp only [encodeOffsetPairs, List.mem_append] at he
+    rcases he with he | he
+    · exact encodeOffsetHead_sound v o rest base a (fun q hq => hpw.1 q hq) e he
+    · exact ih (base + rest.length) hpw.2 e he
+
+/-! ### `increasing`: the consecutive `≤` chain (aux-free) -/
+
+/-- One `≤` per consecutive pair (implied by, and over a total order equivalent to, the
+    pairwise order of `increasing`). -/
+def encodeIncreasing (S : CSPSig) : List (Fin S.nInt) → List (EncConstr S)
+  | x :: y :: rest =>
+      encLinearLe [((1 : Int), x), ((-1 : Int), y)] 0 :: encodeIncreasing S (y :: rest)
+  | _ => []
+
+/-- The chain is aux-free. -/
+theorem encodeIncreasing_setsAux (l : List (Fin S.nInt)) (a : Fin S.nInt → Int) :
+    ∀ e ∈ encodeIncreasing S l, e.setsAux a = [] := by
+  induction l with
+  | nil => simp [encodeIncreasing]
+  | cons x rest ih =>
+    cases rest with
+    | nil => simp [encodeIncreasing]
+    | cons y rest' =>
+      intro e he
+      simp only [encodeIncreasing, List.mem_cons] at he
+      rcases he with rfl | he
+      · rfl
+      · exact ih e he
+
+/-- Soundness of the chain: pairwise-ordered values give every consecutive bound. -/
+theorem encodeIncreasing_sound (l : List (Fin S.nInt)) (a : Fin S.nInt → Int)
+    (hpw : List.Pairwise (· ≤ ·) (l.map a)) :
+    ∀ e ∈ encodeIncreasing S l, e.pre a := by
+  induction l with
+  | nil => intro e he; simp [encodeIncreasing] at he
+  | cons x rest ih =>
+    cases rest with
+    | nil => intro e he; simp [encodeIncreasing] at he
+    | cons y rest' =>
+      simp only [List.map_cons, List.pairwise_cons] at hpw
+      intro e he
+      simp only [encodeIncreasing, List.mem_cons] at he
+      rcases he with rfl | he
+      · show ([((1 : Int), x), ((-1 : Int), y)].map (fun p => p.1 * a p.2)).sum ≤ 0
+        have hxy : a x ≤ a y := hpw.1 (a y) (by simp)
+        rw [binTerms_sum]
+        omega
+      · refine ih ?_ e he
+        simp only [List.map_cons, List.pairwise_cons]
+        exact hpw.2
+
+/-- Linear facets of a binary AND (`r = min x y`) over `{0,1}` inputs. -/
+theorem and2_bounds (x y r : ℤ) (hx : 0 ≤ x ∧ x ≤ 1) (hy : 0 ≤ y ∧ y ≤ 1)
+    (h : r = min x y) : r ≤ x ∧ r ≤ y ∧ x + y - r ≤ 1 := by
+  rcases min_choice x y with hm | hm <;> rw [hm] at h <;>
+    rcases le_total x y with hxy | hxy <;>
+    simp only [min_eq_left, min_eq_right, hxy] at hm <;> omega
+
+/-- Linear facets of a binary OR (`r = max x y`) over `{0,1}` inputs. -/
+theorem or2_bounds (x y r : ℤ) (hx : 0 ≤ x ∧ x ≤ 1) (hy : 0 ≤ y ∧ y ≤ 1)
+    (h : r = max x y) : x ≤ r ∧ y ≤ r ∧ r - x - y ≤ 0 := by
+  rcases max_choice x y with hm | hm <;> rw [hm] at h <;>
+    rcases le_total x y with hxy | hxy <;>
+    simp only [max_eq_left, max_eq_right, hxy] at hm <;> omega
+
+/-- Negating each summand negates the sum. -/
+theorem sum_map_neg (l : List ℤ) : (l.map (fun x => -x)).sum = -l.sum := by
+  induction l with
+  | nil => simp
+  | cons x xs ih => simp only [List.map_cons, List.sum_cons, ih]; ring
+
+/-- The `−1`-coefficient term list of `toFinList vars` sums to minus the plain value sum. -/
+theorem negUnitTerms_sum (a : Fin S.nInt → Int) (vars : List ℕ)
+    (hwf : ∀ v ∈ vars, v < S.nInt) :
+    (((toFinList S vars).map (fun v => ((-1 : Int), v))).map (fun p => p.1 * a p.2)).sum
+      = -(vars.map (valAt a)).sum := by
+  have h1 : ((toFinList S vars).map (fun v => ((-1 : Int), v))).map (fun p => p.1 * a p.2)
+      = ((toFinList S vars).map a).map (fun x => -x) := by
+    rw [List.map_map, List.map_map]
+    exact List.map_congr_left (fun v _ => by simp)
+  rw [h1, toFinList_map a vars hwf, sum_map_neg]
+
+/-- The running-min fold over a `{0,1}` list, seeded by its own head, is bounded below by
+    each element and above by `sum − (length − 1)` — the multi-input AND facets. -/
+theorem andAll_bounds (m : ℤ) (ms : List ℤ) (r : ℤ)
+    (h01 : ∀ y ∈ m :: ms, 0 ≤ y ∧ y ≤ 1)
+    (hr : r = (m :: ms).foldl (fun acc x => if x < acc then x else acc) m) :
+    (∀ y ∈ m :: ms, r ≤ y) ∧ (m :: ms).sum - (ms.length : ℤ) ≤ r := by
+  have hstep : (m :: ms).foldl (fun acc x => if x < acc then x else acc) m
+      = ms.foldl (fun acc x => if x < acc then x else acc) m := by
+    rw [List.foldl_cons, if_neg (lt_irrefl m)]
+  rw [hstep] at hr
+  constructor
+  · intro y hy
+    rcases List.mem_cons.mp hy with rfl | hy
+    · rw [hr]; exact foldl_minif_le_init ms y
+    · rw [hr]; exact foldl_minif_le_mem ms m y hy
+  · have hlow := foldl_minif_ge_sum ms m (h01 m (by simp))
+      (fun x hx => h01 x (by simp [hx]))
+    rw [hr]; simp only [List.sum_cons]; omega
+
+/-- The running-max fold over a nonnegative list, seeded by its own head, is bounded above
+    by each element's contribution and below by each element — the multi-input OR facets. -/
+theorem orAll_bounds (m : ℤ) (ms : List ℤ) (r : ℤ)
+    (h0 : ∀ y ∈ m :: ms, 0 ≤ y)
+    (hr : r = (m :: ms).foldl (fun acc x => if x > acc then x else acc) m) :
+    (∀ y ∈ m :: ms, y ≤ r) ∧ r ≤ (m :: ms).sum := by
+  have hstep : (m :: ms).foldl (fun acc x => if x > acc then x else acc) m
+      = ms.foldl (fun acc x => if x > acc then x else acc) m := by
+    rw [List.foldl_cons, if_neg (lt_irrefl m)]
+  rw [hstep] at hr
+  constructor
+  · intro y hy
+    rcases List.mem_cons.mp hy with rfl | hy
+    · rw [hr]; exact foldl_maxif_ge_init ms y
+    · rw [hr]; exact foldl_maxif_ge_mem ms m y hy
+  · have hup := foldl_maxif_le_sum ms m (h0 m (by simp)) (fun x hx => h0 x (by simp [hx]))
+    rw [hr]; simp only [List.sum_cons]; omega
+
+/-- `encodePattern` extended with a Big-M selector base.  The only constructors that can
+    produce an aux-owning entry are the linear / sum / var-target relations with op `.NE`;
+    these are routed through `encodeRelAt base`.  Every other constructor delegates to the
+    aux-free `encodePattern` (the catch-all arm), so its soundness is reused verbatim. -/
+def encodePatternAt (S : CSPSig) (base : ℕ) : IntConstraint S.nInt → List (EncConstr S)
+  | .linear vars coeffs op target =>
+      if _ : ∀ v ∈ vars, v < S.nInt then
+        encodeRelAt S base op (coeffs.zip (toFinList S vars)) target else []
+  | .sum vars op target =>
+      if _ : ∀ v ∈ vars, v < S.nInt then
+        encodeRelAt S base op ((toFinList S vars).map (fun v => ((1 : Int), v))) target else []
+  | .sum_rel_var vars op tvar =>
+      if h : (∀ v ∈ vars, v < S.nInt) ∧ tvar < S.nInt then
+        encodeRelAt S base op
+          ((toFinList S vars).map (fun v => ((1 : Int), v)) ++ [((-1 : Int), ⟨tvar, h.2⟩)]) 0
+      else []
+  | .linear_rel_var vars coeffs op tvar =>
+      if h : (∀ v ∈ vars, v < S.nInt) ∧ tvar < S.nInt then
+        encodeRelAt S base op (coeffs.zip (toFinList S vars) ++ [((-1 : Int), ⟨tvar, h.2⟩)]) 0
+      else []
+  -- Offset all-different (diagonals): one Big-M `≠` per pair of the zipped list.
+  | .alldifferentOffset vars offsets =>
+      if _ : ∀ v ∈ vars, v < S.nInt then
+        encodeOffsetPairs S ((toFinList S vars).zip offsets) base
+      else []
+  -- `increasing`: the consecutive `≤` chain.
+  | .increasing vars =>
+      if _ : ∀ v ∈ vars, v < S.nInt then encodeIncreasing S (toFinList S vars) else []
+  -- `maximum`/`minimum`: the implied per-element bounds (`vᵢ ≤ mx` / `mn ≤ vᵢ`); the
+  -- attainment disjunct is dropped (sound by weakening).
+  | .maximum vars mx =>
+      if h : (∀ v ∈ vars, v < S.nInt) ∧ mx < S.nInt then
+        (toFinList S vars).map
+          (fun v => encLinearLe [((1 : Int), v), ((-1 : Int), ⟨mx, h.2⟩)] 0)
+      else []
+  | .minimum vars mn =>
+      if h : (∀ v ∈ vars, v < S.nInt) ∧ mn < S.nInt then
+        (toFinList S vars).map
+          (fun v => encLinearLe [((1 : Int), ⟨mn, h.2⟩), ((-1 : Int), v)] 0)
+      else []
+  -- `not_gate i o`: `o = 1 − i` over `{0,1}` ⟺ `o + i = 1` (aux-free, domain-free).
+  | .not_gate i o =>
+      if h : i < S.nInt ∧ o < S.nInt then
+        encodeRel S .EQ [((1 : Int), ⟨o, h.2⟩), ((1 : Int), ⟨i, h.1⟩)] 1 else []
+  -- Boolean gates over `{0,1}` inputs: the exact linear facets.  Each is guarded by a
+  -- decidable check that the *input* domains lie in `[0,1]` (the facets are only sound
+  -- there); otherwise the gate encodes to `[]` (sound by weakening).
+  | .and_gate i1 i2 o =>
+      if h : i1 < S.nInt ∧ i2 < S.nInt ∧ o < S.nInt then
+        if (∀ x ∈ S.values ⟨i1, h.1⟩, 0 ≤ x ∧ x ≤ 1)
+            ∧ (∀ x ∈ S.values ⟨i2, h.2.1⟩, 0 ≤ x ∧ x ≤ 1) then
+          [encLinearLe [((1 : Int), ⟨o, h.2.2⟩), ((-1 : Int), ⟨i1, h.1⟩)] 0,
+           encLinearLe [((1 : Int), ⟨o, h.2.2⟩), ((-1 : Int), ⟨i2, h.2.1⟩)] 0,
+           encLinearLe [((1 : Int), ⟨i1, h.1⟩), ((1 : Int), ⟨i2, h.2.1⟩),
+             ((-1 : Int), ⟨o, h.2.2⟩)] 1]
+        else []
+      else []
+  | .or_gate i1 i2 o =>
+      if h : i1 < S.nInt ∧ i2 < S.nInt ∧ o < S.nInt then
+        if (∀ x ∈ S.values ⟨i1, h.1⟩, 0 ≤ x ∧ x ≤ 1)
+            ∧ (∀ x ∈ S.values ⟨i2, h.2.1⟩, 0 ≤ x ∧ x ≤ 1) then
+          [encLinearLe [((1 : Int), ⟨i1, h.1⟩), ((-1 : Int), ⟨o, h.2.2⟩)] 0,
+           encLinearLe [((1 : Int), ⟨i2, h.2.1⟩), ((-1 : Int), ⟨o, h.2.2⟩)] 0,
+           encLinearLe [((1 : Int), ⟨o, h.2.2⟩), ((-1 : Int), ⟨i1, h.1⟩),
+             ((-1 : Int), ⟨i2, h.2.1⟩)] 0]
+        else []
+      else []
+  | .xor_gate i1 i2 o =>
+      if h : i1 < S.nInt ∧ i2 < S.nInt ∧ o < S.nInt then
+        if (∀ x ∈ S.values ⟨i1, h.1⟩, 0 ≤ x ∧ x ≤ 1)
+            ∧ (∀ x ∈ S.values ⟨i2, h.2.1⟩, 0 ≤ x ∧ x ≤ 1) then
+          [encLinearLe [((1 : Int), ⟨o, h.2.2⟩), ((-1 : Int), ⟨i1, h.1⟩),
+             ((-1 : Int), ⟨i2, h.2.1⟩)] 0,
+           encLinearLe [((1 : Int), ⟨i1, h.1⟩), ((-1 : Int), ⟨i2, h.2.1⟩),
+             ((-1 : Int), ⟨o, h.2.2⟩)] 0,
+           encLinearLe [((1 : Int), ⟨i2, h.2.1⟩), ((-1 : Int), ⟨i1, h.1⟩),
+             ((-1 : Int), ⟨o, h.2.2⟩)] 0,
+           encLinearLe [((1 : Int), ⟨o, h.2.2⟩), ((1 : Int), ⟨i1, h.1⟩),
+             ((1 : Int), ⟨i2, h.2.1⟩)] 2]
+        else []
+      else []
+  -- `nand`/`nor`: their `patternHolds` is *already* a conjunction of linear bounds.
+  | .nand_gate i1 i2 o =>
+      if h : i1 < S.nInt ∧ i2 < S.nInt ∧ o < S.nInt then
+        [encLinearLe [((-1 : Int), ⟨o, h.2.2⟩), ((-1 : Int), ⟨i1, h.1⟩)] (-1),
+         encLinearLe [((-1 : Int), ⟨o, h.2.2⟩), ((-1 : Int), ⟨i2, h.2.1⟩)] (-1),
+         encLinearLe [((1 : Int), ⟨o, h.2.2⟩), ((1 : Int), ⟨i1, h.1⟩),
+           ((1 : Int), ⟨i2, h.2.1⟩)] 2]
+      else []
+  | .nor_gate i1 i2 o =>
+      if h : i1 < S.nInt ∧ i2 < S.nInt ∧ o < S.nInt then
+        [encLinearLe [((1 : Int), ⟨o, h.2.2⟩), ((1 : Int), ⟨i1, h.1⟩)] 1,
+         encLinearLe [((1 : Int), ⟨o, h.2.2⟩), ((1 : Int), ⟨i2, h.2.1⟩)] 1,
+         encLinearLe [((-1 : Int), ⟨o, h.2.2⟩), ((-1 : Int), ⟨i1, h.1⟩),
+           ((-1 : Int), ⟨i2, h.2.1⟩)] (-1)]
+      else []
+  -- Binary parity: the 4 XOR facets (same as `xor_gate`).
+  | .xor_all [i1, i2] r =>
+      if h : i1 < S.nInt ∧ i2 < S.nInt ∧ r < S.nInt then
+        if (∀ x ∈ S.values ⟨i1, h.1⟩, 0 ≤ x ∧ x ≤ 1)
+            ∧ (∀ x ∈ S.values ⟨i2, h.2.1⟩, 0 ≤ x ∧ x ≤ 1) then
+          [encLinearLe [((1 : Int), ⟨r, h.2.2⟩), ((-1 : Int), ⟨i1, h.1⟩),
+             ((-1 : Int), ⟨i2, h.2.1⟩)] 0,
+           encLinearLe [((1 : Int), ⟨i1, h.1⟩), ((-1 : Int), ⟨i2, h.2.1⟩),
+             ((-1 : Int), ⟨r, h.2.2⟩)] 0,
+           encLinearLe [((1 : Int), ⟨i2, h.2.1⟩), ((-1 : Int), ⟨i1, h.1⟩),
+             ((-1 : Int), ⟨r, h.2.2⟩)] 0,
+           encLinearLe [((1 : Int), ⟨r, h.2.2⟩), ((1 : Int), ⟨i1, h.1⟩),
+             ((1 : Int), ⟨i2, h.2.1⟩)] 2]
+        else []
+      else []
+  -- Ternary parity: the 8 facets of the XOR polytope (full-adder sum).
+  | .xor_all [i1, i2, i3] r =>
+      if h : i1 < S.nInt ∧ i2 < S.nInt ∧ i3 < S.nInt ∧ r < S.nInt then
+        if (∀ x ∈ S.values ⟨i1, h.1⟩, 0 ≤ x ∧ x ≤ 1)
+            ∧ (∀ x ∈ S.values ⟨i2, h.2.1⟩, 0 ≤ x ∧ x ≤ 1)
+            ∧ (∀ x ∈ S.values ⟨i3, h.2.2.1⟩, 0 ≤ x ∧ x ≤ 1) then
+          [encLinearLe [((1 : Int), ⟨r, h.2.2.2⟩), ((-1 : Int), ⟨i1, h.1⟩),
+             ((-1 : Int), ⟨i2, h.2.1⟩), ((-1 : Int), ⟨i3, h.2.2.1⟩)] 0,
+           encLinearLe [((1 : Int), ⟨i1, h.1⟩), ((-1 : Int), ⟨i2, h.2.1⟩),
+             ((-1 : Int), ⟨i3, h.2.2.1⟩), ((-1 : Int), ⟨r, h.2.2.2⟩)] 0,
+           encLinearLe [((1 : Int), ⟨i2, h.2.1⟩), ((-1 : Int), ⟨i1, h.1⟩),
+             ((-1 : Int), ⟨i3, h.2.2.1⟩), ((-1 : Int), ⟨r, h.2.2.2⟩)] 0,
+           encLinearLe [((1 : Int), ⟨i3, h.2.2.1⟩), ((-1 : Int), ⟨i1, h.1⟩),
+             ((-1 : Int), ⟨i2, h.2.1⟩), ((-1 : Int), ⟨r, h.2.2.2⟩)] 0,
+           encLinearLe [((1 : Int), ⟨i1, h.1⟩), ((1 : Int), ⟨i2, h.2.1⟩),
+             ((1 : Int), ⟨i3, h.2.2.1⟩), ((-1 : Int), ⟨r, h.2.2.2⟩)] 2,
+           encLinearLe [((1 : Int), ⟨i2, h.2.1⟩), ((1 : Int), ⟨i3, h.2.2.1⟩),
+             ((1 : Int), ⟨r, h.2.2.2⟩), ((-1 : Int), ⟨i1, h.1⟩)] 2,
+           encLinearLe [((1 : Int), ⟨i1, h.1⟩), ((1 : Int), ⟨i3, h.2.2.1⟩),
+             ((1 : Int), ⟨r, h.2.2.2⟩), ((-1 : Int), ⟨i2, h.2.1⟩)] 2,
+           encLinearLe [((1 : Int), ⟨i1, h.1⟩), ((1 : Int), ⟨i2, h.2.1⟩),
+             ((1 : Int), ⟨r, h.2.2.2⟩), ((-1 : Int), ⟨i3, h.2.2.1⟩)] 2]
+        else []
+      else []
+  -- Multi-input AND/OR: per-input bound plus the sum bound (min/max facets).
+  | .and_all vars r =>
+      if h : (∀ v ∈ vars, v < S.nInt) ∧ r < S.nInt then
+        if ∀ j ∈ toFinList S vars, ∀ x ∈ S.values j, 0 ≤ x ∧ x ≤ 1 then
+          (toFinList S vars).map
+              (fun v => encLinearLe [((1 : Int), ⟨r, h.2⟩), ((-1 : Int), v)] 0)
+            ++ [encLinearLe ((toFinList S vars).map (fun v => ((1 : Int), v))
+                  ++ [((-1 : Int), ⟨r, h.2⟩)]) ((vars.length : Int) - 1)]
+        else []
+      else []
+  | .or_all vars r =>
+      if h : (∀ v ∈ vars, v < S.nInt) ∧ r < S.nInt then
+        if ∀ j ∈ toFinList S vars, ∀ x ∈ S.values j, 0 ≤ x ∧ x ≤ 1 then
+          (toFinList S vars).map
+              (fun v => encLinearLe [((1 : Int), v), ((-1 : Int), ⟨r, h.2⟩)] 0)
+            ++ [encLinearLe (((1 : Int), (⟨r, h.2⟩ : Fin S.nInt))
+                  :: (toFinList S vars).map (fun v => ((-1 : Int), v))) 0]
+        else []
+      else []
+  | c => encodePattern S c
+
+/-- Soundness of `encodePatternAt`: each emitted entry's precondition follows from
+    `patternHolds c a`.  The four NE-capable cases use `encodeRelAt_sound`; the rest
+    delegate to `encodePattern_sound` (their `encodePatternAt` is *definitionally* the
+    `encodePattern` value via the catch-all arm). -/
+theorem encodePatternAt_sound (base : ℕ) (c : IntConstraint S.nInt) (a : Fin S.nInt → Int)
+    (hdom : ∀ i, a i ∈ S.values i) (hpat : patternHolds c a)
+    (e : EncConstr S) (he : e ∈ encodePatternAt S base c) :
+    e.pre a := by
+  cases c
+  case linear vars coeffs op target =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i hwf
+        refine encodeRelAt_sound base op (coeffs.zip (toFinList S vars)) target a ?_ e he
+        rw [linTerms_sum a coeffs vars hwf]; exact hpat
+      · exact absurd he (by simp)
+  case sum vars op target =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i hwf
+        refine encodeRelAt_sound base op ((toFinList S vars).map (fun v => ((1 : Int), v)))
+          target a ?_ e he
+        rw [unitTerms_sum a vars hwf]; exact hpat
+      · exact absurd he (by simp)
+  case sum_rel_var vars op tvar =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        refine encodeRelAt_var_sound base op ((toFinList S vars).map (fun v => ((1 : Int), v)))
+          ⟨tvar, h.2⟩ a ((vars.map (valAt a)).sum) (unitTerms_sum a vars h.1) ?_ e he
+        have hh : relHolds op ((vars.map (valAt a)).sum) (valAt a tvar) := hpat
+        simpa only [valAt, h.2, dite_true] using hh
+      · exact absurd he (by simp)
+  case linear_rel_var vars coeffs op tvar =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        refine encodeRelAt_var_sound base op (coeffs.zip (toFinList S vars)) ⟨tvar, h.2⟩ a
+          (List.zipWith (· * ·) coeffs (vars.map (valAt a))).sum
+          (linTerms_sum a coeffs vars h.1) ?_ e he
+        have hh : relHolds op
+          (List.zipWith (· * ·) coeffs (vars.map (valAt a))).sum (valAt a tvar) := hpat
+        simpa only [valAt, h.2, dite_true] using hh
+      · exact absurd he (by simp)
+  case alldifferentOffset vars offsets =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i hwf
+        refine encodeOffsetPairs_sound ((toFinList S vars).zip offsets) base a ?_ e he
+        have hnd : ((vars.zip offsets).map (fun p => valAt a p.1 + p.2)).Nodup := hpat
+        have hpw0 : List.Pairwise
+            (fun p q => valAt a p.1 + p.2 ≠ valAt a q.1 + q.2) (vars.zip offsets) :=
+          List.pairwise_map.mp hnd
+        have hzip : ((toFinList S vars).zip offsets).map (Prod.map Fin.val id)
+            = vars.zip offsets := by
+          rw [← List.zip_map_left, toFinList_val vars hwf]
+        rw [← hzip] at hpw0
+        have hpw1 := List.pairwise_map.mp hpw0
+        refine hpw1.imp ?_
+        intro p q hne
+        obtain ⟨pf, po⟩ := p
+        obtain ⟨qf, qo⟩ := q
+        simpa only [Prod.map, id, valAt, pf.isLt, qf.isLt, dite_true, Fin.eta] using hne
+      · exact absurd he (by simp)
+  case increasing vars =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i hwf
+        refine encodeIncreasing_sound (toFinList S vars) a ?_ e he
+        rw [toFinList_map a vars hwf]
+        exact hpat
+      · exact absurd he (by simp)
+  case maximum vars mx =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        obtain ⟨v, hvmem, rfl⟩ := List.mem_map.mp he
+        show ([((1 : Int), v), ((-1 : Int), (⟨mx, h.2⟩ : Fin S.nInt))].map
+          (fun p => p.1 * a p.2)).sum ≤ 0
+        have hall : ∀ y ∈ vars.map (valAt a), y ≤ valAt a mx := by
+          have h1 := (hpat : _ ∧ _).1
+          rw [List.all_eq_true] at h1
+          intro y hy
+          exact decide_eq_true_eq.mp (h1 y hy)
+        have hav : a v ∈ vars.map (valAt a) := by
+          rw [← toFinList_map a vars h.1]
+          exact List.mem_map.mpr ⟨v, hvmem, rfl⟩
+        have hb := hall _ hav
+        have hmx : valAt a mx = a ⟨mx, h.2⟩ := by simp [valAt, h.2]
+        rw [binTerms_sum]
+        omega
+      · exact absurd he (by simp)
+  case minimum vars mn =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        obtain ⟨v, hvmem, rfl⟩ := List.mem_map.mp he
+        show ([((1 : Int), (⟨mn, h.2⟩ : Fin S.nInt)), ((-1 : Int), v)].map
+          (fun p => p.1 * a p.2)).sum ≤ 0
+        have hall : ∀ y ∈ vars.map (valAt a), valAt a mn ≤ y := by
+          have h1 := (hpat : _ ∧ _).1
+          rw [List.all_eq_true] at h1
+          intro y hy
+          exact decide_eq_true_eq.mp (h1 y hy)
+        have hav : a v ∈ vars.map (valAt a) := by
+          rw [← toFinList_map a vars h.1]
+          exact List.mem_map.mpr ⟨v, hvmem, rfl⟩
+        have hb := hall _ hav
+        have hmn : valAt a mn = a ⟨mn, h.2⟩ := by simp [valAt, h.2]
+        rw [binTerms_sum]
+        omega
+      · exact absurd he (by simp)
+  case not_gate i o =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        refine encodeRel_sound .EQ [((1 : Int), ⟨o, h.2⟩), ((1 : Int), ⟨i, h.1⟩)] 1 a ?_ e he
+        have hh : valAt a o = 1 - valAt a i := hpat
+        simp only [valAt, h.1, h.2, dite_true] at hh
+        show ([((1 : Int), (⟨o, h.2⟩ : Fin S.nInt)), ((1 : Int), ⟨i, h.1⟩)].map
+          (fun p => p.1 * a p.2)).sum = 1
+        simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil]; omega
+      · exact absurd he (by simp)
+  case and_gate i1 i2 o =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        split at he
+        · rename_i hd
+          have hp : a ⟨o, h.2.2⟩ = min (a ⟨i1, h.1⟩) (a ⟨i2, h.2.1⟩) := by
+            have hh : valAt a o = min (valAt a i1) (valAt a i2) := hpat
+            simpa only [valAt, h.1, h.2.1, h.2.2, dite_true] using hh
+          have hfacts := and2_bounds _ _ _ (hd.1 _ (hdom ⟨i1, h.1⟩))
+            (hd.2 _ (hdom ⟨i2, h.2.1⟩)) hp
+          simp only [List.mem_cons, List.not_mem_nil, or_false] at he
+          rcases he with rfl | rfl | rfl <;>
+            simp only [encLinearLe, List.map_cons, List.map_nil, List.sum_cons,
+              List.sum_nil] <;> omega
+        · exact absurd he (by simp)
+      · exact absurd he (by simp)
+  case or_gate i1 i2 o =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        split at he
+        · rename_i hd
+          have hp : a ⟨o, h.2.2⟩ = max (a ⟨i1, h.1⟩) (a ⟨i2, h.2.1⟩) := by
+            have hh : valAt a o = max (valAt a i1) (valAt a i2) := hpat
+            simpa only [valAt, h.1, h.2.1, h.2.2, dite_true] using hh
+          have hfacts := or2_bounds _ _ _ (hd.1 _ (hdom ⟨i1, h.1⟩))
+            (hd.2 _ (hdom ⟨i2, h.2.1⟩)) hp
+          simp only [List.mem_cons, List.not_mem_nil, or_false] at he
+          rcases he with rfl | rfl | rfl <;>
+            simp only [encLinearLe, List.map_cons, List.map_nil, List.sum_cons,
+              List.sum_nil] <;> omega
+        · exact absurd he (by simp)
+      · exact absurd he (by simp)
+  case xor_gate i1 i2 o =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        split at he
+        · rename_i hd
+          have hp : (a ⟨i1, h.1⟩ + a ⟨i2, h.2.1⟩) % 2 = a ⟨o, h.2.2⟩ := by
+            have hh : (valAt a i1 + valAt a i2) % 2 = valAt a o := hpat
+            simpa only [valAt, h.1, h.2.1, h.2.2, dite_true] using hh
+          have hb1 := hd.1 _ (hdom ⟨i1, h.1⟩)
+          have hb2 := hd.2 _ (hdom ⟨i2, h.2.1⟩)
+          simp only [List.mem_cons, List.not_mem_nil, or_false] at he
+          rcases he with rfl | rfl | rfl | rfl <;>
+            simp only [encLinearLe, List.map_cons, List.map_nil, List.sum_cons,
+              List.sum_nil] <;> omega
+        · exact absurd he (by simp)
+      · exact absurd he (by simp)
+  case nand_gate i1 i2 o =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        have hp : a ⟨o, h.2.2⟩ ≥ 1 - a ⟨i1, h.1⟩ ∧ a ⟨o, h.2.2⟩ ≥ 1 - a ⟨i2, h.2.1⟩ ∧
+            a ⟨o, h.2.2⟩ ≤ 2 - a ⟨i1, h.1⟩ - a ⟨i2, h.2.1⟩ := by
+          have hh : valAt a o ≥ 1 - valAt a i1 ∧ valAt a o ≥ 1 - valAt a i2 ∧
+              valAt a o ≤ 2 - valAt a i1 - valAt a i2 := hpat
+          simpa only [valAt, h.1, h.2.1, h.2.2, dite_true] using hh
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at he
+        rcases he with rfl | rfl | rfl <;>
+          simp only [encLinearLe, List.map_cons, List.map_nil, List.sum_cons,
+            List.sum_nil] <;> omega
+      · exact absurd he (by simp)
+  case nor_gate i1 i2 o =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        have hp : a ⟨o, h.2.2⟩ ≤ 1 - a ⟨i1, h.1⟩ ∧ a ⟨o, h.2.2⟩ ≤ 1 - a ⟨i2, h.2.1⟩ ∧
+            a ⟨o, h.2.2⟩ ≥ 1 - a ⟨i1, h.1⟩ - a ⟨i2, h.2.1⟩ := by
+          have hh : valAt a o ≤ 1 - valAt a i1 ∧ valAt a o ≤ 1 - valAt a i2 ∧
+              valAt a o ≥ 1 - valAt a i1 - valAt a i2 := hpat
+          simpa only [valAt, h.1, h.2.1, h.2.2, dite_true] using hh
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at he
+        rcases he with rfl | rfl | rfl <;>
+          simp only [encLinearLe, List.map_cons, List.map_nil, List.sum_cons,
+            List.sum_nil] <;> omega
+      · exact absurd he (by simp)
+  case xor_all vars r =>
+      rcases vars with _ | ⟨i1, _ | ⟨i2, _ | ⟨i3, _ | ⟨i4, rest⟩⟩⟩⟩
+      · exact encodePattern_sound _ a hpat e he
+      · exact encodePattern_sound _ a hpat e he
+      · -- binary parity: the 4 XOR facets
+        simp only [encodePatternAt] at he; split at he
+        · rename_i h
+          split at he
+          · rename_i hd
+            have hp : (a ⟨i1, h.1⟩ + a ⟨i2, h.2.1⟩) % 2 = a ⟨r, h.2.2⟩ := by
+              have hh : ([i1, i2].map (valAt a)).sum % 2 = valAt a r := hpat
+              simpa only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil,
+                add_zero, valAt, h.1, h.2.1, h.2.2, dite_true] using hh
+            have hb1 := hd.1 _ (hdom ⟨i1, h.1⟩)
+            have hb2 := hd.2 _ (hdom ⟨i2, h.2.1⟩)
+            simp only [List.mem_cons, List.not_mem_nil, or_false] at he
+            rcases he with rfl | rfl | rfl | rfl <;>
+              simp only [encLinearLe, List.map_cons, List.map_nil, List.sum_cons,
+                List.sum_nil] <;> omega
+          · exact absurd he (by simp)
+        · exact absurd he (by simp)
+      · -- ternary parity: the 8 facets of the XOR polytope (full-adder sum)
+        simp only [encodePatternAt] at he; split at he
+        · rename_i h
+          split at he
+          · rename_i hd
+            have hp : (a ⟨i1, h.1⟩ + a ⟨i2, h.2.1⟩ + a ⟨i3, h.2.2.1⟩) % 2
+                = a ⟨r, h.2.2.2⟩ := by
+              have hh : ([i1, i2, i3].map (valAt a)).sum % 2 = valAt a r := hpat
+              have hh' : (valAt a i1 + (valAt a i2 + valAt a i3)) % 2 = valAt a r := by
+                simpa only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil,
+                  add_zero] using hh
+              simp only [valAt, h.1, h.2.1, h.2.2.1, h.2.2.2, dite_true] at hh'
+              omega
+            have hb1 := hd.1 _ (hdom ⟨i1, h.1⟩)
+            have hb2 := hd.2.1 _ (hdom ⟨i2, h.2.1⟩)
+            have hb3 := hd.2.2 _ (hdom ⟨i3, h.2.2.1⟩)
+            simp only [List.mem_cons, List.not_mem_nil, or_false] at he
+            rcases he with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+              simp only [encLinearLe, List.map_cons, List.map_nil, List.sum_cons,
+                List.sum_nil] <;> omega
+          · exact absurd he (by simp)
+        · exact absurd he (by simp)
+      · exact encodePattern_sound _ a hpat e he
+  case and_all vars r =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        split at he
+        · rename_i hd
+          obtain ⟨hne, hfold⟩ := (hpat : (vars.map (valAt a)) ≠ [] ∧
+            valAt a r = (vars.map (valAt a)).foldl
+              (fun acc x => if x < acc then x else acc) (vars.map (valAt a)).headI)
+          rcases hL : vars.map (valAt a) with _ | ⟨m, ms⟩
+          · exact absurd hL hne
+          rw [hL] at hfold
+          have h01 : ∀ y ∈ m :: ms, 0 ≤ y ∧ y ≤ 1 := by
+            intro y hy
+            rw [← hL] at hy
+            obtain ⟨v, hvmem, rfl⟩ := List.mem_map.mp hy
+            have hv : v < S.nInt := h.1 v hvmem
+            have hva : valAt a v = a ⟨v, hv⟩ := by simp [valAt, hv]
+            rw [hva]
+            exact hd _ (mem_toFinList hv hvmem) _ (hdom ⟨v, hv⟩)
+          obtain ⟨hub, hlb⟩ := andAll_bounds m ms (valAt a r) h01 hfold
+          have hvr : valAt a r = a ⟨r, h.2⟩ := by simp [valAt, h.2]
+          rw [List.mem_append] at he
+          rcases he with he | he
+          · obtain ⟨v, hvmem, rfl⟩ := List.mem_map.mp he
+            show ([((1 : Int), (⟨r, h.2⟩ : Fin S.nInt)), ((-1 : Int), v)].map
+              (fun p => p.1 * a p.2)).sum ≤ 0
+            have hav : a v ∈ m :: ms := by
+              rw [← hL, ← toFinList_map a vars h.1]
+              exact List.mem_map.mpr ⟨v, hvmem, rfl⟩
+            have hr := hub _ hav
+            simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil]
+            omega
+          · rw [List.mem_singleton] at he; subst he
+            show (((toFinList S vars).map (fun v => ((1 : Int), v))
+              ++ [((-1 : Int), (⟨r, h.2⟩ : Fin S.nInt))]).map (fun p => p.1 * a p.2)).sum
+              ≤ (vars.length : Int) - 1
+            rw [appendNeg_sum, unitTerms_sum a vars h.1, hL]
+            have hlen : vars.length = ms.length + 1 := by
+              have := congrArg List.length hL
+              simpa using this
+            simp only [List.sum_cons] at hlb ⊢
+            omega
+        · exact absurd he (by simp)
+      · exact absurd he (by simp)
+  case or_all vars r =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        split at he
+        · rename_i hd
+          obtain ⟨hne, hfold⟩ := (hpat : (vars.map (valAt a)) ≠ [] ∧
+            valAt a r = (vars.map (valAt a)).foldl
+              (fun acc x => if x > acc then x else acc) (vars.map (valAt a)).headI)
+          rcases hL : vars.map (valAt a) with _ | ⟨m, ms⟩
+          · exact absurd hL hne
+          rw [hL] at hfold
+          have h0 : ∀ y ∈ m :: ms, 0 ≤ y := by
+            intro y hy
+            rw [← hL] at hy
+            obtain ⟨v, hvmem, rfl⟩ := List.mem_map.mp hy
+            have hv : v < S.nInt := h.1 v hvmem
+            have hva : valAt a v = a ⟨v, hv⟩ := by simp [valAt, hv]
+            rw [hva]
+            exact (hd _ (mem_toFinList hv hvmem) _ (hdom ⟨v, hv⟩)).1
+          obtain ⟨hub, hlb⟩ := orAll_bounds m ms (valAt a r) h0 hfold
+          have hvr : valAt a r = a ⟨r, h.2⟩ := by simp [valAt, h.2]
+          rw [List.mem_append] at he
+          rcases he with he | he
+          · obtain ⟨v, hvmem, rfl⟩ := List.mem_map.mp he
+            show ([((1 : Int), v), ((-1 : Int), (⟨r, h.2⟩ : Fin S.nInt))].map
+              (fun p => p.1 * a p.2)).sum ≤ 0
+            have hav : a v ∈ m :: ms := by
+              rw [← hL, ← toFinList_map a vars h.1]
+              exact List.mem_map.mpr ⟨v, hvmem, rfl⟩
+            have hr := hub _ hav
+            simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil]
+            omega
+          · rw [List.mem_singleton] at he; subst he
+            show (((((1 : Int), (⟨r, h.2⟩ : Fin S.nInt)))
+              :: (toFinList S vars).map (fun v => ((-1 : Int), v))).map
+                (fun p => p.1 * a p.2)).sum ≤ 0
+            rw [List.map_cons, List.sum_cons, negUnitTerms_sum a vars h.1, hL]
+            simp only [List.sum_cons] at hlb ⊢
+            omega
+        · exact absurd he (by simp)
+      · exact absurd he (by simp)
+  all_goals exact encodePattern_sound _ a hpat e he
 
 /-! ### The combined encoding and the generic theorem -/
 
-/-- The full PB constraint set of `csp`: the order-encoding staircase plus every
-    constraint's encoding. -/
-def encodeCSP (csp : IntCSP) : List (EncConstr (cspSig csp)) :=
-  csp.constraints.flatMap (encodePattern (cspSig csp))
+/-- Encode a constraint list, threading the Big-M selector base: each constraint is
+    encoded at the running sum of the preceding constraints' `auxCount`, so the selector
+    blocks owned across the whole list are pairwise disjoint *by construction*. -/
+def encodeConstraints (S : CSPSig) : List (IntConstraint S.nInt) → ℕ → List (EncConstr S)
+  | [], _ => []
+  | c :: cs, base => encodePatternAt S base c ++ encodeConstraints S cs (base + auxCount c)
 
-/-- **The single generic UNSAT theorem.**  Given a `IntCSP` whose every variable carries
-    a `bound` constraint (`hbound`, decided automatically) and a kernel-checked PB UNSAT
-    certificate over `encodeCSP csp`, the CSP is unsatisfiable — with no per-instance
-    soundness proof. -/
-theorem csp_unsat (csp : IntCSP)
-    (cert : VeriPB.Reflect.formulaUnsat
-      (((cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp)).toArray.map
-        PBConstr.toNatConstr))
+/-- The full PB constraint set of `csp` (combined with the order-encoding staircase in the
+    final formula): every constraint's encoding, selector bases threaded from `0`. -/
+def encodeCSP (csp : IntCSP) : List (EncConstr (cspSig csp)) :=
+  encodeConstraints (cspSig csp) csp.constraints 0
+
+/-! ### Generic selector distinctness (no per-instance obligation)
+
+The owned selector keys of `encodeCSP` are pairwise distinct *generically*: each
+constraint owns at most the single key at its own base (`encodePatternAt_keys_eq`), and
+the threaded fold places later constraints at strictly larger bases.  This discharges the
+allocator spine's `Nodup` obligation once and for all — no `decide`, no `native_decide`,
+no per-problem hypothesis. -/
+
+/-- The owned selector keys of `encodeRelAt` (assignment-free): the `≠` selector, or none. -/
+theorem encodeRelAt_keys (base : ℕ) (op : RelOp) (terms : List (Int × Fin S.nInt))
+    (target : Int) (a : Fin S.nInt → Int) :
+    ((encodeRelAt S base op terms target).flatMap (·.setsAux a)).map Prod.fst
+      = (match op with
+         | .NE => if h : base < S.nAux then [(⟨base, h⟩ : Fin S.nAux)] else []
+         | _ => []) := by
+  cases op <;> simp only [encodeRelAt]
+  case NE => split <;> simp [encLinearNe]
+  all_goals simp [encLinearLe, encLinearGe, encLinearLt, encLinearGt, encLinearEq]
+
+/-- Keys block of the head pairing: `Nodup`, within `[base, base + l.length)`. -/
+theorem encodeOffsetHead_keys (v : Fin S.nInt) (o : ℤ) (l : List (Fin S.nInt × ℤ))
+    (base : ℕ) (a : Fin S.nInt → Int) :
+    (((encodeOffsetHead S v o l base).flatMap (·.setsAux a)).map Prod.fst).Nodup ∧
+      ∀ k : Fin S.nAux,
+        k ∈ ((encodeOffsetHead S v o l base).flatMap (·.setsAux a)).map Prod.fst →
+          base ≤ k.val ∧ k.val < base + l.length := by
+  induction l generalizing base with
+  | nil => constructor <;> simp [encodeOffsetHead]
+  | cons hd rest ih =>
+    obtain ⟨w, p⟩ := hd
+    obtain ⟨ihnd, ihrange⟩ := ih (base + 1)
+    simp only [encodeOffsetHead, List.flatMap_append, List.map_append, List.length_cons]
+    rw [encodeRelAt_keys]
+    by_cases hb : base < S.nAux
+    · rw [dif_pos hb]
+      refine ⟨?_, ?_⟩
+      · rw [List.singleton_append]
+        refine List.nodup_cons.mpr ⟨fun hmem => ?_, ihnd⟩
+        have := (ihrange _ hmem).1
+        have hv : ((⟨base, hb⟩ : Fin S.nAux) : ℕ) = base := rfl
+        omega
+      · intro k hk
+        rw [List.singleton_append, List.mem_cons] at hk
+        rcases hk with rfl | hk
+        · have hv : ((⟨base, hb⟩ : Fin S.nAux) : ℕ) = base := rfl
+          omega
+        · have := ihrange k hk
+          omega
+    · rw [dif_neg hb, List.nil_append]
+      refine ⟨ihnd, fun k hk => ?_⟩
+      have := ihrange k hk
+      omega
+
+/-- Keys block of the pairwise expansion: `Nodup`, within `[base, base + pairAux |l|)`. -/
+theorem encodeOffsetPairs_keys (l : List (Fin S.nInt × ℤ)) (base : ℕ)
+    (a : Fin S.nInt → Int) :
+    (((encodeOffsetPairs S l base).flatMap (·.setsAux a)).map Prod.fst).Nodup ∧
+      ∀ k : Fin S.nAux,
+        k ∈ ((encodeOffsetPairs S l base).flatMap (·.setsAux a)).map Prod.fst →
+          base ≤ k.val ∧ k.val < base + pairAux l.length := by
+  induction l generalizing base with
+  | nil => constructor <;> simp [encodeOffsetPairs]
+  | cons hd rest ih =>
+    obtain ⟨v, o⟩ := hd
+    obtain ⟨hnd1, hr1⟩ := encodeOffsetHead_keys v o rest base a
+    obtain ⟨hnd2, hr2⟩ := ih (base + rest.length)
+    simp only [encodeOffsetPairs, List.flatMap_append, List.map_append, List.length_cons]
+    have hpa : pairAux (rest.length + 1) = rest.length + pairAux rest.length := rfl
+    refine ⟨List.Nodup.append hnd1 hnd2 ?_, ?_⟩
+    · intro k hk hk'
+      have h1 := (hr1 k hk).2
+      have h2 := (hr2 k hk').1
+      omega
+    · intro k hk
+      rw [List.mem_append] at hk
+      rcases hk with hk | hk
+      · have := hr1 k hk
+        omega
+      · have := hr2 k hk
+        omega
+
+/-- Block form of "owns nothing": empty keys satisfy any block. -/
+theorem keys_block_of_nil {L : List (Fin S.nAux)} (h : L = []) (base cnt : ℕ) :
+    L.Nodup ∧ ∀ k : Fin S.nAux, k ∈ L → base ≤ k.val ∧ k.val < base + cnt := by
+  subst h; exact ⟨List.nodup_nil, by simp⟩
+
+/-- Block form of "owns exactly its own selector". -/
+theorem keys_block_of_single (base cnt : ℕ) (hcnt : 1 ≤ cnt) (hb : base < S.nAux)
+    {L : List (Fin S.nAux)} (h : L = [⟨base, hb⟩]) :
+    L.Nodup ∧ ∀ k : Fin S.nAux, k ∈ L → base ≤ k.val ∧ k.val < base + cnt := by
+  subst h
+  refine ⟨by simp, fun k hk => ?_⟩
+  rw [List.mem_singleton] at hk; subst hk
+  have hv : ((⟨base, hb⟩ : Fin S.nAux) : ℕ) = base := rfl
+  omega
+
+/-- **Owned-keys block.**  A constraint's owned selector keys are pairwise distinct and
+    lie in the half-open block `[base, base + auxCount c)`.  Assignment-independent. -/
+theorem encodePatternAt_keys_block (base : ℕ) (c : IntConstraint S.nInt)
+    (a : Fin S.nInt → Int) :
+    (((encodePatternAt S base c).flatMap (·.setsAux a)).map Prod.fst).Nodup ∧
+      ∀ k : Fin S.nAux,
+        k ∈ ((encodePatternAt S base c).flatMap (·.setsAux a)).map Prod.fst →
+          base ≤ k.val ∧ k.val < base + auxCount c := by
+  cases c
+  case linear vars coeffs op target =>
+    simp only [encodePatternAt]
+    split
+    · rw [encodeRelAt_keys]
+      cases op
+      case NE =>
+        by_cases h : base < S.nAux
+        · rw [dif_pos h]; exact keys_block_of_single base _ (Nat.le_refl 1) h rfl
+        · rw [dif_neg h]; exact keys_block_of_nil rfl _ _
+      all_goals exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  case sum vars op target =>
+    simp only [encodePatternAt]
+    split
+    · rw [encodeRelAt_keys]
+      cases op
+      case NE =>
+        by_cases h : base < S.nAux
+        · rw [dif_pos h]; exact keys_block_of_single base _ (Nat.le_refl 1) h rfl
+        · rw [dif_neg h]; exact keys_block_of_nil rfl _ _
+      all_goals exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  case sum_rel_var vars op tvar =>
+    simp only [encodePatternAt]
+    split
+    · rw [encodeRelAt_keys]
+      cases op
+      case NE =>
+        by_cases h : base < S.nAux
+        · rw [dif_pos h]; exact keys_block_of_single base _ (Nat.le_refl 1) h rfl
+        · rw [dif_neg h]; exact keys_block_of_nil rfl _ _
+      all_goals exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  case linear_rel_var vars coeffs op tvar =>
+    simp only [encodePatternAt]
+    split
+    · rw [encodeRelAt_keys]
+      cases op
+      case NE =>
+        by_cases h : base < S.nAux
+        · rw [dif_pos h]; exact keys_block_of_single base _ (Nat.le_refl 1) h rfl
+        · rw [dif_neg h]; exact keys_block_of_nil rfl _ _
+      all_goals exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  case alldifferentOffset vars offsets =>
+    simp only [encodePatternAt]
+    split
+    · rename_i hwf
+      obtain ⟨hnd, hr⟩ := encodeOffsetPairs_keys ((toFinList S vars).zip offsets) base a
+      refine ⟨hnd, fun k hk => ?_⟩
+      have hkr := hr k hk
+      have hlen : ((toFinList S vars).zip offsets).length
+          = min vars.length offsets.length := by
+        rw [List.length_zip]
+        have hv := congrArg List.length (toFinList_val vars hwf)
+        simp only [List.length_map] at hv
+        rw [hv]
+      have hac : auxCount (IntConstraint.alldifferentOffset vars offsets
+            : IntConstraint S.nInt)
+          = pairAux (min vars.length offsets.length) := rfl
+      rw [hlen] at hkr
+      omega
+    · exact keys_block_of_nil rfl _ _
+  case increasing vars =>
+    simp only [encodePatternAt]
+    split
+    · refine keys_block_of_nil ?_ _ _
+      rw [List.flatMap_eq_nil_iff.mpr (fun e he => encodeIncreasing_setsAux _ a e he),
+        List.map_nil]
+    · exact keys_block_of_nil rfl _ _
+  case maximum vars mx =>
+    simp only [encodePatternAt]
+    split
+    · refine keys_block_of_nil ?_ _ _
+      rw [List.map_eq_nil_iff, List.flatMap_eq_nil_iff]
+      intro e he
+      obtain ⟨v, _, rfl⟩ := List.mem_map.mp he
+      rfl
+    · exact keys_block_of_nil rfl _ _
+  case minimum vars mn =>
+    simp only [encodePatternAt]
+    split
+    · refine keys_block_of_nil ?_ _ _
+      rw [List.map_eq_nil_iff, List.flatMap_eq_nil_iff]
+      intro e he
+      obtain ⟨v, _, rfl⟩ := List.mem_map.mp he
+      rfl
+    · exact keys_block_of_nil rfl _ _
+  case not_gate i o =>
+    simp only [encodePatternAt]
+    split
+    · refine keys_block_of_nil ?_ _ _
+      rw [List.flatMap_eq_nil_iff.mpr (fun e he => encodeRel_setsAux _ _ _ a e he),
+        List.map_nil]
+    · exact keys_block_of_nil rfl _ _
+  case and_gate i1 i2 o =>
+    simp only [encodePatternAt]
+    split
+    · split
+      · exact keys_block_of_nil rfl _ _
+      · exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  case or_gate i1 i2 o =>
+    simp only [encodePatternAt]
+    split
+    · split
+      · exact keys_block_of_nil rfl _ _
+      · exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  case xor_gate i1 i2 o =>
+    simp only [encodePatternAt]
+    split
+    · split
+      · exact keys_block_of_nil rfl _ _
+      · exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  case nand_gate i1 i2 o =>
+    simp only [encodePatternAt]
+    split
+    · exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  case nor_gate i1 i2 o =>
+    simp only [encodePatternAt]
+    split
+    · exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  case xor_all vars r =>
+    rcases vars with _ | ⟨i1, _ | ⟨i2, _ | ⟨i3, _ | ⟨i4, rest⟩⟩⟩⟩
+    · refine keys_block_of_nil ?_ _ _
+      show ((encodePattern S (.xor_all [] r)).flatMap (·.setsAux a)).map Prod.fst = []
+      rw [List.flatMap_eq_nil_iff.mpr
+        (fun e he => encodePattern_setsAux (.xor_all [] r) a e he), List.map_nil]
+    · refine keys_block_of_nil ?_ _ _
+      show ((encodePattern S (.xor_all [i1] r)).flatMap (·.setsAux a)).map Prod.fst = []
+      rw [List.flatMap_eq_nil_iff.mpr
+        (fun e he => encodePattern_setsAux (.xor_all [i1] r) a e he), List.map_nil]
+    · simp only [encodePatternAt]
+      split
+      · split
+        · exact keys_block_of_nil rfl _ _
+        · exact keys_block_of_nil rfl _ _
+      · exact keys_block_of_nil rfl _ _
+    · simp only [encodePatternAt]
+      split
+      · split
+        · exact keys_block_of_nil rfl _ _
+        · exact keys_block_of_nil rfl _ _
+      · exact keys_block_of_nil rfl _ _
+    · refine keys_block_of_nil ?_ _ _
+      show ((encodePattern S (.xor_all (i1 :: i2 :: i3 :: i4 :: rest) r)).flatMap
+        (·.setsAux a)).map Prod.fst = []
+      rw [List.flatMap_eq_nil_iff.mpr
+        (fun e he => encodePattern_setsAux (.xor_all (i1 :: i2 :: i3 :: i4 :: rest) r) a e he),
+        List.map_nil]
+  case and_all vars r =>
+    simp only [encodePatternAt]
+    split
+    · split
+      · refine keys_block_of_nil ?_ _ _
+        rw [List.map_eq_nil_iff, List.flatMap_eq_nil_iff]
+        intro e he
+        rw [List.mem_append] at he
+        rcases he with he | he
+        · obtain ⟨v, _, rfl⟩ := List.mem_map.mp he
+          rfl
+        · rw [List.mem_singleton] at he; subst he; rfl
+      · exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  case or_all vars r =>
+    simp only [encodePatternAt]
+    split
+    · split
+      · refine keys_block_of_nil ?_ _ _
+        rw [List.map_eq_nil_iff, List.flatMap_eq_nil_iff]
+        intro e he
+        rw [List.mem_append] at he
+        rcases he with he | he
+        · obtain ⟨v, _, rfl⟩ := List.mem_map.mp he
+          rfl
+        · rw [List.mem_singleton] at he; subst he; rfl
+      · exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  all_goals
+    refine keys_block_of_nil ?_ _ _
+    simp only [encodePatternAt]
+    rw [List.flatMap_eq_nil_iff.mpr (fun e he => encodePattern_setsAux _ a e he),
+      List.map_nil]
+
+/-- **Generic key distinctness** of the threaded encoding, by induction: the head
+    constraint's keys are `Nodup` within its own block `[base, base + auxCount)`; the
+    tail's keys all lie at or above `base + auxCount`, hence the blocks are disjoint. -/
+theorem encodeConstraints_keys_nodup (cs : List (IntConstraint S.nInt)) (base : ℕ)
+    (a : Fin S.nInt → Int) :
+    (((encodeConstraints S cs base).flatMap (·.setsAux a)).map Prod.fst).Nodup ∧
+      ∀ k : Fin S.nAux,
+        k ∈ ((encodeConstraints S cs base).flatMap (·.setsAux a)).map Prod.fst →
+          base ≤ k.val := by
+  induction cs generalizing base with
+  | nil => constructor <;> simp [encodeConstraints]
+  | cons c cs ih =>
+    obtain ⟨ihnd, ihlb⟩ := ih (base + auxCount c)
+    obtain ⟨hnd, hrange⟩ := encodePatternAt_keys_block base c a
+    simp only [encodeConstraints, List.flatMap_append, List.map_append]
+    refine ⟨List.Nodup.append hnd ihnd ?_, ?_⟩
+    · intro k hk hk'
+      have h1 := (hrange k hk).2
+      have h2 := ihlb k hk'
+      omega
+    · intro k hk
+      rw [List.mem_append] at hk
+      rcases hk with hk | hk
+      · exact (hrange k hk).1
+      · exact Nat.le_trans (Nat.le_add_right _ _) (ihlb k hk)
+
+/-- The owned selector keys of the full encoding are pairwise distinct — with **no**
+    hypotheses. -/
+theorem encodeCSP_keys_nodup (csp : IntCSP) (a : Fin (cspSig csp).nInt → Int) :
+    (((encodeCSP csp).flatMap (·.setsAux a)).map Prod.fst).Nodup :=
+  (encodeConstraints_keys_nodup (S := cspSig csp) csp.constraints 0 a).1
+
+/-- Every entry of the threaded encoding has its precondition satisfied by any solution
+    (induction over the constraint list, delegating to `encodePatternAt_sound`). -/
+theorem encodeConstraints_pre (cs : List (IntConstraint S.nInt)) (base : ℕ)
+    (a : Fin S.nInt → Int) (hdom : ∀ i, a i ∈ S.values i)
+    (hsol : ∀ c ∈ cs, patternHolds c a) :
+    ∀ e ∈ encodeConstraints S cs base, e.pre a := by
+  induction cs generalizing base with
+  | nil => intro e he; simp [encodeConstraints] at he
+  | cons c cs ih =>
+    intro e he
+    simp only [encodeConstraints, List.mem_append] at he
+    rcases he with he | he
+    · exact encodePatternAt_sound base c a hdom (hsol c (by simp)) e he
+    · exact ih (base + auxCount c) (fun c' hc' => hsol c' (by simp [hc'])) e he
+
+/-- **The general soundness theorem: CSP-SAT ⇒ PB-SAT.**  Every satisfiable `IntCSP`
+    (whose every variable carries a `bound` constraint) has a *satisfiable* PB encoding:
+    order-encoding any solution — with the Big-M selectors set by the generic allocator —
+    satisfies the full PB formula (staircase clauses plus every constraint's encoding).
+    No per-instance hypotheses: selector distinctness is `encodeCSP_keys_nodup`. -/
+theorem csp_sat_pb_sat (csp : IntCSP)
     (hbound : ∀ i : Fin csp.num_vars,
         bound i (csp.extractVariableBounds i).1 (csp.extractVariableBounds i).2
-          ∈ csp.constraints := by decide) :
-    ¬ csp.isSatisfiableInt := by
-  rintro ⟨a, hsol⟩
-  have hfree : ∀ a', ∀ e ∈ encodeCSP csp, e.setsAux a' = [] := by
-    intro a' e he
-    simp only [encodeCSP, List.mem_flatMap] at he
-    obtain ⟨c, _, hce⟩ := he
-    exact encodePattern_setsAux c a' e hce
-  refine csp_unsat_of_encfree (cspSig csp) (encodeCSP csp) hfree cert ⟨a, ?_, ?_⟩
-  · -- in-domain, from the bound constraints
+          ∈ csp.constraints)
+    (hsat : csp.isSatisfiableInt) :
+    ∃ v : Valuation (cspSig csp),
+      ∀ c ∈ (cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp), c.sat v := by
+  obtain ⟨a, hsol⟩ := hsat
+  -- in-domain, from the bound constraints (also feeds the gate encoders' `{0,1}` needs)
+  have hdom : ∀ i, a i ∈ (cspSig csp).values i := by
     intro i
     show a i ∈ domainValues (cspLb csp i) (cspUb csp i)
     have hb : patternHolds (bound i (csp.extractVariableBounds i).1
@@ -308,18 +1751,54 @@ theorem csp_unsat (csp : IntCSP)
       simpa only [patternHolds, bound, valAt, i.is_lt, dite_true, Fin.eta] using hb
     rw [mem_domainValues]
     exact ⟨hb'.1, le_trans hb'.2 (le_max_right _ _)⟩
-  · -- every encoded constraint's precondition holds for the solution
-    intro e he
-    simp only [encodeCSP, List.mem_flatMap] at he
-    obtain ⟨c, hc, hce⟩ := he
-    exact encodePattern_sound c a (hsol c hc) e hce
+  -- every entry's precondition holds for the solution
+  have hpre : ∀ e ∈ encodeCSP csp, e.pre a := by
+    refine encodeConstraints_pre (S := cspSig csp) csp.constraints 0 a hdom ?_
+    intro c hc
+    exact hsol c hc
+  -- the satisfying valuation: the order-encoded solution + allocator-set selectors
+  refine ⟨extend a (fun _ => false)
+    (globalAuxOf (encodeCSP csp) a (fun _ => false)), ?_⟩
+  intro c hc
+  rw [List.mem_append] at hc
+  rcases hc with hmono | huser
+  · exact extend_sat_monotonicity a _ _ c hmono
+  · simp only [EncConstr.combine, List.mem_flatMap] at huser
+    obtain ⟨e, he, hce⟩ := huser
+    refine e.sound a _ _ hdom (hpre e he) ?_ c hce
+    intro p hp
+    have hmem : p ∈ (encodeCSP csp).flatMap (·.setsAux a) :=
+      List.mem_flatMap.mpr ⟨e, he, hp⟩
+    have hlk := lookup_of_nodup_mem _ p (encodeCSP_keys_nodup csp a) hmem
+    simp only [globalAuxOf, hlk, Option.getD_some]
+
+/-- **The single generic UNSAT theorem** — the contrapositive of `csp_sat_pb_sat`
+    instantiated with a kernel-checked PB UNSAT certificate.  Given a `IntCSP` whose
+    every variable carries a `bound` constraint (`hbound`, decided automatically) and a
+    certificate over `encodeCSP csp`, the CSP is unsatisfiable.  No other per-instance
+    obligation. -/
+theorem csp_unsat (csp : IntCSP)
+    (cert : VeriPB.Reflect.formulaUnsat
+      (((cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp)).toArray.map
+        PBConstr.toNatConstr))
+    (hbound : ∀ i : Fin csp.num_vars,
+        bound i (csp.extractVariableBounds i).1 (csp.extractVariableBounds i).2
+          ∈ csp.constraints := by decide) :
+    ¬ csp.isSatisfiableInt := by
+  intro hsat
+  obtain ⟨v, hv⟩ := csp_sat_pb_sat csp hbound hsat
+  obtain ⟨c, hc, hnc⟩ := unsat_bridge
+    ((cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp)).toArray cert v
+  rw [List.toList_toArray] at hc
+  exact hnc (hv c hc)
 
 /-- **File-based generic UNSAT.**  `csp_unsat_file csp numVars "certs/foo.pbp"` is
     `csp_unsat csp cert` with the VeriPB kernel proof loaded from a committed file at
     compile time (`include_str`) and re-checked by PBLean via `native_decide`.  The
     formula is inferred from `csp`; `numVars` is the OPB `#variable=` count
-    (`Σ (cspSig csp).width`).  This keeps the (large) certificate out of the source and
-    makes regeneration a pure file overwrite.  See `scripts/gen_cert.sh`. -/
+    (`Σ (cspSig csp).width + nBool + nAux` — the Big-M selectors count too; printed by
+    `scripts/gen_cert.sh`).  This keeps the (large) certificate out of the source and
+    makes regeneration a pure file overwrite. -/
 macro "csp_unsat_file " csp:term:max numVars:term:max path:str : term =>
   `(csp_unsat $csp
       (VeriPB.Reflect.checkProof_sound _ $numVars (include_str $path) (by native_decide)))

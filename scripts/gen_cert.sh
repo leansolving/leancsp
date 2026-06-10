@@ -24,7 +24,7 @@ import CSP.L2S.Backends.PB.Serialize
 import $MODULE
 open CSP.L2S CSP.L2S.PB
 def dumpCsp : IntCSP := $CSP
-private def dumpNV : Nat := ((List.finRange (cspSig dumpCsp).nInt).map (fun i => (cspSig dumpCsp).width i)).sum
+private def dumpNV : Nat := ((List.finRange (cspSig dumpCsp).nInt).map (fun i => (cspSig dumpCsp).width i)).sum + (cspSig dumpCsp).nBool + (cspSig dumpCsp).nAux
 #eval IO.println dumpNV
 #eval IO.println (toOPBString
   (((cspSig dumpCsp).monotonicity ++ EncConstr.combine (encodeCSP dumpCsp)).toArray.map PBConstr.toNatConstr) dumpNV)
