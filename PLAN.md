@@ -277,17 +277,25 @@ the Big-M selector), `alldifferent`, `alldifferentOffset` (pairwise Big-M expans
 facets), `increasing` (consecutive `≤` chain), and `maximum`/`minimum` (the implied
 per-element bounds; the attainment disjunct is dropped, sound by weakening).
 
-**Remaining constructors.**
-1. **`sliding_sum`** — linear (one `encodeRelAt` per window over `drop`/`take`
-   term lists); needs the window-extraction sum lemmas. Currently `[]`.
-2. **`count` / `count_var`** — need a per-value indicator-*equality* primitive
-   (`Σⱼ⟦vⱼ = value⟧ = n`); the library only has the `≤` direction (alldifferent's
-   cardinality). Currently `[]`.
-3. **`if_then` / `if_then_or`** — disjunctions; encodable with one Big-M selector
-   each (same shape as `≠`). Currently `[]`.
-4. **Out of the linear PB fragment** (stay `[]`, sound by weakening):
-   `product_rel_var`, `modulo`, `abs_diff_rel/var`, `element`, `disjunctive`,
-   `unknown`, and gates over non-`{0,1}` domains (the gate guards drop them).
+**Also covered (the constraint-completion push).**  `sliding_sum` (one linear relation
+per window), `if_then`/`if_then_or` (indicator-implication facets, aux-free exact),
+`count` (indicator-sum equality) and `count_var` (gated cardinality per domain value of
+the target), `maximum`/`minimum` *attainment* (per-domain-value facets
+`[mx = d] ≤ Σᵥ ⟦v ≥ d⟧` over single threshold literals — now exact, not a relaxation),
+`modulo` (domain filter: `≠`-const per wrong-residue value — exact), `element` (index
+bounds + one `if_then` implication per position), and the full `abs_diff_rel` /
+`abs_diff_var` family (bounds for `≤`/`<`; the generic gated disjunction `encodeOrLe`
+with one Big-M selector for `≥`/`>`/`=` and attainment; two `≠`-selectors for `≠`;
+trivial/infeasible thresholds handled exactly).
+
+**Remaining constructors (all that is left).**
+1. **`xor_all` of arity ≥ 4** — `[]`. Wide parity is standardly modelled as a chain of
+   ternary gates in the CSP itself (what the corpus adders do); a PB-level parity chain
+   would need mixed threshold/aux-literal constraint machinery with no current consumer.
+2. **`product_rel_var`** — `[]`, genuinely non-linear; out of the PB fragment.
+3. **`disjunctive` / `unknown`** — `patternHolds` is `True`, so `[]` is *exact* (nothing
+   to encode).
+4. Gates over non-`{0,1}` domains are dropped by their decidable domain guards (sound).
 5. **Scaling** — larger corpus sizes (wider ripple-carry, larger Paley graphs —
    probe UNSAT status with RoundingSat first) and a `scripts/gen_cert.sh` sweep over
    all instances whenever an encoder changes shape.

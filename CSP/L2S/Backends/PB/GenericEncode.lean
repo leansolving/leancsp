@@ -57,6 +57,11 @@ def auxCount {n : ℕ} : IntConstraint n → ℕ
   | .sum_rel_var _ .NE _ => 1
   | .linear_rel_var _ _ .NE _ => 1
   | .alldifferentOffset vars offsets => pairAux (min vars.length offsets.length)
+  | .abs_diff_rel _ _ .GE _ => 1
+  | .abs_diff_rel _ _ .GT _ => 1
+  | .abs_diff_rel _ _ .EQ _ => 1
+  | .abs_diff_rel _ _ .NE _ => 2
+  | .abs_diff_var _ _ _ => 1
   | _ => 0
 
 /-- Total auxiliary count of a CSP: the selectors its constraints' encodings own. -/
@@ -898,6 +903,731 @@ theorem orAll_bounds (m : ℤ) (ms : List ℤ) (r : ℤ)
   · have hup := foldl_maxif_le_sum ms m (h0 m (by simp)) (fun x hx => h0 x (by simp [hx]))
     rw [hr]; simp only [List.sum_cons]; omega
 
+/-! ### `if_then` / `if_then_or`: indicator implications (aux-free, exact)
+
+`(v = value) → (nv = nvalue)` over the order encoding is the single linear constraint
+`[v = value] ≤ [nv = nvalue]` on the equality indicators (`adContrib`); the `_or` form
+bounds the antecedent indicator by the *sum* of the allowed-value indicators. -/
+
+/-- A sum of nonnegative integers is nonnegative. -/
+theorem sum_nonneg_of_mem (l : List ℤ) (h : ∀ x ∈ l, 0 ≤ x) : 0 ≤ l.sum := by
+  induction l with
+  | nil => simp
+  | cons x xs ih =>
+    simp only [List.sum_cons]
+    have hx := h x (by simp)
+    have := ih (fun y hy => h y (by simp [hy]))
+    omega
+
+/-- Each member of a nonnegative list is at most the sum. -/
+theorem le_sum_of_mem (l : List ℤ) (h0 : ∀ x ∈ l, 0 ≤ x) {x : ℤ} (hx : x ∈ l) :
+    x ≤ l.sum := by
+  induction l with
+  | nil => simp at hx
+  | cons y ys ih =>
+    simp only [List.sum_cons]
+    rcases List.mem_cons.mp hx with rfl | hx'
+    · have := sum_nonneg_of_mem ys (fun z hz => h0 z (by simp [hz]))
+      omega
+    · have hy := h0 y (by simp)
+      have := ih (fun z hz => h0 z (by simp [hz])) hx'
+      omega
+
+/-- Negating every coefficient negates the signed sum. -/
+theorem signedEval_negTerms {V : Type} (v : V → Bool) (ts : List (Int × Lit V)) :
+    signedEval v (ts.map (fun p => (-p.1, p.2))) = -signedEval v ts := by
+  simp only [signedEval, List.map_map]
+  have h1 : ((fun p => p.1 * (evalLit v p.2 : Int)) ∘ fun p : Int × Lit V => (-p.1, p.2))
+      = fun p : Int × Lit V => -(p.1 * (evalLit v p.2 : Int)) := by
+    funext p; simp [neg_mul]
+  rw [h1]
+  have h2 : ts.map (fun p : Int × Lit V => -(p.1 * (evalLit v p.2 : Int)))
+      = (ts.map (fun p => p.1 * (evalLit v p.2 : Int))).map (fun x => -x) := by
+    rw [List.map_map]; rfl
+  rw [h2, sum_map_neg]
+
+/-- `[v = value] ≤ [nv = nvalue]` as a signed constraint (the implication's facet). -/
+def encodeIfThen (v : Fin S.nInt) (value : Int) (nv : Fin S.nInt) (nvalue : Int) :
+    SignedPBConstr (PBVar S) where
+  terms := (adContrib v value).1
+    ++ (adContrib nv nvalue).1.map (fun p => (-p.1, p.2))
+  rhs := (adContrib nv nvalue).2 - (adContrib v value).2
+
+/-- Soundness: the disjunction `v ≠ value ∨ nv = nvalue` gives the implication facet. -/
+theorem encodeIfThen_sound (val : Valuation S) (hv : val.orderConsistent)
+    (v : Fin S.nInt) (value : Int) (nv : Fin S.nInt) (nvalue : Int)
+    (h : val.intValue v ≠ value ∨ val.intValue nv = nvalue) :
+    (encodeIfThen v value nv nvalue).sat val := by
+  have hA := adContrib_eval val hv v value
+  have hB := adContrib_eval val hv nv nvalue
+  simp only [SignedPBConstr.sat, encodeIfThen, signedEval_append, signedEval_negTerms]
+  rcases h with h | h
+  · rw [if_neg h] at hA
+    by_cases hB' : val.intValue nv = nvalue
+    · rw [if_pos hB'] at hB; linarith
+    · rw [if_neg hB'] at hB; linarith
+  · rw [if_pos h] at hB
+    by_cases hA' : val.intValue v = value
+    · rw [if_pos hA'] at hA; linarith
+    · rw [if_neg hA'] at hA; linarith
+
+/-- The allowed-value indicator sum of `if_then_or`'s consequent. -/
+theorem signedEval_indSum (val : Valuation S) (hv : val.orderConsistent)
+    (nv : Fin S.nInt) (allowed : List Int) :
+    signedEval val
+        (allowed.flatMap (fun d => (adContrib nv d).1.map (fun p => (-p.1, p.2))))
+      = (allowed.map (fun d => if val.intValue nv = d then (1 : Int) else 0)).sum
+        + (allowed.map (fun d => (adContrib nv d).2)).sum := by
+  induction allowed with
+  | nil => simp [signedEval]
+  | cons d ds ih =>
+    simp only [List.flatMap_cons, signedEval_append, List.map_cons, List.sum_cons]
+    rw [ih, signedEval_negTerms]
+    have h := adContrib_eval val hv nv d
+    linarith
+
+/-- `[v = value] ≤ Σ_{d ∈ allowed} [nv = d]` as a signed constraint. -/
+def encodeIfThenOr (v : Fin S.nInt) (value : Int) (nv : Fin S.nInt)
+    (allowed : List Int) : SignedPBConstr (PBVar S) where
+  terms := (adContrib v value).1
+    ++ allowed.flatMap (fun d => (adContrib nv d).1.map (fun p => (-p.1, p.2)))
+  rhs := (allowed.map (fun d => (adContrib nv d).2)).sum - (adContrib v value).2
+
+/-- Soundness: `v ≠ value ∨ nv ∈ allowed` gives the indicator-sum facet. -/
+theorem encodeIfThenOr_sound (val : Valuation S) (hv : val.orderConsistent)
+    (v : Fin S.nInt) (value : Int) (nv : Fin S.nInt) (allowed : List Int)
+    (h : val.intValue v ≠ value ∨ val.intValue nv ∈ allowed) :
+    (encodeIfThenOr v value nv allowed).sat val := by
+  have hA := adContrib_eval val hv v value
+  have hpos : (0 : Int)
+      ≤ (allowed.map (fun d => if val.intValue nv = d then (1 : Int) else 0)).sum := by
+    refine sum_nonneg_of_mem _ ?_
+    intro x hx
+    obtain ⟨d, _, rfl⟩ := List.mem_map.mp hx
+    split <;> omega
+  simp only [SignedPBConstr.sat, encodeIfThenOr, signedEval_append]
+  rw [signedEval_indSum val hv nv allowed]
+  rcases h with h | h
+  · rw [if_neg h] at hA
+    linarith
+  · have hone : (1 : Int)
+        ≤ (allowed.map (fun d => if val.intValue nv = d then (1 : Int) else 0)).sum := by
+      have hmem : (if val.intValue nv = val.intValue nv then (1 : Int) else 0)
+          ∈ allowed.map (fun d => if val.intValue nv = d then (1 : Int) else 0) :=
+        List.mem_map.mpr ⟨val.intValue nv, h, rfl⟩
+      rw [if_pos rfl] at hmem
+      refine le_sum_of_mem _ ?_ hmem
+      intro x hx
+      obtain ⟨d, _, rfl⟩ := List.mem_map.mp hx
+      split <;> omega
+    by_cases hA' : val.intValue v = value
+    · rw [if_pos hA'] at hA; linarith
+    · rw [if_neg hA'] at hA; linarith
+
+/-- **Bridge.** A normalized `encodeIfThen` is modelled by `extend` whenever the
+    disjunction holds on the recovered values. -/
+theorem extend_sat_encodeIfThen (a : Fin S.nInt → Int) (bA : Fin S.nBool → Bool)
+    (auxA : Fin S.nAux → Bool) (hdom : ∀ i, a i ∈ S.values i)
+    (v : Fin S.nInt) (value : Int) (nv : Fin S.nInt) (nvalue : Int)
+    (h : a v ≠ value ∨ a nv = nvalue)
+    (c' : PBConstr (PBVar S)) (hc : normalize (encodeIfThen v value nv nvalue) = some c') :
+    c'.sat (extend a bA auxA) := by
+  rw [← normalize_sat_iff _ _ hc]
+  refine encodeIfThen_sound _ (extend_orderConsistent a bA auxA) v value nv nvalue ?_
+  rw [extend_intValue a bA auxA hdom v, extend_intValue a bA auxA hdom nv]
+  exact h
+
+/-- **Bridge.** A normalized `encodeIfThenOr` is modelled by `extend` whenever the
+    disjunction holds on the recovered values. -/
+theorem extend_sat_encodeIfThenOr (a : Fin S.nInt → Int) (bA : Fin S.nBool → Bool)
+    (auxA : Fin S.nAux → Bool) (hdom : ∀ i, a i ∈ S.values i)
+    (v : Fin S.nInt) (value : Int) (nv : Fin S.nInt) (allowed : List Int)
+    (h : a v ≠ value ∨ a nv ∈ allowed)
+    (c' : PBConstr (PBVar S)) (hc : normalize (encodeIfThenOr v value nv allowed) = some c') :
+    c'.sat (extend a bA auxA) := by
+  rw [← normalize_sat_iff _ _ hc]
+  refine encodeIfThenOr_sound _ (extend_orderConsistent a bA auxA) v value nv allowed ?_
+  rw [extend_intValue a bA auxA hdom v, extend_intValue a bA auxA hdom nv]
+  exact h
+
+/-- `if_then` as a soundness-carrying entry (aux-free). -/
+def encIfThen (v : Fin S.nInt) (value : Int) (nv : Fin S.nInt) (nvalue : Int) :
+    EncConstr S where
+  constrs := (normalize (encodeIfThen v value nv nvalue)).toList
+  pre := fun a => a v ≠ value ∨ a nv = nvalue
+  setsAux := fun _ => []
+  sound := by
+    intro a bA auxA hdom hpre _ c hc
+    rw [Option.mem_toList] at hc
+    exact extend_sat_encodeIfThen a bA auxA hdom v value nv nvalue hpre c hc
+
+/-- `if_then_or` as a soundness-carrying entry (aux-free). -/
+def encIfThenOr (v : Fin S.nInt) (value : Int) (nv : Fin S.nInt) (allowed : List Int) :
+    EncConstr S where
+  constrs := (normalize (encodeIfThenOr v value nv allowed)).toList
+  pre := fun a => a v ≠ value ∨ a nv ∈ allowed
+  setsAux := fun _ => []
+  sound := by
+    intro a bA auxA hdom hpre _ c hc
+    rw [Option.mem_toList] at hc
+    exact extend_sat_encodeIfThenOr a bA auxA hdom v value nv allowed hpre c hc
+
+/-! ### Gated linear disjunction: `Σ_A ≤ b_A ∨ Σ_B ≤ b_B` via one Big-M selector
+
+The general two-branch disjunction of linear `≤`-constraints (the `abs_diff_*`
+family's workhorse): the selector picks the enforced branch, Big-M relaxes the other. -/
+
+/-- The gated pair: `s = false ⇒ Σ_A ≤ b_A`, `s = true ⇒ Σ_B ≤ b_B`. -/
+def encodeOrLe (tA : List (Int × Fin S.nInt)) (bA : Int)
+    (tB : List (Int × Fin S.nInt)) (bB : Int) (s : Fin S.nAux) :
+    List (SignedPBConstr (PBVar S)) :=
+  [ (encodeLinearLe tA bA).addTerm (bigM tA bA) (.pos (.aux s)),
+    (encodeLinearLe tB (bB + bigM tB bB)).addTerm (-(bigM tB bB)) (.pos (.aux s)) ]
+
+/-- **Soundness.**  If one branch holds and the selector is set to
+    `decide ¬(branch A)`, both gated constraints hold. -/
+theorem encodeOrLe_sound (v : Valuation S) (hv : v.orderConsistent)
+    (tA : List (Int × Fin S.nInt)) (bA : Int)
+    (tB : List (Int × Fin S.nInt)) (bB : Int) (s : Fin S.nAux)
+    (hor : (tA.map (fun p => p.1 * v.intValue p.2)).sum ≤ bA
+      ∨ (tB.map (fun p => p.1 * v.intValue p.2)).sum ≤ bB)
+    (hs : v (.aux s) = decide (¬ (tA.map (fun p => p.1 * v.intValue p.2)).sum ≤ bA)) :
+    ∀ c ∈ encodeOrLe tA bA tB bB s, c.sat v := by
+  have hbA := linear_abs_bound v hv tA
+  have hbB := linear_abs_bound v hv tB
+  rw [abs_le] at hbA hbB
+  have habsA : bA ≤ |bA| := le_abs_self bA
+  have habsA' : -bA ≤ |bA| := neg_le_abs bA
+  have habsB : bB ≤ |bB| := le_abs_self bB
+  have habsB' : -bB ≤ |bB| := neg_le_abs bB
+  have hsint : (evalLit v (.pos (.aux s)) : Int)
+      = if (tA.map (fun p => p.1 * v.intValue p.2)).sum ≤ bA then 0 else 1 := by
+    simp only [evalLit, hs]
+    by_cases h : (tA.map (fun p => p.1 * v.intValue p.2)).sum ≤ bA <;> simp [h]
+  intro c hc
+  simp only [encodeOrLe, List.mem_cons, List.not_mem_nil, or_false] at hc
+  rcases hc with rfl | rfl
+  · show signedEval v _ ≥ (encodeLinearLe tA bA).rhs
+    rw [signedEval_addTerm, signedEval_encode_eq, hsint]
+    simp only [encodeLinearLe, bigM]
+    by_cases h : (tA.map (fun p => p.1 * v.intValue p.2)).sum ≤ bA
+    · rw [if_pos h, mul_zero]
+      omega
+    · rw [if_neg h, mul_one]
+      omega
+  · show signedEval v _ ≥ (encodeLinearLe tB (bB + bigM tB bB)).rhs
+    rw [signedEval_addTerm, signedEval_encode_eq, hsint]
+    simp only [encodeLinearLe, bigM]
+    by_cases h : (tA.map (fun p => p.1 * v.intValue p.2)).sum ≤ bA
+    · rw [if_pos h, mul_zero]
+      omega
+    · rw [if_neg h, mul_one]
+      have hB : (tB.map (fun p => p.1 * v.intValue p.2)).sum ≤ bB := by
+        rcases hor with hA | hB
+        · exact absurd hA h
+        · exact hB
+      omega
+
+/-- The gated disjunction as a soundness-carrying entry (owns the selector `s`). -/
+def encOrLe (tA : List (Int × Fin S.nInt)) (bA : Int)
+    (tB : List (Int × Fin S.nInt)) (bB : Int) (s : Fin S.nAux) : EncConstr S where
+  constrs := (encodeOrLe tA bA tB bB s).filterMap normalize
+  pre := fun a => (tA.map (fun p => p.1 * a p.2)).sum ≤ bA
+    ∨ (tB.map (fun p => p.1 * a p.2)).sum ≤ bB
+  setsAux := fun a =>
+    [(s, decide (¬ (tA.map (fun p => p.1 * a p.2)).sum ≤ bA))]
+  sound := by
+    intro a bA' auxA hdom hpre hframe c hc
+    rw [List.mem_filterMap] at hc
+    obtain ⟨sc, hsc, hnorm⟩ := hc
+    rw [← normalize_sat_iff _ _ hnorm]
+    have hsumA : (tA.map (fun p => p.1 * (extend a bA' auxA).intValue p.2)).sum
+        = (tA.map (fun p => p.1 * a p.2)).sum :=
+      congrArg List.sum (List.map_congr_left
+        (fun p _ => by rw [extend_intValue a bA' auxA hdom p.2]))
+    have hsumB : (tB.map (fun p => p.1 * (extend a bA' auxA).intValue p.2)).sum
+        = (tB.map (fun p => p.1 * a p.2)).sum :=
+      congrArg List.sum (List.map_congr_left
+        (fun p _ => by rw [extend_intValue a bA' auxA hdom p.2]))
+    refine encodeOrLe_sound (extend a bA' auxA)
+      (extend_orderConsistent a bA' auxA) tA bA tB bB s ?_ ?_ sc hsc
+    · rw [hsumA, hsumB]
+      exact hpre
+    · rw [extend_aux, hsumA]
+      exact hframe (s, decide (¬ (tA.map (fun p => p.1 * a p.2)).sum ≤ bA)) (by simp)
+
+/-! ### `element`: per-position implications (aux-free, exact)
+
+`arr[idx − 1] = res` (1-based `idx`) decomposes into the index bounds
+`1 ≤ idx ≤ |arr|` plus one `if_then` implication `[idx = p] → [res = arr[p−1]]` per
+position. -/
+
+/-- The per-position implications, positions counted from `p`. -/
+def encodeElementCases (idx res : Fin S.nInt) : List ℤ → ℤ → List (EncConstr S)
+  | [], _ => []
+  | x :: rest, p => encIfThen idx p res x :: encodeElementCases idx res rest (p + 1)
+
+/-- The per-position implications are aux-free. -/
+theorem encodeElementCases_setsAux (idx res : Fin S.nInt) (arr : List ℤ) (p : ℤ)
+    (a : Fin S.nInt → Int) :
+    ∀ e ∈ encodeElementCases idx res arr p, e.setsAux a = [] := by
+  induction arr generalizing p with
+  | nil => simp [encodeElementCases]
+  | cons x rest ih =>
+    intro e he
+    simp only [encodeElementCases, List.mem_cons] at he
+    rcases he with rfl | he
+    · rfl
+    · exact ih (p + 1) e he
+
+/-- Soundness of the per-position implications from the lookup function. -/
+theorem encodeElementCases_sound (idx res : Fin S.nInt) (arr : List ℤ) (p : ℤ)
+    (a : Fin S.nInt → Int)
+    (hLook : ∀ (q : ℕ) (y : ℤ), arr[q]? = some y → a idx = p + q → a res = y) :
+    ∀ e ∈ encodeElementCases idx res arr p, e.pre a := by
+  induction arr generalizing p with
+  | nil => intro e he; simp [encodeElementCases] at he
+  | cons x rest ih =>
+    intro e he
+    simp only [encodeElementCases, List.mem_cons] at he
+    rcases he with rfl | he
+    · show a idx ≠ p ∨ a res = x
+      by_cases hp : a idx = p
+      · right
+        refine hLook 0 x (by simp) ?_
+        rw [hp]
+        simp
+      · left
+        exact hp
+    · refine ih (p + 1) ?_ e he
+      intro q y hq hidx
+      refine hLook (q + 1) y (by simpa using hq) ?_
+      rw [hidx]
+      push_cast
+      ring
+
+/-! ### `count`: the indicator-sum equality (aux-free, exact)
+
+`Σⱼ [xⱼ = value] = n`, as the `≥ n` and `≤ n` halves over the equality indicators. -/
+
+/-- Variable-indexed indicator sum (negated `adContrib`s). -/
+theorem signedEval_varIndSum (val : Valuation S) (hv : val.orderConsistent)
+    (value : Int) (js : List (Fin S.nInt)) :
+    signedEval val
+        (js.flatMap (fun j => (adContrib j value).1.map (fun p => (-p.1, p.2))))
+      = (js.map (fun j => if val.intValue j = value then (1 : Int) else 0)).sum
+        + (js.map (fun j => (adContrib j value).2)).sum := by
+  induction js with
+  | nil => simp [signedEval]
+  | cons j tl ih =>
+    simp only [List.flatMap_cons, signedEval_append, List.map_cons, List.sum_cons]
+    rw [ih, signedEval_negTerms]
+    have h := adContrib_eval val hv j value
+    linarith
+
+/-- Variable-indexed indicator sum, unnegated (the `≤` half's terms). -/
+theorem signedEval_varIndSumNeg (val : Valuation S) (hv : val.orderConsistent)
+    (value : Int) (js : List (Fin S.nInt)) :
+    signedEval val (js.flatMap (fun j => (adContrib j value).1))
+      = -(js.map (fun j => if val.intValue j = value then (1 : Int) else 0)).sum
+        - (js.map (fun j => (adContrib j value).2)).sum := by
+  induction js with
+  | nil => simp [signedEval]
+  | cons j tl ih =>
+    simp only [List.flatMap_cons, signedEval_append, List.map_cons, List.sum_cons]
+    rw [ih]
+    have h := adContrib_eval val hv j value
+    linarith
+
+/-- `Σⱼ [xⱼ = value] ≥ n`. -/
+def encodeCountGe (js : List (Fin S.nInt)) (value : Int) (n : ℕ) :
+    SignedPBConstr (PBVar S) where
+  terms := js.flatMap (fun j => (adContrib j value).1.map (fun p => (-p.1, p.2)))
+  rhs := (n : Int) + (js.map (fun j => (adContrib j value).2)).sum
+
+/-- `Σⱼ [xⱼ = value] ≤ n`. -/
+def encodeCountLe (js : List (Fin S.nInt)) (value : Int) (n : ℕ) :
+    SignedPBConstr (PBVar S) where
+  terms := js.flatMap (fun j => (adContrib j value).1)
+  rhs := -(n : Int) - (js.map (fun j => (adContrib j value).2)).sum
+
+/-- The indicator sum counts the filter length. -/
+theorem sum_ite_eq_filter_length (l : List ℤ) (value : ℤ) :
+    (l.map (fun y => if y = value then (1 : Int) else 0)).sum
+      = ((l.filter (· = value)).length : Int) := by
+  induction l with
+  | nil => simp
+  | cons x xs ih =>
+    by_cases hx : x = value
+    · simp only [List.map_cons, List.sum_cons, if_pos hx, List.filter_cons]
+      rw [if_pos (by simpa using hx), List.length_cons, ih]
+      push_cast
+      ring
+    · simp only [List.map_cons, List.sum_cons, if_neg hx, List.filter_cons]
+      rw [if_neg (by simpa using hx)]
+      rw [ih]
+      omega
+
+/-- Soundness of both halves from the exact indicator count. -/
+theorem encodeCount_sound (val : Valuation S) (hv : val.orderConsistent)
+    (js : List (Fin S.nInt)) (value : Int) (n : ℕ)
+    (hsum : (js.map (fun j => if val.intValue j = value then (1 : Int) else 0)).sum
+      = (n : Int)) :
+    (encodeCountGe js value n).sat val ∧ (encodeCountLe js value n).sat val := by
+  constructor
+  · simp only [SignedPBConstr.sat, encodeCountGe]
+    rw [signedEval_varIndSum val hv value js, hsum]
+  · simp only [SignedPBConstr.sat, encodeCountLe]
+    rw [signedEval_varIndSumNeg val hv value js, hsum]
+
+/-! ### `count_var`: gated cardinality per domain value of the target (aux-free, exact)
+
+For each `n'` in the count variable's domain: `[cvar = n'] → Σⱼ [xⱼ = value] = n'`,
+as two indicator-gated halves (`Σ ≥ n'·indc` and `Σ ≤ n'·indc + |js|·(1 − indc)`). -/
+
+/-- Scaling every coefficient scales the signed sum. -/
+theorem signedEval_scaleTerms {V : Type} (v : V → Bool) (k : Int)
+    (ts : List (Int × Lit V)) :
+    signedEval v (ts.map (fun p => (k * p.1, p.2))) = k * signedEval v ts := by
+  induction ts with
+  | nil => simp [signedEval]
+  | cons p tl ih =>
+    simp only [signedEval, List.map_cons, List.sum_cons] at ih ⊢
+    rw [ih]
+    ring
+
+/-- An indicator sum is at most the list length. -/
+theorem sum_ite_le_length (l : List ℤ) (value : ℤ) :
+    (l.map (fun y => if y = value then (1 : Int) else 0)).sum ≤ (l.length : Int) := by
+  induction l with
+  | nil => simp
+  | cons x xs ih =>
+    simp only [List.map_cons, List.sum_cons, List.length_cons]
+    split <;> push_cast <;> omega
+
+/-- Gated lower half: `Σⱼ [xⱼ = value] ≥ n' · [cvar = n']`. -/
+def encodeCountVarGe (js : List (Fin S.nInt)) (value : Int) (cvar : Fin S.nInt)
+    (n' : Int) : SignedPBConstr (PBVar S) where
+  terms := js.flatMap (fun j => (adContrib j value).1.map (fun p => (-p.1, p.2)))
+    ++ (adContrib cvar n').1.map (fun p => (n' * p.1, p.2))
+  rhs := (js.map (fun j => (adContrib j value).2)).sum - n' * (adContrib cvar n').2
+
+/-- Gated upper half: `Σⱼ [xⱼ = value] ≤ n'·[cvar = n'] + |js|·(1 − [cvar = n'])`. -/
+def encodeCountVarLe (js : List (Fin S.nInt)) (value : Int) (cvar : Fin S.nInt)
+    (n' : Int) : SignedPBConstr (PBVar S) where
+  terms := js.flatMap (fun j => (adContrib j value).1)
+    ++ ((adContrib cvar n').1.map (fun p => (-p.1, p.2))).map
+        (fun p => ((n' - (js.length : Int)) * p.1, p.2))
+  rhs := -(js.length : Int) - (js.map (fun j => (adContrib j value).2)).sum
+    + (n' - (js.length : Int)) * (adContrib cvar n').2
+
+/-- Soundness of both gated halves from `Σ indicators = intValue cvar`. -/
+theorem encodeCountVar_sound (val : Valuation S) (hv : val.orderConsistent)
+    (js : List (Fin S.nInt)) (value : Int) (cvar : Fin S.nInt) (n' : Int)
+    (hsum : (js.map (fun j => if val.intValue j = value then (1 : Int) else 0)).sum
+      = val.intValue cvar) :
+    (encodeCountVarGe js value cvar n').sat val
+      ∧ (encodeCountVarLe js value cvar n').sat val := by
+  have hC := adContrib_eval val hv cvar n'
+  have hpos : (0 : Int)
+      ≤ (js.map (fun j => if val.intValue j = value then (1 : Int) else 0)).sum := by
+    refine sum_nonneg_of_mem _ ?_
+    intro x hx
+    obtain ⟨j, _, rfl⟩ := List.mem_map.mp hx
+    split <;> omega
+  have hlen : (js.map (fun j => if val.intValue j = value then (1 : Int) else 0)).sum
+      ≤ (js.length : Int) := by
+    have h1 : js.map (fun j => if val.intValue j = value then (1 : Int) else 0)
+        = (js.map val.intValue).map (fun y => if y = value then (1 : Int) else 0) := by
+      rw [List.map_map]; rfl
+    have h2 := sum_ite_le_length (js.map val.intValue) value
+    rw [List.length_map] at h2
+    rw [h1]
+    exact h2
+  constructor
+  · simp only [SignedPBConstr.sat, encodeCountVarGe, signedEval_append,
+      signedEval_scaleTerms]
+    rw [signedEval_varIndSum val hv value js]
+    by_cases hc : val.intValue cvar = n'
+    · rw [if_pos hc] at hC
+      have hS : signedEval val (adContrib cvar n').1 = -1 - (adContrib cvar n').2 := by
+        linarith
+      rw [hsum, hc, hS]
+      ring_nf
+      exact le_refl _
+    · rw [if_neg hc] at hC
+      have hS : signedEval val (adContrib cvar n').1 = -(adContrib cvar n').2 := by
+        linarith
+      rw [hS]
+      ring_nf
+      nlinarith [hpos]
+  · simp only [SignedPBConstr.sat, encodeCountVarLe, signedEval_append,
+      signedEval_scaleTerms, signedEval_negTerms]
+    rw [signedEval_varIndSumNeg val hv value js]
+    by_cases hc : val.intValue cvar = n'
+    · rw [if_pos hc] at hC
+      have hS : signedEval val (adContrib cvar n').1 = -1 - (adContrib cvar n').2 := by
+        linarith
+      rw [hsum, hc, hS]
+      ring_nf
+      exact le_refl _
+    · rw [if_neg hc] at hC
+      have hS : signedEval val (adContrib cvar n').1 = -(adContrib cvar n').2 := by
+        linarith
+      rw [hS]
+      ring_nf
+      nlinarith [hlen]
+
+/-- `count_var` as a soundness-carrying entry (aux-free): the gated pair for every value
+    in the count variable's domain. -/
+def encCountVar (js : List (Fin S.nInt)) (value : Int) (cvar : Fin S.nInt) :
+    EncConstr S where
+  constrs := (S.values cvar).flatMap (fun n' =>
+    (normalize (encodeCountVarGe js value cvar n')).toList
+      ++ (normalize (encodeCountVarLe js value cvar n')).toList)
+  pre := fun a => ((((js.map a).filter (· = value)).length : Int)) = a cvar
+  setsAux := fun _ => []
+  sound := by
+    intro a bA auxA hdom hpre _ c hc
+    have hsum : (js.map (fun j =>
+        if (extend a bA auxA).intValue j = value then (1 : Int) else 0)).sum
+        = (extend a bA auxA).intValue cvar := by
+      have hmap : js.map (fun j =>
+          if (extend a bA auxA).intValue j = value then (1 : Int) else 0)
+          = (js.map a).map (fun y => if y = value then (1 : Int) else 0) := by
+        rw [List.map_map]
+        refine List.map_congr_left (fun j _ => ?_)
+        simp only [Function.comp_apply, extend_intValue a bA auxA hdom j]
+      rw [hmap, sum_ite_eq_filter_length, extend_intValue a bA auxA hdom cvar, hpre]
+    rw [List.mem_flatMap] at hc
+    obtain ⟨n', _, hc⟩ := hc
+    have hboth := encodeCountVar_sound (extend a bA auxA)
+      (extend_orderConsistent a bA auxA) js value cvar n' hsum
+    rw [List.mem_append] at hc
+    rcases hc with hc | hc <;> rw [Option.mem_toList] at hc <;>
+      rw [← normalize_sat_iff _ _ hc]
+    · exact hboth.1
+    · exact hboth.2
+
+/-! ### `maximum` / `minimum` attainment (aux-free, exact)
+
+For each domain value `d` of the target: `[mx = d] ≤ Σᵥ ⟦v ≥ d⟧` (resp.
+`[mn = d] ≤ Σᵥ ⟦v ≤ d⟧`) — the consequent is a sum of single order-encoding
+threshold literals, so no selectors are needed.  Combined with the per-element
+bounds this pins the target to an attained extremum. -/
+
+/-- A `{0,1}`-ite sum is nonnegative. -/
+theorem sum_ite_pred_nonneg {α : Type} (l : List α) (p : α → Prop) [DecidablePred p] :
+    0 ≤ (l.map (fun x => if p x then (1 : Int) else 0)).sum := by
+  refine sum_nonneg_of_mem _ ?_
+  intro x hx
+  obtain ⟨y, _, rfl⟩ := List.mem_map.mp hx
+  split <;> omega
+
+/-- A `{0,1}`-ite sum is at most the length. -/
+theorem sum_ite_pred_le_length {α : Type} (l : List α) (p : α → Prop) [DecidablePred p] :
+    (l.map (fun x => if p x then (1 : Int) else 0)).sum ≤ (l.length : Int) := by
+  induction l with
+  | nil => simp
+  | cons x xs ih =>
+    simp only [List.map_cons, List.sum_cons, List.length_cons]
+    split <;> push_cast <;> omega
+
+/-- With one falsifying member, a `{0,1}`-ite sum is at most `length − 1`. -/
+theorem sum_ite_pred_le_length_sub_one {α : Type} (l : List α) (p : α → Prop)
+    [DecidablePred p] {x₀ : α} (hx₀ : x₀ ∈ l) (hnp : ¬ p x₀) :
+    (l.map (fun x => if p x then (1 : Int) else 0)).sum ≤ (l.length : Int) - 1 := by
+  induction l with
+  | nil => simp at hx₀
+  | cons y ys ih =>
+    simp only [List.map_cons, List.sum_cons, List.length_cons]
+    rcases List.mem_cons.mp hx₀ with rfl | hmem
+    · rw [if_neg hnp]
+      have := sum_ite_pred_le_length ys p
+      push_cast
+      omega
+    · have := ih hmem
+      split <;> push_cast <;> omega
+
+/-- With one satisfying member, a `{0,1}`-ite sum is at least `1`. -/
+theorem one_le_sum_ite_pred {α : Type} (l : List α) (p : α → Prop) [DecidablePred p]
+    {x₀ : α} (hx₀ : x₀ ∈ l) (hp : p x₀) :
+    (1 : Int) ≤ (l.map (fun x => if p x then (1 : Int) else 0)).sum := by
+  have hmem : (if p x₀ then (1 : Int) else 0)
+      ∈ l.map (fun x => if p x then (1 : Int) else 0) :=
+    List.mem_map.mpr ⟨x₀, hx₀, rfl⟩
+  rw [if_pos hp] at hmem
+  refine le_sum_of_mem _ ?_ hmem
+  intro x hx
+  obtain ⟨y, _, rfl⟩ := List.mem_map.mp hx
+  split <;> omega
+
+/-- Threshold-literal sum `Σᵥ ⟦v ≤ d⟧` (coefficient `+1`). -/
+theorem signedEval_thrLeSum (val : Valuation S) (hv : val.orderConsistent)
+    (d : Int) (js : List (Fin S.nInt)) :
+    signedEval val
+        (js.flatMap (fun v => (litConstContrib (1 : Int) (LitConst.mkLeLit S v d)).1))
+      = (js.map (fun v => if val.intValue v ≤ d then (1 : Int) else 0)).sum
+        - (js.map (fun v =>
+            (litConstContrib (1 : Int) (LitConst.mkLeLit S v d)).2)).sum := by
+  induction js with
+  | nil => simp [signedEval]
+  | cons j tl ih =>
+    simp only [List.flatMap_cons, signedEval_append, List.map_cons, List.sum_cons]
+    rw [ih]
+    have h := litConstContrib_eval val (1 : Int) (LitConst.mkLeLit S j d)
+    rw [mkLeLit_eval val hv j d] at h
+    by_cases hj : val.intValue j ≤ d
+    · rw [if_pos hj] at h ⊢; linarith
+    · rw [if_neg hj] at h ⊢; linarith
+
+/-- Negated threshold-literal sum `−Σᵥ ⟦v ≤ d−1⟧` (the literal part of `Σᵥ ⟦v ≥ d⟧`). -/
+theorem signedEval_thrGeSum (val : Valuation S) (hv : val.orderConsistent)
+    (d : Int) (js : List (Fin S.nInt)) :
+    signedEval val
+        (js.flatMap (fun v =>
+          (litConstContrib (-1 : Int) (LitConst.mkLeLit S v (d - 1))).1))
+      = -(js.map (fun v => if val.intValue v ≤ d - 1 then (1 : Int) else 0)).sum
+        - (js.map (fun v =>
+            (litConstContrib (-1 : Int) (LitConst.mkLeLit S v (d - 1))).2)).sum := by
+  induction js with
+  | nil => simp [signedEval]
+  | cons j tl ih =>
+    simp only [List.flatMap_cons, signedEval_append, List.map_cons, List.sum_cons]
+    rw [ih]
+    have h := litConstContrib_eval val (-1 : Int) (LitConst.mkLeLit S j (d - 1))
+    rw [mkLeLit_eval val hv j (d - 1)] at h
+    by_cases hj : val.intValue j ≤ d - 1
+    · rw [if_pos hj] at h ⊢; linarith
+    · rw [if_neg hj] at h ⊢; linarith
+
+/-- `[mx = d] ≤ Σᵥ ⟦v ≥ d⟧` as a signed constraint. -/
+def encodeMaxAttainAt (js : List (Fin S.nInt)) (mx : Fin S.nInt) (d : Int) :
+    SignedPBConstr (PBVar S) where
+  terms := js.flatMap (fun v =>
+      (litConstContrib (-1 : Int) (LitConst.mkLeLit S v (d - 1))).1)
+    ++ (adContrib mx d).1
+  rhs := -(js.length : Int)
+    - (js.map (fun v =>
+        (litConstContrib (-1 : Int) (LitConst.mkLeLit S v (d - 1))).2)).sum
+    - (adContrib mx d).2
+
+/-- `[mn = d] ≤ Σᵥ ⟦v ≤ d⟧` as a signed constraint. -/
+def encodeMinAttainAt (js : List (Fin S.nInt)) (mn : Fin S.nInt) (d : Int) :
+    SignedPBConstr (PBVar S) where
+  terms := js.flatMap (fun v => (litConstContrib (1 : Int) (LitConst.mkLeLit S v d)).1)
+    ++ (adContrib mn d).1
+  rhs := -(js.map (fun v =>
+      (litConstContrib (1 : Int) (LitConst.mkLeLit S v d)).2)).sum
+    - (adContrib mn d).2
+
+/-- Soundness of the max-attainment facet at `d`. -/
+theorem encodeMaxAttainAt_sound (val : Valuation S) (hv : val.orderConsistent)
+    (js : List (Fin S.nInt)) (mx : Fin S.nInt) (d : Int)
+    (hwit : ∃ v ∈ js, val.intValue v = val.intValue mx) :
+    (encodeMaxAttainAt js mx d).sat val := by
+  have hC := adContrib_eval val hv mx d
+  simp only [SignedPBConstr.sat, encodeMaxAttainAt, signedEval_append]
+  rw [signedEval_thrGeSum val hv d js]
+  by_cases hc : val.intValue mx = d
+  · rw [if_pos hc] at hC
+    obtain ⟨v₀, hv₀mem, hv₀⟩ := hwit
+    have hbound : (js.map (fun v =>
+        if val.intValue v ≤ d - 1 then (1 : Int) else 0)).sum
+        ≤ (js.length : Int) - 1 := by
+      refine sum_ite_pred_le_length_sub_one js _ hv₀mem ?_
+      rw [hv₀, hc]
+      omega
+    linarith
+  · rw [if_neg hc] at hC
+    have hbound := sum_ite_pred_le_length js (fun v => val.intValue v ≤ d - 1)
+    linarith
+
+/-- Soundness of the min-attainment facet at `d`. -/
+theorem encodeMinAttainAt_sound (val : Valuation S) (hv : val.orderConsistent)
+    (js : List (Fin S.nInt)) (mn : Fin S.nInt) (d : Int)
+    (hwit : ∃ v ∈ js, val.intValue v = val.intValue mn) :
+    (encodeMinAttainAt js mn d).sat val := by
+  have hC := adContrib_eval val hv mn d
+  simp only [SignedPBConstr.sat, encodeMinAttainAt, signedEval_append]
+  rw [signedEval_thrLeSum val hv d js]
+  by_cases hc : val.intValue mn = d
+  · rw [if_pos hc] at hC
+    obtain ⟨v₀, hv₀mem, hv₀⟩ := hwit
+    have hbound : (1 : Int) ≤ (js.map (fun v =>
+        if val.intValue v ≤ d then (1 : Int) else 0)).sum := by
+      refine one_le_sum_ite_pred js _ hv₀mem ?_
+      rw [hv₀, hc]
+    linarith
+  · rw [if_neg hc] at hC
+    have hbound := sum_ite_pred_nonneg js (fun v => val.intValue v ≤ d)
+    linarith
+
+/-- `maximum` attainment as a soundness-carrying entry (aux-free): one facet per
+    domain value of the target. -/
+def encMaxAttain (js : List (Fin S.nInt)) (mx : Fin S.nInt) : EncConstr S where
+  constrs := (S.values mx).flatMap
+    (fun d => (normalize (encodeMaxAttainAt js mx d)).toList)
+  pre := fun a => ∃ v ∈ js, a v = a mx
+  setsAux := fun _ => []
+  sound := by
+    intro a bA auxA hdom hpre _ c hc
+    rw [List.mem_flatMap] at hc
+    obtain ⟨d, _, hc⟩ := hc
+    rw [Option.mem_toList] at hc
+    rw [← normalize_sat_iff _ _ hc]
+    refine encodeMaxAttainAt_sound (extend a bA auxA)
+      (extend_orderConsistent a bA auxA) js mx d ?_
+    obtain ⟨v₀, hm, hv₀⟩ := hpre
+    refine ⟨v₀, hm, ?_⟩
+    rw [extend_intValue a bA auxA hdom v₀, extend_intValue a bA auxA hdom mx]
+    exact hv₀
+
+/-- `minimum` attainment as a soundness-carrying entry (aux-free). -/
+def encMinAttain (js : List (Fin S.nInt)) (mn : Fin S.nInt) : EncConstr S where
+  constrs := (S.values mn).flatMap
+    (fun d => (normalize (encodeMinAttainAt js mn d)).toList)
+  pre := fun a => ∃ v ∈ js, a v = a mn
+  setsAux := fun _ => []
+  sound := by
+    intro a bA auxA hdom hpre _ c hc
+    rw [List.mem_flatMap] at hc
+    obtain ⟨d, _, hc⟩ := hc
+    rw [Option.mem_toList] at hc
+    rw [← normalize_sat_iff _ _ hc]
+    refine encodeMinAttainAt_sound (extend a bA auxA)
+      (extend_orderConsistent a bA auxA) js mn d ?_
+    obtain ⟨v₀, hm, hv₀⟩ := hpre
+    refine ⟨v₀, hm, ?_⟩
+    rw [extend_intValue a bA auxA hdom v₀, extend_intValue a bA auxA hdom mn]
+    exact hv₀
+
+/-- `count` as a soundness-carrying entry (aux-free). -/
+def encCount (js : List (Fin S.nInt)) (value : Int) (n : ℕ) : EncConstr S where
+  constrs := (normalize (encodeCountGe js value n)).toList
+    ++ (normalize (encodeCountLe js value n)).toList
+  pre := fun a => ((js.map a).filter (· = value)).length = n
+  setsAux := fun _ => []
+  sound := by
+    intro a bA auxA hdom hpre _ c hc
+    have hsum : ((js.map (fun j =>
+        if (extend a bA auxA).intValue j = value then (1 : Int) else 0)).sum)
+        = (n : Int) := by
+      have hmap : js.map (fun j =>
+          if (extend a bA auxA).intValue j = value then (1 : Int) else 0)
+          = (js.map a).map (fun y => if y = value then (1 : Int) else 0) := by
+        rw [List.map_map]
+        refine List.map_congr_left (fun j _ => ?_)
+        simp only [Function.comp_apply, extend_intValue a bA auxA hdom j]
+      rw [hmap, sum_ite_eq_filter_length, hpre]
+    have hboth := encodeCount_sound (extend a bA auxA)
+      (extend_orderConsistent a bA auxA) js value n hsum
+    rw [List.mem_append] at hc
+    rcases hc with hc | hc <;> rw [Option.mem_toList] at hc <;>
+      rw [← normalize_sat_iff _ _ hc]
+    · exact hboth.1
+    · exact hboth.2
+
 /-- `encodePattern` extended with a Big-M selector base.  The only constructors that can
     produce an aux-owning entry are the linear / sum / var-target relations with op `.NE`;
     these are routed through `encodeRelAt base`.  Every other constructor delegates to the
@@ -926,17 +1656,129 @@ def encodePatternAt (S : CSPSig) (base : ℕ) : IntConstraint S.nInt → List (E
   -- `increasing`: the consecutive `≤` chain.
   | .increasing vars =>
       if _ : ∀ v ∈ vars, v < S.nInt then encodeIncreasing S (toFinList S vars) else []
-  -- `maximum`/`minimum`: the implied per-element bounds (`vᵢ ≤ mx` / `mn ≤ vᵢ`); the
-  -- attainment disjunct is dropped (sound by weakening).
+  -- `sliding_sum`: one linear relation per window (`.NE` windows drop via `encodeRel`).
+  | .sliding_sum vars w op target =>
+      if _ : ∀ v ∈ vars, v < S.nInt then
+        (List.range (vars.length - w + 1)).flatMap
+          (fun s => encodeRel S op
+            ((((toFinList S vars).drop s).take w).map (fun v => ((1 : Int), v))) target)
+      else []
+  -- `if_then` / `if_then_or`: the indicator implication facets (aux-free, exact).
+  | .if_then v value nv nvalue =>
+      if h : v < S.nInt ∧ nv < S.nInt then
+        [encIfThen ⟨v, h.1⟩ value ⟨nv, h.2⟩ nvalue]
+      else []
+  | .if_then_or v value nv allowed =>
+      if h : v < S.nInt ∧ nv < S.nInt then
+        [encIfThenOr ⟨v, h.1⟩ value ⟨nv, h.2⟩ allowed]
+      else []
+  -- `count`: the indicator-sum equality (aux-free, exact).
+  | .count vars value n =>
+      if _ : ∀ v ∈ vars, v < S.nInt then [encCount (toFinList S vars) value n] else []
+  -- `modulo`: filter the domain — `v ≠ d` for every domain value with the wrong
+  -- residue (aux-free, exact).
+  | .modulo v n k =>
+      if h : v < S.nInt then
+        ((S.values ⟨v, h⟩).filter (fun d => decide (¬ d % n = k))).map
+          (fun d => encNeConst ⟨v, h⟩ d)
+      else []
+  -- `element`: index bounds plus one `if_then` implication per array position.
+  | .element idx arr res =>
+      if h : idx < S.nInt ∧ res < S.nInt then
+        encodeRel S .GE [((1 : Int), ⟨idx, h.1⟩)] 1
+          ++ encodeRel S .LE [((1 : Int), ⟨idx, h.1⟩)] (arr.length : Int)
+          ++ encodeElementCases ⟨idx, h.1⟩ ⟨res, h.2⟩ arr 1
+      else []
+  -- `abs_diff_rel`: `|v1 − v2| (op) t` — bounds for `≤`/`<`, the gated disjunction
+  -- for `≥`/`>`/`=`, two Big-M `≠`s for `≠`; trivial/infeasible `t` handled exactly.
+  | .abs_diff_rel v1 v2 .LE t =>
+      if h : v1 < S.nInt ∧ v2 < S.nInt then
+        if 0 ≤ t then
+          [encLinearLe [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] t,
+           encLinearLe [((1 : Int), ⟨v2, h.2⟩), ((-1 : Int), ⟨v1, h.1⟩)] t]
+        else [encLinearLe [] (-1)]
+      else []
+  | .abs_diff_rel v1 v2 .LT t =>
+      if h : v1 < S.nInt ∧ v2 < S.nInt then
+        if 0 < t then
+          [encLinearLe [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] (t - 1),
+           encLinearLe [((1 : Int), ⟨v2, h.2⟩), ((-1 : Int), ⟨v1, h.1⟩)] (t - 1)]
+        else [encLinearLe [] (-1)]
+      else []
+  | .abs_diff_rel v1 v2 .GE t =>
+      if h : v1 < S.nInt ∧ v2 < S.nInt then
+        if 0 < t then
+          if hb : base < S.nAux then
+            [encOrLe [((1 : Int), ⟨v2, h.2⟩), ((-1 : Int), ⟨v1, h.1⟩)] (-t)
+              [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] (-t) ⟨base, hb⟩]
+          else []
+        else []
+      else []
+  | .abs_diff_rel v1 v2 .GT t =>
+      if h : v1 < S.nInt ∧ v2 < S.nInt then
+        if 0 ≤ t then
+          if hb : base < S.nAux then
+            [encOrLe [((1 : Int), ⟨v2, h.2⟩), ((-1 : Int), ⟨v1, h.1⟩)] (-(t + 1))
+              [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] (-(t + 1)) ⟨base, hb⟩]
+          else []
+        else []
+      else []
+  | .abs_diff_rel v1 v2 .EQ t =>
+      if h : v1 < S.nInt ∧ v2 < S.nInt then
+        if 0 ≤ t then
+          if hb : base < S.nAux then
+            [encLinearLe [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] t,
+             encLinearLe [((1 : Int), ⟨v2, h.2⟩), ((-1 : Int), ⟨v1, h.1⟩)] t,
+             encOrLe [((1 : Int), ⟨v2, h.2⟩), ((-1 : Int), ⟨v1, h.1⟩)] (-t)
+               [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] (-t) ⟨base, hb⟩]
+          else
+            [encLinearLe [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] t,
+             encLinearLe [((1 : Int), ⟨v2, h.2⟩), ((-1 : Int), ⟨v1, h.1⟩)] t]
+        else [encLinearLe [] (-1)]
+      else []
+  | .abs_diff_rel v1 v2 .NE t =>
+      if h : v1 < S.nInt ∧ v2 < S.nInt then
+        if 0 ≤ t then
+          if hb : base + 1 < S.nAux then
+            [encLinearNe [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] t
+               ⟨base, by omega⟩,
+             encLinearNe [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2⟩)] (-t)
+               ⟨base + 1, hb⟩]
+          else []
+        else []
+      else []
+  -- `abs_diff_var`: `r = |v1 − v2|` — the two lower bounds plus a gated attainment.
+  | .abs_diff_var v1 v2 r =>
+      if h : v1 < S.nInt ∧ v2 < S.nInt ∧ r < S.nInt then
+        encLinearLe [((1 : Int), ⟨v1, h.1⟩), ((-1 : Int), ⟨v2, h.2.1⟩),
+            ((-1 : Int), ⟨r, h.2.2⟩)] 0
+          :: encLinearLe [((1 : Int), ⟨v2, h.2.1⟩), ((-1 : Int), ⟨v1, h.1⟩),
+              ((-1 : Int), ⟨r, h.2.2⟩)] 0
+          :: (if hb : base < S.nAux then
+                [encOrLe [((1 : Int), ⟨r, h.2.2⟩), ((-1 : Int), ⟨v1, h.1⟩),
+                    ((1 : Int), ⟨v2, h.2.1⟩)] 0
+                  [((1 : Int), ⟨r, h.2.2⟩), ((1 : Int), ⟨v1, h.1⟩),
+                    ((-1 : Int), ⟨v2, h.2.1⟩)] 0 ⟨base, hb⟩]
+              else [])
+      else []
+  -- `count_var`: gated cardinality per domain value of the count variable.
+  | .count_var vars value cvar =>
+      if h : (∀ v ∈ vars, v < S.nInt) ∧ cvar < S.nInt then
+        [encCountVar (toFinList S vars) value ⟨cvar, h.2⟩]
+      else []
+  -- `maximum`/`minimum`: the per-element bounds (`vᵢ ≤ mx` / `mn ≤ vᵢ`) plus the
+  -- attainment facets (`[mx = d] ≤ Σᵥ ⟦v ≥ d⟧` per domain value `d`) — exact.
   | .maximum vars mx =>
       if h : (∀ v ∈ vars, v < S.nInt) ∧ mx < S.nInt then
         (toFinList S vars).map
           (fun v => encLinearLe [((1 : Int), v), ((-1 : Int), ⟨mx, h.2⟩)] 0)
+        ++ [encMaxAttain (toFinList S vars) ⟨mx, h.2⟩]
       else []
   | .minimum vars mn =>
       if h : (∀ v ∈ vars, v < S.nInt) ∧ mn < S.nInt then
         (toFinList S vars).map
           (fun v => encLinearLe [((1 : Int), ⟨mn, h.2⟩), ((-1 : Int), v)] 0)
+        ++ [encMinAttain (toFinList S vars) ⟨mn, h.2⟩]
       else []
   -- `not_gate i o`: `o = 1 − i` over `{0,1}` ⟺ `o + i = 1` (aux-free, domain-free).
   | .not_gate i o =>
@@ -1120,43 +1962,301 @@ theorem encodePatternAt_sound (base : ℕ) (c : IntConstraint S.nInt) (a : Fin S
         rw [toFinList_map a vars hwf]
         exact hpat
       · exact absurd he (by simp)
+  case sliding_sum vars w op target =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i hwf
+        rw [List.mem_flatMap] at he
+        obtain ⟨s, hs, he⟩ := he
+        refine encodeRel_sound op _ target a ?_ e he
+        have hp : relHolds op ((((vars.map (valAt a)).drop s).take w)).sum target :=
+          hpat s hs
+        have hsum : ((((((toFinList S vars).drop s).take w)).map
+            (fun v => ((1 : Int), v))).map (fun p => p.1 * a p.2)).sum
+            = (((vars.map (valAt a)).drop s).take w).sum := by
+          rw [List.map_map]
+          have h1 : ((((toFinList S vars).drop s).take w)).map
+              ((fun p => p.1 * a p.2) ∘ (fun v => ((1 : Int), v)))
+              = (((toFinList S vars).drop s).take w).map a :=
+            List.map_congr_left (fun v _ => by simp)
+          rw [h1, List.map_take, List.map_drop, toFinList_map a vars hwf]
+        rw [hsum]
+        exact hp
+      · exact absurd he (by simp)
+  case if_then v value nv nvalue =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        rw [List.mem_singleton] at he; subst he
+        show a ⟨v, h.1⟩ ≠ value ∨ a ⟨nv, h.2⟩ = nvalue
+        have hh : valAt a v ≠ value ∨ valAt a nv = nvalue := hpat
+        simpa only [valAt, h.1, h.2, dite_true] using hh
+      · exact absurd he (by simp)
+  case if_then_or v value nv allowed =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        rw [List.mem_singleton] at he; subst he
+        show a ⟨v, h.1⟩ ≠ value ∨ a ⟨nv, h.2⟩ ∈ allowed
+        have hh : valAt a v ≠ value ∨ valAt a nv ∈ allowed := hpat
+        simpa only [valAt, h.1, h.2, dite_true] using hh
+      · exact absurd he (by simp)
+  case count vars value n =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i hwf
+        rw [List.mem_singleton] at he; subst he
+        show (((toFinList S vars).map a).filter (· = value)).length = n
+        rw [toFinList_map a vars hwf]
+        exact hpat
+      · exact absurd he (by simp)
+  case count_var vars value cvar =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        rw [List.mem_singleton] at he; subst he
+        show ((((toFinList S vars).map a).filter (· = value)).length : Int)
+          = a ⟨cvar, h.2⟩
+        rw [toFinList_map a vars h.1]
+        have hh : ((((vars.map (valAt a))).filter (· = value)).length : Int)
+            = valAt a cvar := hpat
+        simpa only [valAt, h.2, dite_true] using hh
+      · exact absurd he (by simp)
+  case modulo v n k =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        obtain ⟨d, hdmem, rfl⟩ := List.mem_map.mp he
+        rw [List.mem_filter] at hdmem
+        have hdneq : ¬ d % n = k := by
+          have := hdmem.2
+          simpa using this
+        show a ⟨v, h⟩ ≠ d
+        intro hcontra
+        have hh : valAt a v % n = k := hpat
+        rw [show valAt a v = a ⟨v, h⟩ from by simp [valAt, h], hcontra] at hh
+        exact hdneq hh
+      · exact absurd he (by simp)
+  case element idx arr res =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        obtain ⟨hge1, hany⟩ := (hpat : valAt a idx ≥ 1 ∧
+          (arr[(valAt a idx).natAbs - 1]?).any (· = valAt a res) = true)
+        have hidxa : valAt a idx = a ⟨idx, h.1⟩ := by simp [valAt, h.1]
+        have hresa : valAt a res = a ⟨res, h.2⟩ := by simp [valAt, h.2]
+        -- the looked-up entry exists and equals `res`
+        rcases harr : arr[(valAt a idx).natAbs - 1]? with _ | y
+        · rw [harr] at hany
+          simp at hany
+        have hyres : y = valAt a res := by
+          rw [harr] at hany
+          simpa using hany
+        have hlt : (valAt a idx).natAbs - 1 < arr.length :=
+          (List.getElem?_eq_some_iff.mp harr).1
+        rw [List.mem_append, List.mem_append] at he
+        rcases he with (he | he) | he
+        · refine encodeRel_unary_sound .GE ⟨idx, h.1⟩ 1 a ?_ e he
+          show a ⟨idx, h.1⟩ ≥ 1
+          omega
+        · refine encodeRel_unary_sound .LE ⟨idx, h.1⟩ (arr.length : Int) a ?_ e he
+          show a ⟨idx, h.1⟩ ≤ (arr.length : Int)
+          omega
+        · refine encodeElementCases_sound ⟨idx, h.1⟩ ⟨res, h.2⟩ arr 1 a ?_ e he
+          intro q y' hq hidxq
+          have hnat : (valAt a idx).natAbs - 1 = q := by
+            rw [hidxa, hidxq]
+            omega
+          rw [hnat, hq] at harr
+          rw [← hresa, ← hyres]
+          injection harr with hyy
+          rw [hyy]
+      · exact absurd he (by simp)
+  case abs_diff_rel v1 v2 op t =>
+      have hD : relHolds op (((valAt a v1 - valAt a v2).natAbs : Int)) t := hpat
+      cases op
+      case LE =>
+        simp only [encodePatternAt] at he; split at he
+        · rename_i h
+          simp only [relHolds, valAt, h.1, h.2, dite_true] at hD
+          split at he <;>
+            simp only [List.mem_cons, List.not_mem_nil, or_false] at he
+          · rcases he with rfl | rfl <;>
+              simp only [encLinearLe, List.map_cons, List.map_nil, List.sum_cons,
+                List.sum_nil] <;> omega
+          · subst he
+            show (([] : List (Int × Fin S.nInt)).map (fun p => p.1 * a p.2)).sum ≤ -1
+            rename_i ht
+            simp only [List.map_nil, List.sum_nil]
+            omega
+        · exact absurd he (by simp)
+      case LT =>
+        simp only [encodePatternAt] at he; split at he
+        · rename_i h
+          simp only [relHolds, valAt, h.1, h.2, dite_true] at hD
+          split at he <;>
+            simp only [List.mem_cons, List.not_mem_nil, or_false] at he
+          · rcases he with rfl | rfl <;>
+              simp only [encLinearLe, List.map_cons, List.map_nil, List.sum_cons,
+                List.sum_nil] <;> omega
+          · subst he
+            show (([] : List (Int × Fin S.nInt)).map (fun p => p.1 * a p.2)).sum ≤ -1
+            rename_i ht
+            simp only [List.map_nil, List.sum_nil]
+            omega
+        · exact absurd he (by simp)
+      case GE =>
+        simp only [encodePatternAt] at he; split at he
+        · rename_i h
+          simp only [relHolds, valAt, h.1, h.2, dite_true] at hD
+          split at he
+          · split at he
+            · simp only [List.mem_singleton] at he
+              subst he
+              show _ ∨ _
+              simp only [List.map_cons, List.map_nil, List.sum_cons,
+                List.sum_nil]
+              omega
+            · exact absurd he (by simp)
+          · exact absurd he (by simp)
+        · exact absurd he (by simp)
+      case GT =>
+        simp only [encodePatternAt] at he; split at he
+        · rename_i h
+          simp only [relHolds, valAt, h.1, h.2, dite_true] at hD
+          split at he
+          · split at he
+            · simp only [List.mem_singleton] at he
+              subst he
+              show _ ∨ _
+              simp only [List.map_cons, List.map_nil, List.sum_cons,
+                List.sum_nil]
+              omega
+            · exact absurd he (by simp)
+          · exact absurd he (by simp)
+        · exact absurd he (by simp)
+      case EQ =>
+        simp only [encodePatternAt] at he; split at he
+        · rename_i h
+          simp only [relHolds, valAt, h.1, h.2, dite_true] at hD
+          split at he
+          · split at he <;>
+              simp only [List.mem_cons, List.not_mem_nil, or_false] at he
+            · rcases he with rfl | rfl | rfl
+              · show (([((1 : Int), (⟨v1, h.1⟩ : Fin S.nInt)),
+                  ((-1 : Int), ⟨v2, h.2⟩)]).map (fun p => p.1 * a p.2)).sum ≤ t
+                simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil]
+                omega
+              · show (([((1 : Int), (⟨v2, h.2⟩ : Fin S.nInt)),
+                  ((-1 : Int), ⟨v1, h.1⟩)]).map (fun p => p.1 * a p.2)).sum ≤ t
+                simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil]
+                omega
+              · show _ ∨ _
+                simp only [List.map_cons, List.map_nil, List.sum_cons,
+                  List.sum_nil]
+                omega
+            · rcases he with rfl | rfl <;>
+                simp only [encLinearLe, List.map_cons, List.map_nil, List.sum_cons,
+                  List.sum_nil] <;> omega
+          · simp only [List.mem_cons, List.not_mem_nil, or_false] at he
+            subst he
+            show (([] : List (Int × Fin S.nInt)).map (fun p => p.1 * a p.2)).sum ≤ -1
+            rename_i ht
+            simp only [List.map_nil, List.sum_nil]
+            omega
+        · exact absurd he (by simp)
+      case NE =>
+        simp only [encodePatternAt] at he; split at he
+        · rename_i h
+          simp only [relHolds, valAt, h.1, h.2, dite_true] at hD
+          split at he
+          · split at he
+            · simp only [List.mem_cons, List.not_mem_nil, or_false] at he
+              rcases he with rfl | rfl <;>
+                (show ¬ _ = _
+                 simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil]
+                 omega)
+            · exact absurd he (by simp)
+          · exact absurd he (by simp)
+        · exact absurd he (by simp)
+  case abs_diff_var v1 v2 r =>
+      simp only [encodePatternAt] at he; split at he
+      · rename_i h
+        have hR : valAt a r = ((valAt a v1 - valAt a v2).natAbs : Int) := hpat
+        simp only [valAt, h.1, h.2.1, h.2.2, dite_true] at hR
+        simp only [List.mem_cons] at he
+        rcases he with rfl | rfl | he
+        · show (([((1 : Int), (⟨v1, h.1⟩ : Fin S.nInt)), ((-1 : Int), ⟨v2, h.2.1⟩),
+            ((-1 : Int), ⟨r, h.2.2⟩)]).map (fun p => p.1 * a p.2)).sum ≤ 0
+          simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil]
+          omega
+        · show (([((1 : Int), (⟨v2, h.2.1⟩ : Fin S.nInt)), ((-1 : Int), ⟨v1, h.1⟩),
+            ((-1 : Int), ⟨r, h.2.2⟩)]).map (fun p => p.1 * a p.2)).sum ≤ 0
+          simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil]
+          omega
+        · split at he
+          · simp only [List.mem_singleton] at he
+            subst he
+            show _ ∨ _
+            simp only [List.map_cons, List.map_nil, List.sum_cons,
+              List.sum_nil]
+            omega
+          · exact absurd he (by simp)
+      · exact absurd he (by simp)
   case maximum vars mx =>
       simp only [encodePatternAt] at he; split at he
       · rename_i h
-        obtain ⟨v, hvmem, rfl⟩ := List.mem_map.mp he
-        show ([((1 : Int), v), ((-1 : Int), (⟨mx, h.2⟩ : Fin S.nInt))].map
-          (fun p => p.1 * a p.2)).sum ≤ 0
-        have hall : ∀ y ∈ vars.map (valAt a), y ≤ valAt a mx := by
-          have h1 := (hpat : _ ∧ _).1
-          rw [List.all_eq_true] at h1
-          intro y hy
-          exact decide_eq_true_eq.mp (h1 y hy)
-        have hav : a v ∈ vars.map (valAt a) := by
-          rw [← toFinList_map a vars h.1]
-          exact List.mem_map.mpr ⟨v, hvmem, rfl⟩
-        have hb := hall _ hav
-        have hmx : valAt a mx = a ⟨mx, h.2⟩ := by simp [valAt, h.2]
-        rw [binTerms_sum]
-        omega
+        rw [List.mem_append] at he
+        rcases he with he | he
+        · obtain ⟨v, hvmem, rfl⟩ := List.mem_map.mp he
+          show ([((1 : Int), v), ((-1 : Int), (⟨mx, h.2⟩ : Fin S.nInt))].map
+            (fun p => p.1 * a p.2)).sum ≤ 0
+          have hall : ∀ y ∈ vars.map (valAt a), y ≤ valAt a mx := by
+            have h1 := (hpat : _ ∧ _).1
+            rw [List.all_eq_true] at h1
+            intro y hy
+            exact decide_eq_true_eq.mp (h1 y hy)
+          have hav : a v ∈ vars.map (valAt a) := by
+            rw [← toFinList_map a vars h.1]
+            exact List.mem_map.mpr ⟨v, hvmem, rfl⟩
+          have hb := hall _ hav
+          have hmx : valAt a mx = a ⟨mx, h.2⟩ := by simp [valAt, h.2]
+          rw [binTerms_sum]
+          omega
+        · rw [List.mem_singleton] at he; subst he
+          show ∃ v ∈ toFinList S vars, a v = a ⟨mx, h.2⟩
+          have h2 := (hpat : _ ∧ _).2
+          rw [List.any_eq_true] at h2
+          obtain ⟨y, hy, hdec⟩ := h2
+          obtain ⟨w, hwmem, rfl⟩ := List.mem_map.mp hy
+          have hw : w < S.nInt := h.1 w hwmem
+          refine ⟨⟨w, hw⟩, mem_toFinList hw hwmem, ?_⟩
+          have heq : valAt a w = valAt a mx := decide_eq_true_eq.mp hdec
+          simpa only [valAt, hw, h.2, dite_true] using heq
       · exact absurd he (by simp)
   case minimum vars mn =>
       simp only [encodePatternAt] at he; split at he
       · rename_i h
-        obtain ⟨v, hvmem, rfl⟩ := List.mem_map.mp he
-        show ([((1 : Int), (⟨mn, h.2⟩ : Fin S.nInt)), ((-1 : Int), v)].map
-          (fun p => p.1 * a p.2)).sum ≤ 0
-        have hall : ∀ y ∈ vars.map (valAt a), valAt a mn ≤ y := by
-          have h1 := (hpat : _ ∧ _).1
-          rw [List.all_eq_true] at h1
-          intro y hy
-          exact decide_eq_true_eq.mp (h1 y hy)
-        have hav : a v ∈ vars.map (valAt a) := by
-          rw [← toFinList_map a vars h.1]
-          exact List.mem_map.mpr ⟨v, hvmem, rfl⟩
-        have hb := hall _ hav
-        have hmn : valAt a mn = a ⟨mn, h.2⟩ := by simp [valAt, h.2]
-        rw [binTerms_sum]
-        omega
+        rw [List.mem_append] at he
+        rcases he with he | he
+        · obtain ⟨v, hvmem, rfl⟩ := List.mem_map.mp he
+          show ([((1 : Int), (⟨mn, h.2⟩ : Fin S.nInt)), ((-1 : Int), v)].map
+            (fun p => p.1 * a p.2)).sum ≤ 0
+          have hall : ∀ y ∈ vars.map (valAt a), valAt a mn ≤ y := by
+            have h1 := (hpat : _ ∧ _).1
+            rw [List.all_eq_true] at h1
+            intro y hy
+            exact decide_eq_true_eq.mp (h1 y hy)
+          have hav : a v ∈ vars.map (valAt a) := by
+            rw [← toFinList_map a vars h.1]
+            exact List.mem_map.mpr ⟨v, hvmem, rfl⟩
+          have hb := hall _ hav
+          have hmn : valAt a mn = a ⟨mn, h.2⟩ := by simp [valAt, h.2]
+          rw [binTerms_sum]
+          omega
+        · rw [List.mem_singleton] at he; subst he
+          show ∃ v ∈ toFinList S vars, a v = a ⟨mn, h.2⟩
+          have h2 := (hpat : _ ∧ _).2
+          rw [List.any_eq_true] at h2
+          obtain ⟨y, hy, hdec⟩ := h2
+          obtain ⟨w, hwmem, rfl⟩ := List.mem_map.mp hy
+          have hw : w < S.nInt := h.1 w hwmem
+          refine ⟨⟨w, hw⟩, mem_toFinList hw hwmem, ?_⟩
+          have heq : valAt a w = valAt a mn := decide_eq_true_eq.mp hdec
+          simpa only [valAt, hw, h.2, dite_true] using heq
       · exact absurd he (by simp)
   case not_gate i o =>
       simp only [encodePatternAt] at he; split at he
@@ -1483,6 +2583,22 @@ theorem keys_block_of_single (base cnt : ℕ) (hcnt : 1 ≤ cnt) (hb : base < S.
   have hv : ((⟨base, hb⟩ : Fin S.nAux) : ℕ) = base := rfl
   omega
 
+/-- Block form of "owns its own two consecutive selectors". -/
+theorem keys_block_of_pair (base cnt : ℕ) (hcnt : 2 ≤ cnt)
+    (hb1 : base < S.nAux) (hb2 : base + 1 < S.nAux)
+    {L : List (Fin S.nAux)} (h : L = [⟨base, hb1⟩, ⟨base + 1, hb2⟩]) :
+    L.Nodup ∧ ∀ k : Fin S.nAux, k ∈ L → base ≤ k.val ∧ k.val < base + cnt := by
+  subst h
+  refine ⟨?_, ?_⟩
+  · simp [List.nodup_cons, Fin.ext_iff]
+  · intro k hk
+    rcases List.mem_cons.mp hk with rfl | hk
+    · have hv : ((⟨base, hb1⟩ : Fin S.nAux) : ℕ) = base := rfl
+      omega
+    · rw [List.mem_singleton] at hk; subst hk
+      have hv : ((⟨base + 1, hb2⟩ : Fin S.nAux) : ℕ) = base + 1 := rfl
+      omega
+
 /-- **Owned-keys block.**  A constraint's owned selector keys are pairwise distinct and
     lie in the half-open block `[base, base + auxCount c)`.  Assignment-independent. -/
 theorem encodePatternAt_keys_block (base : ℕ) (c : IntConstraint S.nInt)
@@ -1562,14 +2678,133 @@ theorem encodePatternAt_keys_block (base : ℕ) (c : IntConstraint S.nInt)
       rw [List.flatMap_eq_nil_iff.mpr (fun e he => encodeIncreasing_setsAux _ a e he),
         List.map_nil]
     · exact keys_block_of_nil rfl _ _
+  case sliding_sum vars w op target =>
+    simp only [encodePatternAt]
+    split
+    · refine keys_block_of_nil ?_ _ _
+      rw [List.map_eq_nil_iff, List.flatMap_eq_nil_iff]
+      intro e he
+      rw [List.mem_flatMap] at he
+      obtain ⟨s, _, he⟩ := he
+      exact encodeRel_setsAux _ _ _ a e he
+    · exact keys_block_of_nil rfl _ _
+  case if_then v value nv nvalue =>
+    simp only [encodePatternAt]
+    split
+    · exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  case if_then_or v value nv allowed =>
+    simp only [encodePatternAt]
+    split
+    · exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  case count vars value n =>
+    simp only [encodePatternAt]
+    split
+    · exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  case count_var vars value cvar =>
+    simp only [encodePatternAt]
+    split
+    · exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
+  case modulo v n k =>
+    simp only [encodePatternAt]
+    split
+    · refine keys_block_of_nil ?_ _ _
+      rw [List.map_eq_nil_iff, List.flatMap_eq_nil_iff]
+      intro e he
+      obtain ⟨d, _, rfl⟩ := List.mem_map.mp he
+      rfl
+    · exact keys_block_of_nil rfl _ _
+  case element idx arr res =>
+    simp only [encodePatternAt]
+    split
+    · rename_i h
+      refine keys_block_of_nil ?_ _ _
+      rw [List.map_eq_nil_iff, List.flatMap_eq_nil_iff]
+      intro e he
+      rw [List.mem_append, List.mem_append] at he
+      rcases he with (he | he) | he
+      · exact encodeRel_setsAux _ _ _ a e he
+      · exact encodeRel_setsAux _ _ _ a e he
+      · exact encodeElementCases_setsAux ⟨idx, h.1⟩ ⟨res, h.2⟩ arr 1 a e he
+    · exact keys_block_of_nil rfl _ _
+  case abs_diff_rel v1 v2 op t =>
+    cases op
+    case LE =>
+      simp only [encodePatternAt]
+      split
+      · split
+        · exact keys_block_of_nil rfl _ _
+        · exact keys_block_of_nil rfl _ _
+      · exact keys_block_of_nil rfl _ _
+    case LT =>
+      simp only [encodePatternAt]
+      split
+      · split
+        · exact keys_block_of_nil rfl _ _
+        · exact keys_block_of_nil rfl _ _
+      · exact keys_block_of_nil rfl _ _
+    case GE =>
+      simp only [encodePatternAt]
+      split
+      · split
+        · split
+          · rename_i hb
+            exact keys_block_of_single base _ (Nat.le_refl 1) hb rfl
+          · exact keys_block_of_nil rfl _ _
+        · exact keys_block_of_nil rfl _ _
+      · exact keys_block_of_nil rfl _ _
+    case GT =>
+      simp only [encodePatternAt]
+      split
+      · split
+        · split
+          · rename_i hb
+            exact keys_block_of_single base _ (Nat.le_refl 1) hb rfl
+          · exact keys_block_of_nil rfl _ _
+        · exact keys_block_of_nil rfl _ _
+      · exact keys_block_of_nil rfl _ _
+    case EQ =>
+      simp only [encodePatternAt]
+      split
+      · split
+        · split
+          · rename_i hb
+            exact keys_block_of_single base _ (Nat.le_refl 1) hb rfl
+          · exact keys_block_of_nil rfl _ _
+        · exact keys_block_of_nil rfl _ _
+      · exact keys_block_of_nil rfl _ _
+    case NE =>
+      simp only [encodePatternAt]
+      split
+      · split
+        · split
+          · rename_i hb
+            exact keys_block_of_pair base _ (Nat.le_refl 2) (by omega) hb rfl
+          · exact keys_block_of_nil rfl _ _
+        · exact keys_block_of_nil rfl _ _
+      · exact keys_block_of_nil rfl _ _
+  case abs_diff_var v1 v2 r =>
+    simp only [encodePatternAt]
+    split
+    · split
+      · rename_i hb
+        exact keys_block_of_single base _ (Nat.le_refl 1) hb rfl
+      · exact keys_block_of_nil rfl _ _
+    · exact keys_block_of_nil rfl _ _
   case maximum vars mx =>
     simp only [encodePatternAt]
     split
     · refine keys_block_of_nil ?_ _ _
       rw [List.map_eq_nil_iff, List.flatMap_eq_nil_iff]
       intro e he
-      obtain ⟨v, _, rfl⟩ := List.mem_map.mp he
-      rfl
+      rw [List.mem_append] at he
+      rcases he with he | he
+      · obtain ⟨v, _, rfl⟩ := List.mem_map.mp he
+        rfl
+      · rw [List.mem_singleton] at he; subst he; rfl
     · exact keys_block_of_nil rfl _ _
   case minimum vars mn =>
     simp only [encodePatternAt]
@@ -1577,8 +2812,11 @@ theorem encodePatternAt_keys_block (base : ℕ) (c : IntConstraint S.nInt)
     · refine keys_block_of_nil ?_ _ _
       rw [List.map_eq_nil_iff, List.flatMap_eq_nil_iff]
       intro e he
-      obtain ⟨v, _, rfl⟩ := List.mem_map.mp he
-      rfl
+      rw [List.mem_append] at he
+      rcases he with he | he
+      · obtain ⟨v, _, rfl⟩ := List.mem_map.mp he
+        rfl
+      · rw [List.mem_singleton] at he; subst he; rfl
     · exact keys_block_of_nil rfl _ _
   case not_gate i o =>
     simp only [encodePatternAt]
