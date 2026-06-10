@@ -26,20 +26,27 @@ that *one* soundness theorem discharges every instance:
 - **`Int` nomenclature.** `HomogeneousCSP` → `IntCSP`, satisfaction is now
   pattern-determined (`satisfiesConstraintInt c a := patternHolds c a`), making a
   generic encoder possible (`CSP/L2S/Core.lean`).
-- **`csp_unsat csp cert : ¬ csp.isSatisfiableInt`** (`GenericEncode.lean`) — derives
-  the signature (`cspSig`), the PB formula (`encodeCSP`, via `encodePattern`
-  dispatching the `IntConstraint` inductive to the per-pattern encoders), and all
-  preconditions automatically; no per-instance soundness. `encodePattern_sound`
-  feeds each constraint's `patternHolds` into its library soundness lemma.
+- **`csp_sat_pb_sat`** (`GenericEncode.lean`) — the headline soundness theorem,
+  **CSP-SAT ⇒ PB-SAT**: every satisfiable `IntCSP` (each variable carrying a `bound`)
+  has a satisfiable PB encoding, witnessed by order-encoding the solution with the
+  Big-M selectors set by the generic allocator.  No per-instance hypotheses —
+  selector distinctness is proven once, generically (`encodeCSP_keys_nodup`, a
+  structural induction over the threaded selector blocks).
+- **`csp_unsat csp cert : ¬ csp.isSatisfiableInt`** — the contrapositive of
+  `csp_sat_pb_sat` instantiated with a kernel-checked certificate; derives the
+  signature (`cspSig`, aux-sized by `cspNAux`), the PB formula (`encodeCSP`, via the
+  selector-base-threaded `encodePatternAt`), and all preconditions automatically.
 - **File-based certificates.** `csp_unsat_file csp numVars "certs/foo.pbp"`
   (`include_str` + `native_decide`) replaces inline kernel-proof strings;
-  `scripts/gen_cert.sh` regenerates them against `encodeCSP`. Corpus instances moved
-  to `CSP/L2S/Backends/PB/Problems/` with certificates under `Problems/certs/`.
-- **22 problem theorems** (all aux-free families: `alldifferent`, `not_equal`,
-  `eq_const`, `ne_const`, `at_most_k`, `at_least_k`, `linear`, `sum`,
-  `schur_triple`) are now one-line `csp_unsat_file`. The remaining 6 (N-Queens /
-  blocked queens, the circuit family, full-adder / ripple-carry) keep bespoke proofs
-  until their encoders are wired into `encodePattern` (§6).
+  `scripts/gen_cert.sh` regenerates them against `encodeCSP` (its `numVars` counts
+  thresholds *plus* Big-M selectors). Corpus instances live in
+  `CSP/L2S/Backends/PB/Problems/` with certificates under `Problems/certs/`.
+- **All 28 problem theorems are one-line `csp_unsat_file`** — including the formerly
+  bespoke N-Queens / blocked queens (via `alldifferentOffset`'s pairwise Big-M
+  expansion), the circuit family (Boolean-gate facet encodings), and full-adder /
+  ripple-carry (ternary-XOR parity-polytope facets + the Big-M `≠` identity).
+- Every end-to-end theorem's axioms: `propext, Classical.choice, Quot.sound` plus
+  exactly **one** `native_decide` (the certificate recheck); no `sorryAx`.
 - The deferred `CSP/L2S/Proofs/` experiments (equivalence + symmetry-breaking) were
   removed; the whole project is green.
 
@@ -179,12 +186,12 @@ one of them:
 
 ## 4. Results — end-to-end UNSAT theorems
 
-Across 16 problem families (full table with module/corpus in `README.md`). **22**
-are now one-line `csp_unsat_file` over committed certificates (every aux-free
-family); the remaining **6** (N-Queens / blocked queens, the circuit family,
-full-adder / ripple-carry) keep bespoke proofs until their encoders are wired into
-`encodePattern` (§6). Six are scaling checkpoints from the `docs/SCALING.md` study —
-the larger pigeonhole, mutilated-chessboard, and odd-cycle instances:
+Across 16 problem families (full table with module/corpus in `README.md`). **All 28**
+are one-line `csp_unsat_file` over committed certificates — no bespoke proofs remain;
+every theorem is `csp_unsat` (the certificate-instantiated contrapositive of the
+general soundness theorem `csp_sat_pb_sat`). Six are scaling checkpoints from the
+`docs/SCALING.md` study — the larger pigeonhole, mutilated-chessboard, and odd-cycle
+instances:
 
 - **Pigeonhole** — `php_3_2_unsat`, `php_5_4_unsat`, `php_7_6_unsat`, `php_9_8_unsat`.
 - **Schur** — `schur_2_5_unsat` (2-colour), `schur_3_14_unsat` (3-colour).
@@ -259,30 +266,28 @@ For a reader comparing against `PLAN_old.md`, the substantive design decisions:
 
 ## 6. Remaining work — covering all constraints and problems
 
-The goal is for **every** finite-domain CSP in the supported modeling fragment to be
-discharged by the one-line `csp_unsat_file`. All remaining work is local to
-`encodePattern` / the encoder library — **never per-problem**. After each item, the
-affected instances collapse to one-liners with regenerated certificates.
+**Done (the generic-coverage push).**  All 28 committed problems are one-line
+`csp_unsat_file`; no bespoke proofs remain.  `encodePatternAt` covers, with
+per-constructor soundness: the linear/cardinality relations (`linear`, `sum`,
+`exactly_k`, `at_most/least_k`, binary `eq/ne/lt/le/gt/ge`, the `*_const`
+comparisons, `implies`, `iff`, `sum_rel_var`, `linear_rel_var` — `.NE` variants via
+the Big-M selector), `alldifferent`, `alldifferentOffset` (pairwise Big-M expansion),
+`schur_triple`, the Boolean gates (`not/and/or/xor/nand/nor_gate`, `and_all`,
+`or_all`, `xor_all` of arity 2 and 3 — min/max facets and the parity-polytope
+facets), `increasing` (consecutive `≤` chain), and `maximum`/`minimum` (the implied
+per-element bounds; the attainment disjunct is dropped, sound by weakening).
 
-1. **`alldifferentOffset`** (diagonal all-different — N-Queens, blocked queens): add
-   an offset-aware encoder `encodeAllDifferentOffset` (per-value cardinality over the
-   shifted values `a vᵢ + offsetᵢ`) + soundness, then one `encodePattern` case.
-   Migrates `nqueens_*`, `blocked_queens_4`.
-2. **Boolean gates** (`and_gate`/`or_gate`/`not_gate`/`xor_*`/`and_all`/`or_all`):
-   emit the linear `{0,1}` encodings (`out ≤ inᵢ`, `out ≥ Σ inᵢ − (k−1)`, parity via
-   the full-adder identity) as `EncConstr`s, derive their preconditions from
-   `patternHolds`. Migrates the circuit family (`xor_equivalence`, `circuit_majority3`).
-3. **Big-M general linear `≠`** (`linear_ne`): wire `encLinearNe` (owns one aux
-   selector) into `encodePattern`, switch `csp_unsat` from `csp_unsat_of_encfree` to
-   `csp_unsat_of_enc_alloc`, and size `cspSig.nAux` to the number of `≠` constraints
-   (the allocator already builds the global aux assignment from pairwise-distinct
-   owned indices). Migrates `full_adder`, `ripple_carry`.
-4. **The remaining `IntConstraint` constructors** (`count`, `element`,
-   `maximum`/`minimum`, `modulo`, `abs_diff_*`, `increasing`, `implies`/`iff`,
-   `*_rel_var`, …): each is one `encodePattern` case + a soundness lemma over an
-   encoder; genuinely non-linear ones (e.g. `product_rel_var`,
-   `30_multiplier_verification`) stay `[]` (sound by weakening) and are out of the
-   PB fragment.
+**Remaining constructors.**
+1. **`sliding_sum`** — linear (one `encodeRelAt` per window over `drop`/`take`
+   term lists); needs the window-extraction sum lemmas. Currently `[]`.
+2. **`count` / `count_var`** — need a per-value indicator-*equality* primitive
+   (`Σⱼ⟦vⱼ = value⟧ = n`); the library only has the `≤` direction (alldifferent's
+   cardinality). Currently `[]`.
+3. **`if_then` / `if_then_or`** — disjunctions; encodable with one Big-M selector
+   each (same shape as `≠`). Currently `[]`.
+4. **Out of the linear PB fragment** (stay `[]`, sound by weakening):
+   `product_rel_var`, `modulo`, `abs_diff_rel/var`, `element`, `disjunctive`,
+   `unknown`, and gates over non-`{0,1}` domains (the gate guards drop them).
 5. **Scaling** — larger corpus sizes (wider ripple-carry, larger Paley graphs —
    probe UNSAT status with RoundingSat first) and a `scripts/gen_cert.sh` sweep over
    all instances whenever an encoder changes shape.
@@ -290,3 +295,171 @@ affected instances collapse to one-liners with regenerated certificates.
 **Unmotivated / optional:** the recursive `BoolExpr` Tseitin compiler
 (`BoolExprCompiler.lean`) is verified but has no consumer — every circuit goes
 through the linear/identity route; integrating it into the spine is optional.
+
+---
+
+## 7. Dead code — left behind by the generic refactor
+
+The move to the single generic `csp_unsat` / `csp_unsat_file` (the `IntConstraint` +
+`patternHolds` + `encodeCSP` pipeline of §1–§3) made several modules and
+definitions obsolete. They were **not** deleted in the refactor, so they still sit in
+the tree. This matters in practice: the lakefile's `globs := #[.andSubmodules
+\`CSP]` compiles **every** file under `CSP/` regardless of whether anything imports
+it, and the dead Boolean modules still re-run their `native_decide` checks — so this
+is dead weight on every `lake build`, not merely unreferenced source. Verified
+against the import graph on `csp-unsat-generic`:
+
+**Pure dead pair (no consumer anywhere) — first to remove.**
+- `Backends/PB/BoolExprCompiler.lean` — recursive Tseitin compiler; imported by **0**
+  files. Every circuit theorem goes through the linear / `fa_identity` route, so it
+  never had a consumer (already flagged "Unmotivated / optional" in §6).
+- `Backends/PB/BoolGates.lean` — Tseitin gate primitives (`gateNot`/`gateAnd`/…);
+  imported by exactly **one** file, `BoolExprCompiler.lean`, which is itself dead.
+  Transitively dead; removing the pair together is clean.
+
+**Legacy tactics superseded by `csp_unsat_file`.**
+- `csp_decide` in `Backends/PB/Tactic.lean` (plus its helpers `evalOPB` /
+  `evalOPBUnsafe`) — the non-hermetic shell-out variant. No committed theorem uses
+  it; its only mention is a comment in `Serialize.lean`.
+- `csp_reflect_unsat` in `Backends/PB/Tactic.lean` — reads a `.pbp` file and
+  discharges `formulaUnsat`. Its only caller is the demo `DemoReflect.lean`. The
+  committed theorems all use `csp_unsat_file` (`include_str` + `native_decide`)
+  instead.
+
+**Demonstration scaffolding (illustrative, off the problem pipeline).**
+- `Backends/PB/Demo.lean`, `DemoGeneric.lean`, `DemoHomogeneous.lean`,
+  `DemoReflect.lean` — these only import each other (`Demo` ← `DemoGeneric` ←
+  `DemoHomogeneous`; `DemoReflect` standalone) and are imported by no problem or
+  spine. They document the old hand-wired route (build `phpSig`/`phpEncoded` by
+  hand, inline `String` certificate, compose through a spine) that the generic
+  pipeline replaced. `Demo.lean` predates `Problems/`.
+- `Backends/PB/Serialize.lean` (`toOPBString`) — the untrusted OPB text serializer.
+  Outside the trust base. Its only in-Lean users are the demo cluster and the dead
+  `csp_decide`; its real consumer is the **external** `scripts/scaling/validate.py`
+  byte-identity check, so it cannot be deleted outright — see the scaling-harness
+  caveat below.
+
+**Newly dead since the generic-coverage push (all 28 problems now one-line).**
+- `Backends/PB/CircuitGates.lean` — the circuit-gate semantic bridges
+  (`and_gate_sat`, `or_all3_full_sat`, `xor_all3_sat`, `fa_identity`).  Its only
+  consumers were the bespoke FullAdder/RippleCarry proofs, now deleted; **0**
+  importers remain.  Removable with the same care as the Boolean pair above.
+- `unsat_of_pb` (`Adapter.lean`) — the clean linear spine no longer has any problem
+  consumer (only the demo cluster references it).  The *module* stays (it defines
+  `toCSPSig`/`domainValues`, which `cspSig` builds on); only the spine def is dead.
+- `csp_unsat_generic` (`Extend.lean`) keeps one structural consumer — the
+  `EncConstr` composition (`Compose.lean`) is proven through it — so it is plumbing,
+  not dead.
+
+**Still live — do NOT remove.** All encoder soundness modules (`Encode`,
+`AllDifferent`, `Cardinality`, `LinearNe`, `NotAllEqual`, `NotAllEqualBridge`),
+the generic layer (`Compose` / `Library` / `GenericEncode`), and `Core` (pulled in
+by the live `ToNat` bridge) are all reachable from the generic composition.
+
+### Removal plan (staged, lowest-risk first)
+
+1. **Delete the dead Boolean pair** `BoolExprCompiler.lean` + `BoolGates.lean`
+   together. Zero importers, so a bare `lake build` is the only check needed. This
+   also reclaims their `native_decide` recheck time. (If the Tseitin route is ever
+   wanted — §6 "optional" — recover it from git history.)
+2. **Strip the legacy tactics** `csp_decide` (+ `evalOPB` / `evalOPBUnsafe`) and
+   `csp_reflect_unsat` from `Tactic.lean`, and drop the stale `csp_decide` comment in
+   `Serialize.lean`. This makes `DemoReflect.lean` dead (its only content is a
+   `csp_reflect_unsat` call), so remove it in the same step.
+3. **Remove the remaining demo cluster** `Demo.lean` / `DemoGeneric.lean` /
+   `DemoHomogeneous.lean` once nothing else imports them. If a worked example is
+   still wanted for docs, replace the cluster with a single short `csp_unsat_file`
+   example under `Problems/` rather than the hand-wired version.
+4. **Keep `Serialize.lean`** until the scaling harness is ported (it backs
+   `validate.py`'s byte-identity assertion). If/when the scaling scripts are updated
+   to elaborate `encodeCSP` directly, re-evaluate whether `toOPBString` still has any
+   consumer.
+
+After each stage: `lake build` (the `andSubmodules` glob rebuilds everything) and a
+`#print axioms` spot-check on a representative end-to-end theorem to confirm the
+trust base is unchanged (`propext, Classical.choice, Quot.sound` + one
+`native_decide` axiom).
+
+---
+
+## 8. Scaling harness — port to the generic pipeline
+
+The cutting-planes-vs-resolution scaling study (`docs/SCALING.md`, `scripts/scaling/`,
+`results/scaling*.csv`) was authored against the **pre-refactor** pipeline (the
+hand-wired `phpSig`/`phpEncoded`, inline-`String` certificates, and per-instance
+modules of §5/§7). The scripts were carried onto this branch **unchanged** — they are
+byte-identical to the `cert` branch — so they no longer match the Lean they point at.
+Nothing in the scaling harness runs against `csp-unsat-generic` today. This is the
+same class of staleness as §7, but on the external (Python) side; it is the
+unfinished tail of §6 item 5 ("Scaling").
+
+The right time to fix it is **once the generic pipeline covers all problems** (after
+§6.1–§6.4, when every family is a one-line `csp_unsat_file` and the bespoke proofs
+and the two spines are gone). Porting earlier means re-porting after each encoder
+reshape; porting once the encoder shape is final does it once.
+
+### What is broken (verified against `csp-unsat-generic`)
+
+1. **`scripts/scaling/lean_timing.py`** hardcodes the old module paths and ids —
+   `CSP/L2S/Backends/PB/Pigeonhole.lean`, module `CSP.L2S.Backends.PB.Pigeonhole`,
+   and likewise `MutilatedChessboard6`, `OddCycle`. All three modules now live under
+   `Backends/PB/Problems/` (module id `…Backends.PB.Problems.Pigeonhole`), so every
+   import/recheck it builds fails to resolve. Its cost model is also stale: it splits
+   "native_decide recheck vs. module build" assuming an **inline `String`**
+   certificate, but the theorems now load the cert from `certs/*.pbp` via
+   `include_str`.
+2. **`scripts/scaling/validate.py`** elaborates per-instance encoder symbols that no
+   longer exist — `Pigeonhole.phpEncoded`, `php5Encoded`, `MutilatedChessboard.mcSig`,
+   `mcLin` (all **0 occurrences** now). They were absorbed into the generic
+   `cspSig` / `encodeCSP` / `encodePattern`. The serializer it drives (`toOPBString`)
+   still exists, so the mechanism survives — only the expressions it feeds in must
+   change.
+3. **`scripts/scaling/gen_mutilated_lean.py`** (the new-checkpoint generator) emits a
+   template incompatible on every axis: `¬ …​.isSatisfiable` (now `isSatisfiableInt`),
+   `HomogeneousAssignment` (now the `Int` nomenclature), an inline `mcKernelProof :
+   String`, and bespoke `mc_hbound` / `mc_hlin` / `mc_formulaUnsat` lemmas — none of
+   which match the one-line `csp_unsat_file` + `certs/*.pbp` form.
+4. **`scripts/scaling/pbgen.py`** must be re-checked for **byte-for-byte identity**
+   against the generic `encodeCSP` output. If the generic encoder changed variable or
+   constraint ordering or normalization, the standalone OPB drifts from what the Lean
+   theorems check — which would also mean the committed `cert (chars)` columns in the
+   CSVs no longer match certs regenerated by `scripts/gen_cert.sh`.
+
+### Fix plan (after the pipeline covers all problems)
+
+1. **Repoint `lean_timing.py`** at `Backends/PB/Problems/<Family>.lean` and the
+   `…Backends.PB.Problems.<Family>` module ids. Replace the recheck-cost expression
+   with the `csp_unsat_file` / `include_str` form. With every family now generic and
+   sharing one `csp_unsat` proof, the §5 finding ("what grows in-Lean is the
+   soundness-bridge proof, not the recheck") changes shape — the per-family bridge is
+   gone, so re-measure and rewrite SCALING.md §5 to report the *generic* recheck +
+   `encodeCSP` elaboration cost instead of bespoke `mc_hlin`-style bridges.
+2. **Rewrite `validate.py`'s `lean_opb_expr`s** to serialize the generic encoding —
+   `toOPBString (encodeCSP <csp>) <numVars>` (or whatever the final `encodeCSP`
+   signature is) — instead of the deleted `phpEncoded`/`mcSig`/`mcLin`. Keep the
+   byte-identity assertion; this is what justifies comparing the external sweep CSVs
+   to the in-Lean instances. Decide here whether `Serialize.lean` survives §7's "keep
+   for now" (step 4): if `validate.py` instead reads the committed `certs/*.pbp` /
+   regenerates via `gen_cert.sh`, `toOPBString` may lose its last consumer and can be
+   dropped.
+3. **Replace `gen_mutilated_lean.py`** with a generator (or a thin wrapper over
+   `scripts/gen_cert.sh`) that emits the one-line `csp_unsat_file <csp> <n>
+   "certs/<name>.pbp"` theorem **plus** the `certs/<name>.pbp` file, against
+   `isSatisfiableInt` and the `Int` nomenclature. The same wrapper then authors any
+   new larger checkpoint (§6.5: wider ripple-carry, larger Paley — probe UNSAT with
+   RoundingSat first).
+4. **Re-confirm `pbgen.py` ↔ `encodeCSP` identity** via the ported `validate.py`
+   ("ALL IDENTICAL"); if it diverges, regenerate `results/scaling*.csv` and refresh
+   the `cert (chars)` / size columns and the in-Lean checkpoint table in SCALING.md so
+   the external and in-Lean numbers stay comparable.
+5. **Refresh `docs/SCALING.md`** prose for the generic pipeline: the §5 in-Lean
+   checkpoint table and the §7 "what grows in-Lean is the bridge proof" note both
+   describe the old per-family bridges and must be restated for the single generic
+   spine. The §2–§4 separation results (PB cert size vs. DRAT) are about the
+   *encoding and solvers*, not the Lean spine, so they stand — only re-run the sweep
+   if step 4 shows the OPB changed.
+
+Validation when done: `uv run python scripts/scaling/validate.py` reports ALL
+IDENTICAL; `lean_timing.py` runs clean against the `Problems/` modules; and a fresh
+checkpoint authored by the new generator builds via `lake build` with an axiom-clean
+`#print axioms`.
