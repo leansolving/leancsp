@@ -47,8 +47,20 @@ that *one* soundness theorem discharges every instance:
   ripple-carry (ternary-XOR parity-polytope facets + the Big-M `≠` identity).
 - Every end-to-end theorem's axioms: `propext, Classical.choice, Quot.sound` plus
   exactly **one** `native_decide` (the certificate recheck); no `sorryAx`.
-- The deferred `CSP/L2S/Proofs/` experiments (equivalence + symmetry-breaking) were
-  removed; the whole project is green.
+- The `CSP/L2S/Proofs/` equivalence + symmetry-breaking proofs (NQueens/GraphColoring
+  π-equivalence, NQueens/GraphColoring/LatinSquare SB, circuit input/twin SB,
+  unreachable-input + parity theorems) have been **restored and ported** to the
+  pattern-based satisfaction semantics. Per-constraint reasoning routes through
+  `Proofs/PatternBridges.lean` (two-way `*_holds_iff` bridges from `patternHolds` to
+  the `Fin`-indexed forms). Every headline theorem is axiom-clean
+  (`propext, Classical.choice, Quot.sound`; UnreachableInputElimination only the
+  first + `Quot.sound`), **except `CircuitTwinSymmetryBreaking`**, which retains two
+  pre-existing unproven `axiom`s (`gate_constraint_preserved_by_twin_perm`,
+  `ordering_constraint_satisfied_by_sort`) — its results are therefore conjectures,
+  not theorems, until those are discharged. **No new axioms are to be introduced in
+  this corpus, and these two should be proved out.** No `sorry`. The cert-era
+  `Experiments/` Python/MiniZinc harness was not carried over (stays on the `cert`
+  branch). The whole project is green.
 
 | Milestone (from `PLAN_old.md`) | State |
 |---|---|
