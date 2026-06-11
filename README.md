@@ -20,9 +20,18 @@ theorem php_3_2_unsat : ¬ php_3_2.isSatisfiableInt :=
 
 where `php_3_2` is a genuine corpus CSP (three pigeons into two holes). The theorem is checked by Lean's kernel; no UNSAT verdict is taken on faith.
 
-### One generic soundness theorem, applied in one line
+### One general soundness theorem, applied in one line
 
-The heart of the backend is a **single generic theorem** (`GenericEncode.lean`):
+The heart of the backend is a **single general soundness theorem** (`GenericEncode.lean`), stated in the satisfiability direction — *every satisfiable CSP has a satisfiable PB encoding*:
+
+```lean
+theorem csp_sat_pb_sat (csp : IntCSP)
+    (hbound : ∀ i, bound i lbᵢ ubᵢ ∈ csp.constraints)
+    (hsat : csp.isSatisfiableInt) :
+    ∃ v, ∀ c ∈ (cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp), c.sat v
+```
+
+Its witness order-encodes the solution and sets the Big-M selector auxiliaries with a generic allocator; selector distinctness is proven once, structurally (`encodeCSP_keys_nodup`) — there are **no per-instance hypotheses**. The UNSAT entry point is its contrapositive instantiated with a kernel-checked certificate:
 
 ```lean
 theorem csp_unsat (csp : IntCSP)
@@ -33,11 +42,11 @@ theorem csp_unsat (csp : IntCSP)
     ¬ csp.isSatisfiableInt
 ```
 
-It says, once and for all: *if the canonical PB encoding of `csp` is UNSAT (kernel-checked certificate), then `csp` is unsatisfiable.* Everything is derived from the CSP automatically — the order-encoding signature `cspSig csp` from its `bound` constraints, the PB formula `encodeCSP csp` by dispatching each `IntConstraint` to its verified per-pattern encoder, and the in-domain / per-constraint preconditions from the constraint semantics (`patternHolds`).
+Everything is derived from the CSP automatically — the order-encoding signature `cspSig csp` from its `bound` constraints (aux-sized by `cspNAux`), the PB formula `encodeCSP csp` by dispatching each `IntConstraint` to its verified per-pattern encoder (threading a selector base for the Big-M families), and the in-domain / per-constraint preconditions from the constraint semantics (`patternHolds`).
 
-The `csp_unsat_file csp numVars "certs/foo.pbp"` macro is `csp_unsat` with the certificate loaded from a committed `.pbp` file at compile time (`include_str`) and re-checked by PBLean via `native_decide`.
+The `csp_unsat_file csp numVars "certs/foo.pbp"` macro is `csp_unsat` with the certificate loaded from a committed `.pbp` file at compile time (`include_str`) and re-checked by PBLean via `native_decide`. (`numVars` is the OPB variable count — threshold bits plus Big-M selectors — printed by `scripts/gen_cert.sh`.)
 
-**This replaces the old per-problem hand-written Lean proofs.** Previously each instance carried its own `CSPSig`, hand-rolled encoding, per-constraint soundness bridges, and a multi-step `csp_unsat_generic` assembly (tens to hundreds of lines). Now every supported instance is **one line plus a certificate file**; adding a new constraint family means adding one `encodePattern` case and one `encodePattern_sound` case — never per-problem proof work.
+**This replaces the old per-problem hand-written Lean proofs.** Previously each instance carried its own `CSPSig`, hand-rolled encoding, per-constraint soundness bridges, and a multi-step `csp_unsat_generic` assembly (tens to hundreds of lines). Now **every committed instance is one line plus a certificate file**; adding a new constraint family means adding one `encodePatternAt` case and one soundness case — never per-problem proof work.
 
 ### The pipeline
 
@@ -91,7 +100,7 @@ The corresponding predicates are `isSolutionInt` and `isSatisfiableInt`. (The na
 | `PB/Extend.lean` | The order-encoding spine `csp_unsat_generic`: "every CSP solution extends to a PB model" + a certificate ⇒ `¬ ∃ solution`. |
 | `PB/Compose.lean` | `EncConstr` (a soundness-carrying encoded constraint) and the assumption-free composition `csp_unsat_of_enc` / `csp_unsat_of_enc_alloc` (with an automatic aux-index allocator). |
 | `PB/Library.lean` | One `enc<Pattern>` smart constructor per supported family, each bundling its encoding with its per-constraint soundness (reusing the `extend_sat_*` lemmas). |
-| **`PB/GenericEncode.lean`** | **`cspSig`, `encodePattern` (`IntConstraint` → `EncConstr` list), `encodePattern_sound`, `encodeCSP`, and the single generic theorem `csp_unsat` + the `csp_unsat_file` macro.** |
+| **`PB/GenericEncode.lean`** | **`cspSig` (aux-sized), `encodePattern`/`encodePatternAt` (`IntConstraint` → `EncConstr` list, selector-base-threaded) + their soundness, the selector-distinctness machinery (`encodeCSP_keys_nodup`, hypothesis-free), the gated-disjunction and indicator encoders, `encodeCSP`, the general theorem `csp_sat_pb_sat`, its corollary `csp_unsat`, and the `csp_unsat_file` macro.** |
 | `PB/Adapter.lean`, `PB/NotAllEqualBridge.lean` | Domain-value lists, `bound_sat`, and the per-pattern `*_sat` bridges reused by the encoders. |
 | `PB/Tactic.lean` | The older `csp_reflect_unsat` command (reads a `.pbp` and discharges `formulaUnsat`) and `csp_decide` (shells out at elaboration time, non-hermetic). `csp_unsat_file` is the preferred form. |
 
@@ -111,17 +120,18 @@ propext,  Classical.choice,  Quot.sound,  <theorem>._native.native_decide.ax_1_1
 
 ### Supported constraint fragment
 
-The generic encoder (`encodePattern`) currently covers, **fully automatically via `csp_unsat`**:
+The generic encoder covers **44 of the 48 `IntConstraint` constructors**, fully automatically via `csp_unsat`:
 
-`bound` (domains) · `alldifferent` · `not_equal` / `eq_const` / `ne_const` · cardinality `at_most_k` / `at_least_k` · `linear` (`≤, ≥, <, >, =`) · `sum` (`≤, ≥, <, >, =`) · `schur_triple` (not-all-equal).
+- **Linear / cardinality:** `bound` (domains) · `linear` / `sum` (all six relations, `≠` via an allocator-managed Big-M selector) · `sum_rel_var` / `linear_rel_var` · `at_most_k` / `at_least_k` / `exactly_k` · `sliding_sum` (per window).
+- **Comparisons / logic:** binary `eq`/`ne`/`lt`/`le`/`gt`/`ge` · the `*_const` comparisons · `implies` / `iff` · `if_then` / `if_then_or` (indicator-implication facets, aux-free).
+- **Global:** `alldifferent` (per-value cardinality) · `alldifferentOffset` (pairwise Big-M expansion — the N-Queens diagonals) · `increasing` · `count` / `count_var` (indicator sums) · `maximum` / `minimum` (bounds **and** attainment facets — exact) · `element` (index bounds + per-position implication) · `modulo` (domain filter — exact) · `abs_diff_rel` (all six relations) / `abs_diff_var` (gated disjunctions) · `schur_triple`.
+- **Boolean gates over `{0,1}`:** `not`/`and`/`or`/`xor`/`nand`/`nor_gate` · `and_all`/`or_all` (min/max facets) · `xor_all` of arity 2–3 (the parity-polytope facets; the full-adder sum).
 
-Constraint families with an existing encoder but not yet wired into `encodePattern` (still handled by older bespoke proofs, see the table): `alldifferentOffset` (diagonal all-different), Boolean gates (`and_gate`/`or_gate`/`not_gate`/`xor_*`/`and_all`/`or_all`), and the Big-M general linear `≠` (`linear_ne`, which needs an auxiliary variable). See **Next steps**.
+The only constructors left at the sound default `[]`: `xor_all` of arity ≥ 4 (model wide parity as a chain of ternary gates, as the corpus adders do), `product_rel_var` (genuinely non-linear), and `disjunctive`/`unknown` (whose semantics is `True`, so the empty encoding is exact). Gates over non-`{0,1}` domains are dropped by their decidable domain guards (sound).
 
 ### End-to-end UNSAT theorems
 
-Each row is a kernel-checked `¬ ....isSatisfiableInt` theorem for a CSP from (or built on) `CSP/L2S/Tests/lean/`. All are axiom-clean as above. The first group is **one-line `csp_unsat_file`** over a committed certificate; the second still uses a bespoke proof pending its encoder being wired into `encodePattern`.
-
-**Generic (`csp_unsat_file`, one line + `Problems/certs/*.pbp`):**
+Each row is a kernel-checked `¬ ....isSatisfiableInt` theorem for a CSP from (or built on) `CSP/L2S/Tests/lean/`. All are axiom-clean as above, and **all 28 are one-line `csp_unsat_file`** over a committed certificate — no bespoke proofs remain.
 
 | Theorem | Module | What it certifies |
 |---------|--------|-------------------|
@@ -141,17 +151,12 @@ Each row is a kernel-checked `¬ ....isSatisfiableInt` theorem for a CSP from (o
 | `magic_hexagon_2_unsat` | `MagicHexagon.lean` | No order-2 normal magic hexagon (forced line sum `28/3`). |
 | `mutilated_chessboard`/`_6_unsat` | `MutilatedChessboard*.lean` | A 4×4 / 6×6 board minus two same-colour corners has no domino tiling. |
 | `peaceable_armies_4_3_unsat` | `PeaceableArmies.lean` | No 3+3 peaceable queens on a 4×4 board (a(4)=2). |
-
-**Bespoke (pending `encodePattern` coverage — see Next steps):**
-
-| Theorem | Module | Missing family |
-|---------|--------|----------------|
-| `nqueens_2`/`nqueens_3_unsat` | `NQueens.lean` | `alldifferentOffset` (diagonals) |
-| `blocked_queens_4_unsat` | `BlockedQueens.lean` | `alldifferentOffset` |
-| `xor_equivalence_unsat` | `CircuitEquiv.lean` | Boolean gates |
-| `circuit_majority3_unsat` | `Circuit.lean` | Boolean gates |
-| `full_adder_correct_unsat` | `FullAdder.lean` | gates + `linear_ne` (aux) |
-| `ripple_carry_4bit_correct_unsat` | `RippleCarry.lean` | `linear_ne` (aux) |
+| `nqueens_2`/`nqueens_3_unsat` | `NQueens.lean` | 2- and 3-Queens have no solution (`alldifferentOffset` diagonals). |
+| `blocked_queens_4_unsat` | `BlockedQueens.lean` | 4-Queens with column 1 blocked in every row is unsolvable. |
+| `xor_equivalence_unsat` | `CircuitEquiv.lean` | A native XOR gate and its AND/OR/NOT decomposition never disagree. |
+| `circuit_majority3_unsat` | `Circuit.lean` | The majority-of-3 circuit cannot output 0 with ≥ 2 inputs set. |
+| `full_adder_correct_unsat` | `FullAdder.lean` | The gate-level full adder satisfies `a + b + cin = 2·cout + sum`. |
+| `ripple_carry_4bit_correct_unsat` | `RippleCarry.lean` | The 4-bit ripple-carry adder satisfies `A + B = result`. |
 
 Corpus instances live under `CSP/L2S/Backends/PB/Problems/`; the reusable backend (encoders, `Compose`/`Library`/`GenericEncode`, and the `Demo*` tutorials) stays in `CSP/L2S/Backends/PB/`.
 
@@ -190,17 +195,12 @@ end CSP.L2S.PB.MyProblem
 
 and `scripts/gen_cert.sh CSP.L2S.Tests.lean.«NN_my_problem» myCSP my` produces `numVars` and the committed `certs/my.pbp`. The full playbook is in **[`docs/ADDING_UNSAT_INSTANCES.md`](docs/ADDING_UNSAT_INSTANCES.md)**; the architecture and implemented-status summary are in **[`PLAN.md`](PLAN.md)**.
 
-### Next steps — covering all constraints and problems
+### Next steps
 
-The end goal is for **every** finite-domain CSP in the supported modeling fragment to be discharged by the one-line `csp_unsat_file`. The remaining work is all in `encodePattern` / the encoder library (never per-problem):
+The generic-coverage goal is **done**: every committed problem is a one-line `csp_unsat_file`, and 44 of 48 constraint constructors are encoded with per-case soundness (see the fragment summary above for the four documented exceptions). What remains is orthogonal to the encoder:
 
-1. **`alldifferentOffset`** (diagonal all-different, for N-Queens / blocked queens) — add an offset-aware all-different encoder `encodeAllDifferentOffset` (per-value cardinality on the shifted values `a vᵢ + offsetᵢ`) with its soundness lemma, then one `encodePattern` case. Migrates `nqueens_*`, `blocked_queens_4`.
-2. **Boolean gates** (`and_gate`/`or_gate`/`not_gate`/`xor_*`/`and_all`/`or_all`) — emit the linear `{0,1}` encodings (`out ≤ inᵢ`, `out ≥ Σ inᵢ − (k−1)`, parity via the full-adder identity) as `EncConstr`s and derive their preconditions from `patternHolds`. Migrates the circuit family (`xor_equivalence`, `circuit_majority3`).
-3. **Big-M general linear `≠`** (`linear_ne`) — wire `encLinearNe` (which owns one auxiliary selector) into `encodePattern`, switching `csp_unsat` from the aux-free `csp_unsat_of_encfree` spine to `csp_unsat_of_enc_alloc` and sizing `cspSig`'s `nAux` to the number of `≠` constraints (the allocator already builds the global aux assignment from pairwise-distinct owned indices). Migrates `full_adder`, `ripple_carry`.
-4. **The remaining `IntConstraint` constructors** (`count`, `element`, `maximum`/`minimum`, `modulo`, `abs_diff_*`, `increasing`, `implies`/`iff`, `*_rel_var`, …) — each becomes one `encodePattern` case + soundness over an encoder; unsupported/non-linear ones (e.g. `product_rel_var`) stay `[]` (sound by weakening).
-5. **Scaling** — larger corpus sizes and a regeneration sweep (`scripts/gen_cert.sh` over all instances) once an encoder changes shape.
-
-Each item is local: an encoder + its soundness lemma + a single `encodePattern`/`encodePattern_sound` case, after which the instances collapse to one-liners with regenerated certificates.
+1. **Scaling** — larger corpus sizes (wider ripple-carry, larger Paley graphs — probe UNSAT with RoundingSat first) and a regeneration sweep (`scripts/gen_cert.sh` over all instances) whenever an encoder changes shape. The external scaling harness (`scripts/scaling/`, `docs/SCALING.md`) predates the generic pipeline and needs porting — see `PLAN.md` §8.
+2. **Dead-code cleanup** — the bespoke-era modules (`BoolExprCompiler`/`BoolGates`, `CircuitGates`, the demo cluster, the legacy tactics) are inventoried with a staged removal plan in `PLAN.md` §7.
 
 ---
 
