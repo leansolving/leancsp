@@ -20,7 +20,12 @@ Usage:
   uv run python run_scaling.py            # full sweep (all families)
   uv run python run_scaling.py php        # one family
   uv run python run_scaling.py php mutilated
-The OPB encoding is byte-for-byte identical to the verified in-Lean encoder
+roundingsat is taken from $ROUNDINGSAT (falling back to the local-build default,
+then PATH).  Missing DRAT-side tools degrade gracefully: a missing SAT solver
+skips that leg with sat_status=TOOL-MISSING; a missing drat-trim still records
+the proof size and marks drat_trim_status=TOOL-MISSING.
+The OPB encoding is byte-for-byte identical to the verified in-Lean generic
+encoder, `(cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp)`
 (asserted by validate.py); see docs/SCALING.md.
 """
 
@@ -41,6 +46,18 @@ import pbgen
 TIMEOUT = 600           # seconds, hard per-solver-call limit
 REPEATS = 3             # median-of-N for wall-times
 SLOW_THRESHOLD = 90     # once a run exceeds this, stop repeating (use 1 sample)
+
+# roundingsat is typically a local build, not on PATH (same default as gen_cert.sh)
+_RSAT_DEFAULT = "/home/pablo/projects/roundingsat/build/roundingsat"
+RSAT = os.environ.get("ROUNDINGSAT", _RSAT_DEFAULT)
+if not Path(RSAT).exists():
+    RSAT = shutil.which("roundingsat") or sys.exit(
+        f"ERROR: roundingsat not found at {_RSAT_DEFAULT} or on PATH "
+        "(set ROUNDINGSAT)")
+
+
+def have(tool: str) -> bool:
+    return shutil.which(tool) is not None
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
@@ -126,7 +143,7 @@ def run_pb(family, size, row):
     row["pb_constraints"] = int(hdr[hdr.index("#constraint=") + 1])
     row["opb_bytes"] = opb.stat().st_size
 
-    t, status, out = timed(["roundingsat", str(opb), f"--proof-log={pbp}"])
+    t, status, out = timed([RSAT, str(opb), f"--proof-log={pbp}"])
     row["roundingsat_time_s"] = fmt(t)
     if status == "TIMEOUT" or "s UNSATISFIABLE" not in out:
         row["roundingsat_status"] = status if status == "TIMEOUT" else "NOT-UNSAT"
@@ -150,14 +167,22 @@ def run_pb(family, size, row):
 
 
 def run_drat(family, size, row, solver="cadical"):
-    """DRAT pipeline: CNF -> cadical (DRAT) -> drat-trim.  Returns ok?."""
+    """DRAT pipeline: CNF -> cadical (DRAT) -> drat-trim.  Returns ok?.
+
+    Missing tools degrade gracefully: no solver -> the leg is skipped with
+    `sat_status = TOOL-MISSING`; no drat-trim -> the proof is still produced and
+    measured, only the trim check is marked TOOL-MISSING.
+    """
+    row["sat_solver"] = solver
+    if not have(solver):
+        row["sat_status"] = "TOOL-MISSING"
+        return False
     cnf = WORK / f"{family}_{size}.cnf"
     drat = WORK / f"{family}_{size}.drat"
     text = {"php": pbgen.php_cnf, "mutilated": pbgen.mutilated_cnf,
             "oddcycle": pbgen.oddcycle_cnf}[family]
     cnf.write_text(text(size))
     row["cnf_clauses"] = int(cnf.read_text().splitlines()[0].split()[3])
-    row["sat_solver"] = solver
 
     cmd = ([solver, str(cnf), str(drat), "--no-binary"] if solver == "cadical"
            else [solver, str(cnf), str(drat)])     # kissat emits text DRAT by default
@@ -175,6 +200,10 @@ def run_drat(family, size, row, solver="cadical"):
     dl, db = file_lines_bytes(drat)
     row["drat_lines"], row["drat_bytes"] = dl, db
 
+    if not have("drat-trim"):
+        row["drat_trim_status"] = "TOOL-MISSING"
+        cnf.unlink(missing_ok=True); drat.unlink(missing_ok=True)
+        return True
     t, status, out = timed(["drat-trim", str(cnf), str(drat)])
     row["drat_trim_time_s"] = fmt(t)
     row["drat_trim_status"] = ("VERIFIED" if "s VERIFIED" in out
@@ -221,7 +250,7 @@ def sweep_family(family, writer, fh):
               f"sat={row['sat_time_s']}s({row['sat_status']}) "
               f"drat={row['drat_bytes']}B trim={row['drat_trim_time_s']}s",
               flush=True)
-        if row["sat_status"] == "TIMEOUT":
+        if row["sat_status"] in ("TIMEOUT", "TOOL-MISSING"):
             drat_ok = False
     # emit rows in size order
     for size in sorted(rows):
@@ -236,21 +265,40 @@ def write_env():
                                   ).stdout.decode(errors="replace").strip()
         except Exception:
             return "(unavailable)"
-    rsat_rev = subprocess.run(["git", "-C", os.path.expanduser("~/git/roundingsat"),
-                               "rev-parse", "--short", "HEAD"],
-                              capture_output=True).stdout.decode().strip()
+
+    def version(tool, *flags):
+        if not have(tool):
+            return "(not installed)"
+        out = cap([tool, *flags])
+        return out.splitlines()[-1] if out else "(unavailable)"
+
+    if sys.platform == "darwin":
+        cpu = (f"{cap(['sysctl', '-n', 'machdep.cpu.brand_string'])}, "
+               f"{cap(['sysctl', '-n', 'hw.ncpu'])} cores")
+    else:
+        model = "(unknown cpu)"
+        for line in Path("/proc/cpuinfo").read_text().splitlines():
+            if line.startswith("model name"):
+                model = line.split(":", 1)[1].strip()
+                break
+        cpu = f"{model}, {os.cpu_count()} cores"
+    # roundingsat is a local build: report its path and, if the checkout has git
+    # history, its revision (build/ layout -> checkout is two levels up).
+    rsat_rev = subprocess.run(
+        ["git", "-C", str(Path(RSAT).parent.parent), "rev-parse", "--short", "HEAD"],
+        capture_output=True).stdout.decode().strip() or "(unknown rev)"
     lines = [
         "Scaling-study environment",
         "=========================",
         f"machine            : {cap(['uname', '-mnsr'])}",
-        f"cpu                : {cap(['sysctl', '-n', 'machdep.cpu.brand_string'])}, "
-        f"{cap(['sysctl', '-n', 'hw.ncpu'])} cores",
+        f"cpu                : {cpu}",
         f"lean-toolchain     : {(REPO / 'lean-toolchain').read_text().strip()}",
-        f"roundingsat        : git {rsat_rev} (~/git/roundingsat)",
-        f"veripb             : {cap(['veripb', '--version'])}",
-        f"cadical            : {cap(['cadical', '--version'])}",
-        f"kissat             : {cap(['kissat', '--version'])}",
-        "drat-trim          : ~/bin/drat-trim (no version flag)",
+        f"roundingsat        : git {rsat_rev} ({RSAT})",
+        f"veripb             : {version('veripb', '--version')}",
+        f"cadical            : {version('cadical', '--version')}",
+        f"kissat             : {version('kissat', '--version')}",
+        f"drat-trim          : {shutil.which('drat-trim') or '(not installed)'}"
+        " (no version flag)",
         f"timeout            : {TIMEOUT}s per call; median of up to {REPEATS} runs",
         "mathlib cache       : lake exe cache get (unpacked oleans)",
     ]

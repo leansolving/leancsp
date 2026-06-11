@@ -5,4 +5,7 @@ build/
 .claude/
 .mcp.json
 
-.vscodeCSP/L2S/Backends/PB/Problems/_dump.lean
+.vscode/
+__pycache__/
+
+CSP/L2S/Backends/PB/Problems/_dump.lean

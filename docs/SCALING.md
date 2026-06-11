@@ -32,12 +32,15 @@ PB   (cutting-planes, verified):  OPB ──roundingsat──▶ .pbp ──veri
 DRAT (resolution,   for contrast): CNF ──cadical (--no-binary)──▶ .drat ──drat-trim──▶ checked
 ```
 
-* The **OPB** is the order encoding produced by the verified in-Lean encoder.
-  `scripts/scaling/pbgen.py` regenerates it standalone for the sweep; its output
-  is **byte-for-byte identical** to what the committed Lean theorems check, asserted
-  by `scripts/scaling/validate.py` at every size that has an in-Lean theorem (PHP
-  n=2,4; mutilated k=2; odd-cycle C₅, C₇, C₉). So the external certificate-size
-  numbers are directly comparable to the in-Lean instances.
+* The **OPB** is the order encoding produced by the verified in-Lean *generic*
+  encoder — `(cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp)`, the
+  formula the one-line `csp_unsat_file` theorems kernel-check and the dump
+  `scripts/gen_cert.sh` feeds to RoundingSat. `scripts/scaling/pbgen.py`
+  regenerates it standalone for the sweep; its output is **byte-for-byte
+  identical** to the Lean dump, asserted by `scripts/scaling/validate.py` at every
+  size that has an in-Lean theorem (PHP n=2,4,6,8; mutilated k=2,3; odd-cycle C₅,
+  C₇, C₉). So the external certificate-size numbers are directly comparable to
+  the in-Lean instances.
 * The **CNF** is the natural DIMACS encoding of the *same* instance (one-hot
   pigeon/hole, domino-placement, or per-vertex colour variables) — the standard
   form a SAT solver consumes.
@@ -57,11 +60,11 @@ auto-stops at the first size that times out.
 ### Environment
 
 ```
-machine        : Apple M2 (MacBook Air), 8 cores, Darwin 25.1.0 arm64
+machine        : AMD Ryzen 5 PRO 8540U (ThinkPad), 12 cores, Linux 6.14 x86_64
 lean-toolchain : leanprover/lean4:v4.30.0  (+ Mathlib cache via `lake exe cache get`)
-roundingsat    : git 57d44ad (MIAOresearch, ~/git/roundingsat)
-veripb         : 3.0.1 (3.0.1-67-gec8ebad)
-cadical        : 3.0.0          kissat : 4.0.3          drat-trim : (no version flag)
+roundingsat    : git d4edbf7 (MIAOresearch, local build; `$ROUNDINGSAT`)
+veripb         : 3.0.2
+cadical        : 1.7.3          kissat : (not installed)          drat-trim : (no version flag)
 timeout        : 600 s per solver call; median of up to 3 runs
 ```
 
@@ -78,22 +81,22 @@ combination at every size. The CNF is the classic Haken instance.
 
 | n (holes) | PB vars | PB constr | roundingsat (s) | **PB cert (chars)** | CNF clauses | cadical (s) | **DRAT proof** | drat-trim (s) |
 |----:|----:|----:|----:|----:|----:|----:|----:|----:|
-| 2  | 3   | 2   | 0.035 | 168 | 9    | 0.003 | 29 B    | 0.029 |
-| 4  | 15  | 14  | 0.036 | 221 | 45   | 0.004 | 1.8 KB  | 0.030 |
-| 6  | 35  | 34  | 0.038 | 269 | 133  | 0.005 | 9.9 KB  | 0.032 |
-| 8  | 63  | 62  | 0.039 | 317 | 297  | 0.014 | 85 KB   | 0.033 |
-| 10 | 99  | 98  | 0.039 | 366 | 561  | 0.066 | 636 KB  | 0.071 |
-| 11 | 120 | 119 | 0.039 | 403 | 738  | 0.200 | 2.4 MB  | 0.197 |
-| 12 | 143 | 142 | 0.041 | 428 | 949  | 0.595 | 5.7 MB  | 0.572 |
-| **13** | 168 | 167 | 0.079 | **453** | 1197 | **TIMEOUT (>600)** | — | — |
-| 20 | 399 | 398 | 0.047 | 628 | — | — | — | — |
+| 2  | 3   | 2   | 0.003 | 168 | 9    | 0.002 | 29 B    | 0.044 |
+| 4  | 15  | 14  | 0.003 | 221 | 45   | 0.002 | 552 B   | 0.050 |
+| 6  | 35  | 34  | 0.004 | 269 | 133  | 0.007 | 41 KB   | 0.054 |
+| 8  | 63  | 62  | 0.003 | 317 | 297  | 0.289 | 3.9 MB  | 0.342 |
+| 9  | 80  | 79  | 0.003 | 341 | 415  | 2.31  | 28 MB   | 3.06  |
+| 10 | 99  | 98  | 0.004 | 366 | 561  | 20.98 | 217 MB  | 29.7  |
+| 11 | 120 | 119 | 0.005 | 403 | 738  | 341.4 | **2.2 GB** | **TIMEOUT (>600)** |
+| **12** | 143 | 142 | 0.004 | **428** | 949 | **TIMEOUT (>600)** | — | — |
+| 20 | 399 | 398 | 0.005 | 628 | — | — | — | — |
 
 **Finding.** The verified PB certificate grows **linearly** (168 → 628 chars over
-n = 2…20) and roundingsat stays **flat at ~0.04 s** throughout. The resolution DRAT
-proof grows **exponentially** (≈ 3.5× per hole: 29 B → 5.7 MB over n = 2…12) and
-**cadical times out at n = 13** — a > 1000× jump in solve time from n = 12 (0.6 s)
-in a single step, the characteristic resolution cliff. **kissat** corroborates the
-wall: it times out (180 s cap) already at n = 12 and at n = 13. The exponential
+n = 2…20) and roundingsat stays **flat at ~0.005 s** throughout. The resolution DRAT
+proof grows **exponentially** (≈ 7× per hole: 29 B → 2.2 GB over n = 2…11) and
+**cadical times out at n = 12** — a > 16× jump per hole in solve time near the wall
+(2.3 s → 21 s → 341 s → timeout), the characteristic resolution cliff. At n = 11
+even *checking* the 2.2 GB proof exceeds the 600 s timeout. The exponential
 wall is a property of *resolution*, not of one solver's heuristics; the verified
 cutting-planes pipeline sails past it.
 
@@ -107,21 +110,21 @@ the cutting-planes certificate is the colour count (≤-halves over black cells 
 
 | k | board | PB vars | roundingsat (s) | **PB cert (chars)** | CNF clauses | cadical (s) | **DRAT proof** | drat-trim (s) |
 |--:|:--:|----:|----:|----:|----:|----:|----:|----:|
-| 2 | 4×4   | 20  | 0.036 | 456  | 56   | 0.003 | 105 B   | 0.027 |
-| 3 | 6×6   | 56  | 0.038 | 937  | 172  | 0.005 | 6.7 KB  | 0.027 |
-| 4 | 8×8   | 108 | 0.041 | 1624 | 344  | 0.009 | 38 KB   | 0.030 |
-| 5 | 10×10 | 176 | 0.047 | 2525 | 572  | 0.059 | 466 KB  | 0.070 |
-| 6 | 12×12 | 260 | 0.056 | 3624 | 856  | 0.667 | 7.1 MB  | 0.636 |
-| 7 | 14×14 | 360 | 0.066 | 4986 | 1196 | 14.08 | **128 MB** | 13.73 |
-| 8 | 16×16 | 476 | 0.075 | 6425 | — | — | — | — |
+| 2 | 4×4   | 20  | 0.003 | 456  | 56   | 0.002 | 79 B    | 0.042 |
+| 3 | 6×6   | 56  | 0.004 | 937  | 172  | 0.002 | 704 B   | 0.051 |
+| 4 | 8×8   | 108 | 0.005 | 1624 | 344  | 0.005 | 16 KB   | 0.051 |
+| 5 | 10×10 | 176 | 0.007 | 2525 | 572  | 0.058 | 479 KB  | 0.079 |
+| 6 | 12×12 | 260 | 0.008 | 3624 | 856  | 0.496 | 5.0 MB  | 0.446 |
+| 7 | 14×14 | 360 | 0.010 | 4986 | 1196 | 23.95 | **174 MB** | 29.3 |
+| 8 | 16×16 | 476 | 0.011 | 6425 | — | — | — | — |
 
 **Finding.** Same separation. The PB certificate grows **polynomially** (456 → 6425
-chars, ≈ linear in the number of cells) with roundingsat at **~0.04–0.08 s**. The
-resolution DRAT proof grows **exponentially** (≈ 15× per step: 105 B → 128 MB over
-k = 2…7); at k = 7 the resolution proof is **128 MB and takes 14 s** to produce and
-14 s to check, versus a **5 KB** PB certificate produced in **66 ms**. cadical does
-not wall by k = 7 (it is a strong solver), but the exponential trajectory is
-unmistakable — at k = 8 the proof would be ≈ 2 GB.
+chars, ≈ linear in the number of cells) with roundingsat at **~0.003–0.011 s**. The
+resolution DRAT proof grows **exponentially** (≈ 18× per step: 79 B → 174 MB over
+k = 2…7); at k = 7 the resolution proof is **174 MB and takes 24 s** to produce and
+29 s to check, versus a **5 KB** PB certificate produced in **10 ms**. cadical does
+not wall by k = 7, but the exponential trajectory is
+unmistakable — at k = 8 the proof would be ≈ 3 GB.
 
 ---
 
@@ -137,22 +140,22 @@ committed `k3_2col` (`C_3`, the triangle); the CNF is the canonical UNSAT
 
 | n (vertices) | PB vars | PB constr | roundingsat (s) | **PB cert (chars)** | CNF clauses | cadical (s) | **DRAT proof** | drat-trim (s) |
 |----:|----:|----:|----:|----:|----:|----:|----:|----:|
-| 3    | 3    | 6    | 0.037 | 224   | 6    | 0.004 | 16 B   | 0.027 |
-| 5    | 5    | 10   | 0.036 | 283   | 10   | 0.003 | 24 B   | 0.027 |
-| 7    | 7    | 14   | 0.036 | 347   | 14   | 0.004 | 34 B   | 0.027 |
-| 9    | 9    | 18   | 0.036 | 405   | 18   | 0.003 | 42 B   | 0.026 |
-| 11   | 11   | 22   | 0.034 | 471   | 22   | 0.003 | 54 B   | 0.027 |
-| 51   | 51   | 102  | 0.037 | 1791  | 102  | 0.004 | 274 B  | 0.027 |
-| 101  | 101  | 202  | 0.041 | 3515  | 202  | 0.004 | 550 B  | 0.027 |
-| 201  | 201  | 402  | 0.042 | 7067  | 402  | 0.004 | 1.2 KB | 0.029 |
-| 501  | 501  | 1002 | 0.052 | 18225 | 1002 | 0.004 | 3.1 KB | 0.028 |
-| 1001 | 1001 | 2002 | 0.071 | 37477 | 2002 | 0.004 | 6.4 KB | 0.028 |
+| 3    | 3    | 6    | 0.002 | 224   | 6    | 0.002 | 15 B   | 0.051 |
+| 5    | 5    | 10   | 0.003 | 283   | 10   | 0.002 | 25 B   | 0.047 |
+| 7    | 7    | 14   | 0.003 | 347   | 14   | 0.003 | 33 B   | 0.043 |
+| 9    | 9    | 18   | 0.002 | 405   | 18   | 0.003 | 43 B   | 0.044 |
+| 11   | 11   | 22   | 0.003 | 471   | 22   | 0.002 | 53 B   | 0.044 |
+| 51   | 51   | 102  | 0.004 | 1791  | 102  | 0.002 | 273 B  | 0.050 |
+| 101  | 101  | 202  | 0.004 | 3515  | 202  | 0.002 | 551 B  | 0.053 |
+| 201  | 201  | 402  | 0.004 | 7067  | 402  | 0.003 | 1.2 KB | 0.052 |
+| 501  | 501  | 1002 | 0.007 | 18225 | 1002 | 0.003 | 3.1 KB | 0.051 |
+| 1001 | 1001 | 2002 | 0.011 | 37477 | 2002 | 0.003 | 6.4 KB | 0.055 |
 
 **Finding.** Both pipelines stay small and grow **linearly** in `n`. The PB
 certificate is ≈ 37 chars per vertex (224 → 37 477 over n = 3…1001) with roundingsat
-flat at **~0.035–0.07 s**. Crucially, the resolution DRAT proof *also* stays
-linear — ≈ 6.4 bytes per vertex (16 B → 6.4 KB over the same range) — with cadical
-flat at **~0.004 s** and drat-trim flat at **~0.027 s**. There is **no wall on
+flat at **~0.002–0.011 s**. Crucially, the resolution DRAT proof *also* stays
+linear — ≈ 6.4 bytes per vertex (15 B → 6.4 KB over the same range) — with cadical
+flat at **~0.003 s** and drat-trim flat at **~0.05 s**. There is **no wall on
 either side**. This is exactly what makes odd-cycle the right control: it is the
 same order-encoding pipeline and the same DRAT pipeline used for pigeonhole and the
 mutilated board, but here resolution does *not* blow up. So the exponential walls in
@@ -165,33 +168,46 @@ artifact of the encoding, the serializer, or the measurement harness.
 
 Each larger instance is committed as a kernel-checked end-to-end
 `¬ ....isSatisfiableInt` theorem (axiom-clean: `propext, Classical.choice, Quot.sound`
-+ one `native_decide` certificate axiom; no `sorryAx`). Two in-Lean costs, both
-measured by `scripts/scaling/lean_timing.py`:
++ one `native_decide` certificate axiom; no `sorryAx`). Every theorem is a
+**single line** through the generic pipeline —
+`csp_unsat_file <csp> <numVars> "certs/<name>.pbp"` in
+`CSP/L2S/Backends/PB/Problems/` — so there is no per-instance signature, encoding,
+or soundness bridge; the only per-instance data are the CSP definition and the
+committed certificate. Two in-Lean costs, both measured by
+`scripts/scaling/lean_timing.py`:
 
-* **native_decide recheck** — the time `native_decide` spends running PBLean's
-  verified checker on the embedded certificate (recheck-file wall minus an
-  import-only baseline, min of 5 to suppress noise).
+* **native_decide recheck** — the time `native_decide` spends evaluating the
+  generic encoding `encodeCSP <csp>` and running PBLean's verified checker on the
+  committed certificate (recheck-file wall minus an import-only baseline, min of
+  5 to suppress noise). Note this *includes* the in-kernel encoder evaluation —
+  the real per-theorem cost under the generic pipeline — so these numbers are not
+  comparable to the pre-generic-pipeline measurements, which rechecked pre-encoded
+  constants.
 * **module build** — `lake build` of the module after deleting its olean (imports
   cached); this is the elaboration cost that *includes* the certificate recheck.
 
 | Theorem | Module | cert (chars) | native_decide (s) | module build (s) |
 |---------|--------|----:|----:|----:|
-| `php_3_2_unsat` … `php_9_8_unsat` (4 thms) | `Pigeonhole.lean` | 168 / 221 / 269 / 317 | < 0.01 each | 3.9 (whole module) |
-| `mutilated_chessboard_6_unsat` (6×6) | `MutilatedChessboard6.lean` | 937 | 0.04 | 28.1 |
-| `c5_2col_unsat` / `c7_2col_unsat` / `c9_2col_unsat` | `OddCycle.lean` | 283 / 347 / 405 | 0.02 / 0.06 / 0.05 | 4.3 (whole module) |
+| `php_3_2_unsat` … `php_9_8_unsat` (4 thms) | `Problems/Pigeonhole.lean` | 168 / 221 / 269 / 317 | < 0.01 each | 2.8 (whole module) |
+| `mutilated_chessboard_unsat` (4×4) | `Problems/MutilatedChessboard.lean` | 456 | 0.01 | 3.4 |
+| `mutilated_chessboard_6_unsat` (6×6) | `Problems/MutilatedChessboard6.lean` | 937 | 0.22 | 9.6 |
+| `c5_2col_unsat` / `c7_2col_unsat` / `c9_2col_unsat` | `Problems/OddCycle.lean` | 283 / 347 / 405 | < 0.01 each | 2.9 (whole module) |
 
-**New theorems committed by this study:** `php_7_6_unsat`, `php_9_8_unsat`
-(`Pigeonhole.lean`), `mutilated_chessboard_6_unsat` (`MutilatedChessboard6.lean`),
-and `c5_2col_unsat` / `c7_2col_unsat` / `c9_2col_unsat` (`OddCycle.lean`).
+**Theorems committed by this study:** `php_7_6_unsat`, `php_9_8_unsat`
+(`Problems/Pigeonhole.lean`), `mutilated_chessboard_6_unsat`
+(`Problems/MutilatedChessboard6.lean`), and `c5_2col_unsat` / `c7_2col_unsat` /
+`c9_2col_unsat` (`Problems/OddCycle.lean`).
 
-**Finding.** The `native_decide` recheck of the certificate is **negligible**
-(< 0.07 s) across all families — the certificates are tiny (≤ 7-line counting
-proofs for pigeonhole/mutilated; ~15-line RUP chains for odd-cycle), so re-checking a
-committed theorem from Lean alone is essentially free. The in-Lean cost that grows
-with instance size is the **soundness-bridge proof** (e.g. the 6×6 board's 34-cell ×
-2-half `mc_hlin`, which dominates its 28 s module build), not the certificate
-recheck. The odd-cycle module shares one generic proof (`cycle_2col_unsat`) across
-all three sizes, so its whole-module build is only ~4 s.
+**Finding.** The per-theorem `native_decide` cost — evaluating the generic
+encoding `encodeCSP <csp>` *and* re-checking the committed certificate through
+PBLean's verified checker — is **negligible to small** across all families:
+< 0.01 s for every pigeonhole and odd-cycle instance, and 0.22 s for the largest
+checkpoint (the 6×6 board: 56 variables, 34 exactly-one constraints). Module
+builds are uniformly small (2.8–9.6 s): with the bespoke soundness bridges gone,
+a module is just the CSP definition plus one-line theorems, so elaboration is
+dominated by elaborating the CSP term itself, not by proof work. For comparison,
+the 6×6 module took 28 s to build under the old pipeline, dominated by its
+34-cell × 2-half bridge proof `mc_hlin` — that cost class no longer exists.
 
 ---
 
@@ -212,7 +228,11 @@ uv run python scripts/scaling/lean_timing.py
 ```
 
 `scripts/scaling/gen_mutilated_lean.py` regenerates the `MutilatedChessboard<2k>.lean`
-instance module for any `k` (used to author the 6×6 checkpoint).
+instance module for any `k` (used to author the 6×6 checkpoint). It first produces
+the certificate `Problems/certs/mutilated<2k>.pbp` directly from pbgen's OPB
+(RoundingSat + `veripb --elaborate`; set `ROUNDINGSAT` if the solver is not at
+the default local-build path), then emits the one-line-theorem module to stdout;
+`--module-only` skips the solvers and reuses the committed certificate.
 
 ---
 
@@ -231,8 +251,10 @@ instance module for any `k` (used to author the 6×6 checkpoint).
   the alternative explanation that the §2–§3 walls come from the harness, the
   serializer, or the order encoding: they come from resolution refuting those
   counting problems.
-* **What grows in-Lean is the bridge proof, not the recheck.** The `native_decide`
-  certificate recheck is family-independent and negligible (it depends only on
-  certificate size, measured in §5 to be < 0.07 s). The cost that scales is the
-  generic soundness-bridge proof for a given family — a property of the current
-  spines, not of the verified pipeline itself.
+* **The in-Lean cost is now the generic recheck, and it is small.** Under the
+  generic pipeline every theorem is a single `csp_unsat_file` application; its
+  `native_decide` obligation evaluates `encodeCSP` and re-checks the committed
+  certificate, measured in §5 at ≤ 0.22 s even for the largest committed
+  checkpoint. The per-family soundness-bridge proofs that previously dominated
+  module builds are gone; what scales with instance size is the certificate size
+  and the in-kernel encoder evaluation, both polynomial here.

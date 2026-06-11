@@ -392,13 +392,23 @@ trust base is unchanged (`propext, Classical.choice, Quot.sound` + one
 
 ## 8. Scaling harness — port to the generic pipeline
 
+**Status: DONE (as-built).** All five fix-plan steps below are implemented: the
+harness targets the generic pipeline (`cspSig`/`encodeCSP`, `Problems/` modules,
+`csp_unsat_file` + `certs/*.pbp`), `validate.py` reports ALL IDENTICAL on 9 cases
+(php n=2,4,6,8; mutilated k=2,3; odd-cycle C₅,C₇,C₉ — `pbgen.py` needed only an
+odd-cycle clause-order swap), `gen_mutilated_lean.py` emits the one-line module
+*and* its certificate (from pbgen's OPB via RoundingSat + veripb, breaking the
+module↔cert chicken-and-egg) and reproduces the committed `MutilatedChessboard6.lean`
+byte-for-byte, and the full sweep + in-Lean timings were re-run on the Linux
+machine (`results/scaling*.csv`, SCALING.md tables refreshed). `Serialize.lean`
+survives: `toOPBString` still backs `validate.py` and `gen_cert.sh`.
+
 The cutting-planes-vs-resolution scaling study (`docs/SCALING.md`, `scripts/scaling/`,
 `results/scaling*.csv`) was authored against the **pre-refactor** pipeline (the
 hand-wired `phpSig`/`phpEncoded`, inline-`String` certificates, and per-instance
-modules of §5/§7). The scripts were carried onto this branch **unchanged** — they are
-byte-identical to the `cert` branch — so they no longer match the Lean they point at.
-Nothing in the scaling harness runs against `csp-unsat-generic` today. This is the
-same class of staleness as §7, but on the external (Python) side; it is the
+modules of §5/§7). The scripts were carried onto this branch **unchanged** — they were
+byte-identical to the `cert` branch — so they no longer matched the Lean they point at.
+This was the same class of staleness as §7, but on the external (Python) side; the
 unfinished tail of §6 item 5 ("Scaling").
 
 The right time to fix it is **once the generic pipeline covers all problems** (after

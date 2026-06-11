@@ -5,10 +5,12 @@ Each function returns the *exact text* of an instance file for one of three
 families, in two formats:
 
   * OPB  -- the pseudo-Boolean order-encoding consumed by RoundingSat, byte-for-byte
-           identical to what the verified in-Lean encoder
-           (`CSP/L2S/Backends/PB/*.lean`) produces.  Identity is asserted by
-           `validate.py`, which diffs these against ground-truth dumps from the
-           real Lean encoder at every committed size.
+           identical to what the verified in-Lean *generic* encoder produces:
+           `(cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp)`
+           serialized by `toOPBString` (`GenericEncode.lean` + `Serialize.lean`;
+           the same dump `scripts/gen_cert.sh` feeds to RoundingSat).  Identity is
+           asserted by `validate.py`, which diffs these against ground-truth dumps
+           from the real Lean encoder at every committed size.
   * CNF  -- the natural DIMACS clause encoding of the *same* instance, used for the
            DRAT (resolution) contrast on the resolution-hard families.
 
@@ -80,7 +82,9 @@ def _linear_le(coeffs_vars: list[tuple[int, int]], b: int):
 # --------------------------------------------------------------------------- #
 
 def php_opb(n: int) -> str:
-    """OPB for php_(n+1)_n (n = number of holes).  Matches Pigeonhole.lean."""
+    """OPB for php_(n+1)_n (n = number of holes).  Matches `encodeCSP php_(n+1)_n`
+    (corpus CSPs in `Tests/lean/35_pigeonhole.lean`, proved in
+    `Problems/Pigeonhole.lean`)."""
     assert n >= 2
     pigeons = n + 1
     width = n - 1                       # thresholds per pigeon
@@ -178,7 +182,8 @@ def _mutilated_geometry(k: int):
 
 
 def mutilated_opb(k: int) -> str:
-    """OPB for the 2k x 2k mutilated chessboard.  Matches MutilatedChessboard.lean."""
+    """OPB for the 2k x 2k mutilated chessboard.  Matches `encodeCSP` of the
+    `Problems/MutilatedChessboard{,6}.lean` instances (k=2, k=3)."""
     nplace, covers = _mutilated_geometry(k)
     cons: list[tuple[list[tuple[int, int, bool]], int]] = []
     for _cell, cov in covers:
@@ -210,14 +215,17 @@ def mutilated_cnf(k: int) -> str:
 # is an integer colour variable over the binary domain {1,2} (a single threshold
 # bit, so order-encoding monotonicity is empty); each edge (u,v) is a `not_equal`
 # constraint, encoded via the binary not-all-equal encoder into the two clauses
-#   x_u + x_v >= 1   (not both colour 2)   and   ~x_u + ~x_v >= 1   (not both 1).
+#   ~x_u + ~x_v >= 1   (not both colour 1)   and   x_u + x_v >= 1   (not both 2),
+# in that order (matching `encodePattern`'s `not_equal` case).
 # All coefficients are 0/1 -- no Big-M, no binary place values -- so unlike PHP /
 # mutilated this is EASY for both cutting planes AND resolution: the PB
 # certificate grows linearly and the resolution (DRAT) proof stays small too.
 # That is the point: odd cycle is the control that isolates the PHP / mutilated
 # walls as resolution-specific, not an artifact of the encoding pipeline.
 #
-# Vertex i is OPB variable i+1 (width 1); this matches GraphColoring.lean exactly.
+# Vertex i is OPB variable i+1 (width 1); this matches the generic encoding of
+# `c5/c7/c9_2col` (corpus `Tests/lean/02_color.lean`, proved in
+# `Problems/OddCycle.lean`) exactly.
 # --------------------------------------------------------------------------- #
 
 def _cycle_edges(n: int) -> list[tuple[int, int]]:
@@ -226,11 +234,12 @@ def _cycle_edges(n: int) -> list[tuple[int, int]]:
 
 
 def oddcycle_opb(n: int) -> str:
-    """OPB for the odd cycle C_n 2-colouring (n odd).  Matches GraphColoring.lean."""
+    """OPB for the odd cycle C_n 2-colouring (n odd).  Matches `encodeCSP` of the
+    `cN_2col` instances (negated clause first, as `encodePattern` emits)."""
     cons: list[tuple[list[tuple[int, int, bool]], int]] = []
     for u, v in _cycle_edges(n):
-        cons.append(([(1, u + 1, False), (1, v + 1, False)], 1))   # x_u + x_v >= 1
         cons.append(([(1, u + 1, True), (1, v + 1, True)], 1))     # ~x_u + ~x_v >= 1
+        cons.append(([(1, u + 1, False), (1, v + 1, False)], 1))   # x_u + x_v >= 1
     return _opb(n, cons)
 
 

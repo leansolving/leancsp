@@ -3,12 +3,17 @@
 
 Two numbers per instance:
   * native_decide_time_s -- wall-time for `lake env lean` to re-elaborate the
-    instance's `_formulaUnsat` theorem (which runs PBLean's verified checker via
-    native_decide on the embedded certificate), minus an import-only baseline for
-    the same module.  This is the "recheck the certificate from Lean alone" cost.
-  * module_build_time_s   -- wall-time for `lake build <module>` after touching its
-    source (imports cached): the incremental module compile, which includes the
-    native_decide rechecks of every certificate in the module.
+    certificate-soundness obligation of the instance's one-line `csp_unsat_file`
+    theorem (which runs PBLean's verified checker via native_decide on the
+    committed `certs/*.pbp` certificate), minus an import-only baseline for the
+    same module.  This is the "recheck the certificate from Lean alone" cost.
+    Under the generic pipeline this includes evaluating `encodeCSP <csp>` inside
+    native_decide — the real per-theorem cost — so the numbers are NOT comparable
+    to the pre-generic-pipeline scaling_lean.csv (which rechecked pre-encoded
+    constants).
+  * module_build_time_s   -- wall-time for `lake build <module>` after deleting
+    its olean (imports cached): the incremental module compile, which includes
+    the native_decide rechecks of every certificate in the module.
 
 All medians of 3.  Results -> results/scaling_lean.csv.  Run from repo root with lake
 available:  uv run python scripts/scaling/lean_timing.py
@@ -24,52 +29,41 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
 OUT = REPO / "results" / "scaling_lean.csv"
+CERT_DIR = REPO / "CSP" / "L2S" / "Backends" / "PB" / "Problems" / "certs"
+PROBLEMS = "CSP.L2S.Backends.PB.Problems"
 
-# (family, size_param, module, source_path, recheck_expr)
-# recheck_expr re-states the committed `_formulaUnsat` so native_decide runs once.
+
+def recheck_expr(csp: str, num_vars: int, cert_name: str) -> str:
+    """The certificate-soundness obligation of `csp_unsat_file <csp> <nv> <cert>`,
+    restated standalone (absolute include_str path, since the temp file is in /tmp)."""
+    return (f"VeriPB.Reflect.formulaUnsat (((cspSig {csp}).monotonicity ++ "
+            f"EncConstr.combine (encodeCSP {csp})).toArray.map PBConstr.toNatConstr) := "
+            f"VeriPB.Reflect.checkProof_sound _ {num_vars} "
+            f'(include_str "{CERT_DIR}/{cert_name}") (by native_decide)')
+
+
+# (family, size_param, module, csp_expr, numVars, cert_name, extra_open)
+# NOTE: each generated temp file imports exactly ONE Problems module — the corpus
+# modules under Tests/lean/ each define `main`, so importing two Problems wrappers
+# backed by different corpus files collides on `main`.
 CHECKPOINTS = [
-    ("php", 2, "CSP.L2S.Backends.PB.Pigeonhole",
-     "CSP/L2S/Backends/PB/Pigeonhole.lean",
-     "VeriPB.Reflect.formulaUnsat (Pigeonhole.phpEncoded.toArray.map PBConstr.toNatConstr) := "
-     "VeriPB.Reflect.checkProof_sound _ 3 Pigeonhole.phpKernelProof (by native_decide)"),
-    ("php", 4, "CSP.L2S.Backends.PB.Pigeonhole",
-     "CSP/L2S/Backends/PB/Pigeonhole.lean",
-     "VeriPB.Reflect.formulaUnsat (Pigeonhole.php5Encoded.toArray.map PBConstr.toNatConstr) := "
-     "VeriPB.Reflect.checkProof_sound _ 15 Pigeonhole.php5KernelProof (by native_decide)"),
-    ("php", 6, "CSP.L2S.Backends.PB.Pigeonhole",
-     "CSP/L2S/Backends/PB/Pigeonhole.lean",
-     "VeriPB.Reflect.formulaUnsat (Pigeonhole.php7Encoded.toArray.map PBConstr.toNatConstr) := "
-     "VeriPB.Reflect.checkProof_sound _ 35 Pigeonhole.php7KernelProof (by native_decide)"),
-    ("php", 8, "CSP.L2S.Backends.PB.Pigeonhole",
-     "CSP/L2S/Backends/PB/Pigeonhole.lean",
-     "VeriPB.Reflect.formulaUnsat (Pigeonhole.php9Encoded.toArray.map PBConstr.toNatConstr) := "
-     "VeriPB.Reflect.checkProof_sound _ 63 Pigeonhole.php9KernelProof (by native_decide)"),
-    ("mutilated", 3, "CSP.L2S.Backends.PB.MutilatedChessboard6",
-     "CSP/L2S/Backends/PB/MutilatedChessboard6.lean",
-     "VeriPB.Reflect.formulaUnsat ((encodeLinear MutilatedChessboard6.mcSig "
-     "MutilatedChessboard6.mcLin).toArray.map PBConstr.toNatConstr) := "
-     "VeriPB.Reflect.checkProof_sound _ 56 MutilatedChessboard6.mcKernelProof (by native_decide)"),
-    ("oddcycle", 5, "CSP.L2S.Backends.PB.OddCycle",
-     "CSP/L2S/Backends/PB/OddCycle.lean",
-     "VeriPB.Reflect.formulaUnsat (((OddCycle.cycleSig 5).monotonicity ++ "
-     "OddCycle.cycleUser 5 c5Edges).toArray.map PBConstr.toNatConstr) := "
-     "VeriPB.Reflect.checkProof_sound _ 5 OddCycle.c5KernelProof (by native_decide)"),
-    ("oddcycle", 7, "CSP.L2S.Backends.PB.OddCycle",
-     "CSP/L2S/Backends/PB/OddCycle.lean",
-     "VeriPB.Reflect.formulaUnsat (((OddCycle.cycleSig 7).monotonicity ++ "
-     "OddCycle.cycleUser 7 c7Edges).toArray.map PBConstr.toNatConstr) := "
-     "VeriPB.Reflect.checkProof_sound _ 7 OddCycle.c7KernelProof (by native_decide)"),
-    ("oddcycle", 9, "CSP.L2S.Backends.PB.OddCycle",
-     "CSP/L2S/Backends/PB/OddCycle.lean",
-     "VeriPB.Reflect.formulaUnsat (((OddCycle.cycleSig 9).monotonicity ++ "
-     "OddCycle.cycleUser 9 c9Edges).toArray.map PBConstr.toNatConstr) := "
-     "VeriPB.Reflect.checkProof_sound _ 9 OddCycle.c9KernelProof (by native_decide)"),
+    ("php", 2, f"{PROBLEMS}.Pigeonhole", "php_3_2", 3, "php_3_2.pbp", ""),
+    ("php", 4, f"{PROBLEMS}.Pigeonhole", "php_5_4", 15, "php_5_4.pbp", ""),
+    ("php", 6, f"{PROBLEMS}.Pigeonhole", "php_7_6", 35, "php_7_6.pbp", ""),
+    ("php", 8, f"{PROBLEMS}.Pigeonhole", "php_9_8", 63, "php_9_8.pbp", ""),
+    ("mutilated", 2, f"{PROBLEMS}.MutilatedChessboard",
+     "mutilatedChessboard", 20, "mutilated.pbp", "CSP.L2S.PB.MutilatedChessboard"),
+    ("mutilated", 3, f"{PROBLEMS}.MutilatedChessboard6",
+     "mutilatedChessboard6", 56, "mutilated6.pbp", "CSP.L2S.PB.MutilatedChessboard6"),
+    ("oddcycle", 5, f"{PROBLEMS}.OddCycle", "c5_2col", 5, "c5.pbp", ""),
+    ("oddcycle", 7, f"{PROBLEMS}.OddCycle", "c7_2col", 7, "c7.pbp", ""),
+    ("oddcycle", 9, f"{PROBLEMS}.OddCycle", "c9_2col", 9, "c9.pbp", ""),
 ]
 
 # olean / trace / hash artifacts to delete (relative to .lake/build) to force a real
 # rebuild -- lake content-hashes, so `touch` alone is a no-op.
 def _rmartifacts(module: str):
-    rel = module.removeprefix("CSP.").replace(".", "/")  # e.g. L2S/Backends/PB/Pigeonhole
+    rel = module.removeprefix("CSP.").replace(".", "/")  # e.g. L2S/Backends/PB/Problems/Pigeonhole
     for p in [f".lake/build/lib/lean/CSP/{rel}.olean",
               f".lake/build/lib/lean/CSP/{rel}.olean.hash",
               f".lake/build/lib/lean/CSP/{rel}.trace",
@@ -99,17 +93,18 @@ def baseline(module, repeats=5):
     return wall_min(["lake", "env", "lean", str(f)], repeats)
 
 
-def native_decide_time(module, expr, base):
-    # recheck-minus-baseline using the noise-robust min estimator: the certs are
-    # tiny (<=7-line kernel proofs), so this isolates the native_decide reflection
-    # run from Lean startup + Mathlib-olean load (the dominant, shared cost).
+def native_decide_time(module, expr, extra_open, base):
+    # recheck-minus-baseline using the noise-robust min estimator: this isolates
+    # the native_decide reflection run (encodeCSP evaluation + certificate check)
+    # from Lean startup + Mathlib-olean load (the dominant, shared cost).
     f = Path("/tmp/_lt_recheck.lean")
-    f.write_text(f"import {module}\nopen CSP.L2S.PB\nexample : {expr}\n")
+    f.write_text(f"import {module}\nopen CSP.L2S CSP.L2S.PB {extra_open}\n"
+                 f"example : {expr}\n")
     full = wall_min(["lake", "env", "lean", str(f)])
     return max(0.0, full - base)
 
 
-def module_build_time(module, src, repeats=2):
+def module_build_time(module, repeats=2):
     # lake content-hashes, so `touch` is a no-op; delete the olean to force a rebuild.
     def one():
         _rmartifacts(module)
@@ -120,20 +115,21 @@ def module_build_time(module, src, repeats=2):
 def main():
     rows, base_cache = [], {}
     # group by module to amortize baseline + one build measurement per module
-    for fam, size, module, src, expr in CHECKPOINTS:
+    for fam, size, module, csp, nv, cert, extra_open in CHECKPOINTS:
         if module not in base_cache:
             base_cache[module] = baseline(module)
-        nd = native_decide_time(module, expr, base_cache[module])
+        nd = native_decide_time(module, recheck_expr(csp, nv, cert), extra_open,
+                                base_cache[module])
         rows.append({"family": fam, "size_param": size, "module": module,
                      "native_decide_time_s": f"{nd:.3f}", "module_build_time_s": ""})
         print(f"{fam} size={size}: native_decide~{nd:.3f}s (baseline {base_cache[module]:.2f}s)")
     # module build (one per distinct module), attach to that module's largest row
     seen = set()
-    for fam, size, module, src, expr in CHECKPOINTS:
+    for fam, size, module, csp, nv, cert, extra_open in CHECKPOINTS:
         if module in seen:
             continue
         seen.add(module)
-        mb = module_build_time(module, src)
+        mb = module_build_time(module)
         # attach to the last (largest) row for this module
         for r in reversed(rows):
             if r["module"] == module:

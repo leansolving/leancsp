@@ -199,7 +199,7 @@ and `scripts/gen_cert.sh CSP.L2S.Tests.lean.«NN_my_problem» myCSP my` produces
 
 The generic-coverage goal is **done**: every committed problem is a one-line `csp_unsat_file`, and 44 of 48 constraint constructors are encoded with per-case soundness (see the fragment summary above for the four documented exceptions). What remains is orthogonal to the encoder:
 
-1. **Scaling** — larger corpus sizes (wider ripple-carry, larger Paley graphs — probe UNSAT with RoundingSat first) and a regeneration sweep (`scripts/gen_cert.sh` over all instances) whenever an encoder changes shape. The external scaling harness (`scripts/scaling/`, `docs/SCALING.md`) predates the generic pipeline and needs porting — see `PLAN.md` §8.
+1. **Scaling** — larger corpus sizes (wider ripple-carry, larger Paley graphs — probe UNSAT with RoundingSat first) and a regeneration sweep (`scripts/gen_cert.sh` over all instances) whenever an encoder changes shape. The external scaling harness (`scripts/scaling/`, `docs/SCALING.md`) is ported to the generic pipeline (`validate.py` asserts byte-identity against `encodeCSP` at 9 committed sizes) — see `PLAN.md` §8.
 2. **Dead-code cleanup** — the bespoke-era modules (`BoolExprCompiler`/`BoolGates`, `CircuitGates`, the demo cluster, the legacy tactics) are inventoried with a staged removal plan in `PLAN.md` §7.
 
 ---
