@@ -1,0 +1,8 @@
+file,code_lines,elaboration_ms,type_checking_ms,verification_time_ms
+GraphColoringEquivalence.lean,792,123.0,193.0,316.0
+GraphColoringSB.lean,277,66.2,58.1,124.30000000000001
+LatinSquareSB.lean,428,65.3,109.0,174.3
+NQueensEquivalence.lean,1693,297.0,597.0,894.0
+NQueensSB.lean,340,67.3,163.0,230.3
+ParityPathTheorem.lean,763,134.3,91.19999999999999,225.5
+AVERAGE,715.5,125.51666666666667,201.88333333333333,327.40000000000003

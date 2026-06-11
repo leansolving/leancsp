@@ -51,6 +51,16 @@ directions because they transport solutions across permutations.
 
 Each problem file defines `IO` helpers that emit `.mzn` and `.smt2` problem
 instances into `mzn/` and `smt2/` subdirectories (created on demand via
-`Translate.saveToAuto`), for external benchmarking of the verified
-reformulations. The cert-era Python benchmarking harness (`Experiments/`) was
-not carried over; it remains on the `cert` branch.
+`Translate.translateTo` / `saveToAuto`), for external benchmarking of the
+verified reformulations.
+
+## Experiments
+
+`Experiments/` holds the Python benchmarking harness (`run_experiments.py`,
+`run_parity_experiments.py`, `verify_equivalence.py`, `profile_proofs.py`), the
+`ParityCircuitBenchmarks.lean` circuit-instance generator (ported to the current
+`IntCSP` API), and committed result CSVs. The scripts consume the generated
+`.mzn`/`.smt2` instances and run external solvers (MiniZinc/Gecode/Chuffed,
+Z3, CVC5). See `Experiments/README.md`. The committed result CSVs are historical
+(from the original run); regenerate them by re-running the scripts with the
+solvers installed.

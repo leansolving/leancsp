@@ -59,8 +59,11 @@ that *one* soundness theorem discharges every instance:
   `ordering_constraint_satisfied_by_sort`) — its results are therefore conjectures,
   not theorems, until those are discharged. **No new axioms are to be introduced in
   this corpus, and these two should be proved out.** No `sorry`. The cert-era
-  `Experiments/` Python/MiniZinc harness was not carried over (stays on the `cert`
-  branch). The whole project is green.
+  `Experiments/` benchmarking harness (Python runners, the
+  `ParityCircuitBenchmarks.lean` generator ported to the `IntCSP` API, and the
+  historical result CSVs) was also carried over and verified end-to-end
+  (generator emits valid `.mzn`/`.smt2`; Z3/CVC5/MiniZinc solve them). The whole
+  project is green.
 
 | Milestone (from `PLAN_old.md`) | State |
 |---|---|
