@@ -86,6 +86,13 @@ theorem less_than_const_holds_iff {num_vars : ℕ} (v : VarType num_vars) (c : �
     IntCSP.satisfiesConstraintInt (less_than_const v c) a ↔ a v < c := by
   simp only [IntCSP.satisfiesConstraintInt, less_than_const, patternHolds, valAt_eq]
 
+/-- `schur_triple` means the three assigned values are not all equal. -/
+theorem schur_triple_holds_iff {num_vars : ℕ} (v1 v2 v3 : VarType num_vars)
+    (a : IntAssignment num_vars) :
+    IntCSP.satisfiesConstraintInt (schur_triple v1 v2 v3) a ↔
+    a v1 ≠ a v2 ∨ a v1 ≠ a v3 ∨ a v2 ≠ a v3 := by
+  simp only [IntCSP.satisfiesConstraintInt, schur_triple, patternHolds, valAt_eq]
+
 /-- The N-Queens positive diagonal: `x[i] + i` all different. -/
 theorem diag_pos_holds_iff {n : ℕ} (a : IntAssignment n) :
     IntCSP.satisfiesConstraintInt (alldifferent_diag_pos n) a ↔
