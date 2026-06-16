@@ -61,6 +61,9 @@ to clean up when those files are namespaced.
 | `GraphColoring.k4_3col_unsat` | `graph_coloring_csp 4 K₄ 3` | `x₀ = 0` | colour swap `S₃` | `k4_sbc.pbp` |
 | `NQueens.nqueens_2_unsat` | `nqueens_csp 2` | `x₀ < (n+1)/2` (`less_than_const`) | horizontal reflection | `nqueens_2_sbc.pbp` |
 | `NQueens.nqueens_3_unsat` | `nqueens_csp 3` | `x₀ < (n+1)/2` | horizontal reflection | `nqueens_3_sbc.pbp` |
+| `OddCycle.c5_2col_unsat` | `graph_coloring_csp 5 C₅ 2` | `x₀ = 0` | colour swap `S₂` | `c5_sbc.pbp` |
+| `OddCycle.c7_2col_unsat` | `graph_coloring_csp 7 C₇ 2` | `x₀ = 0` | colour swap `S₂` | `c7_sbc.pbp` |
+| `OddCycle.c9_2col_unsat` | `graph_coloring_csp 9 C₉ 2` | `x₀ = 0` | colour swap `S₂` | `c9_sbc.pbp` |
 
 Each reuses an *already-proved* SBC: `Schur.schur_sb_is_symmetry_breaking`,
 `sb_constraint_is_symmetry_breaking` (graph colouring and N-Queens). The mathematical reading: the
