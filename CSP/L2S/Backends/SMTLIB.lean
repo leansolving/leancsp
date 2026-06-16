@@ -83,6 +83,10 @@ def patternToSMTLIB {num_vars : ℕ} (opts : BackendOptions)
         let terms_str := String.intercalate " " terms
         .ok [s!"(assert (distinct {terms_str}))"]
 
+  | IntConstraint.value_precedence _colors =>
+      -- Staircase relaxation of value precedence (`x_j ≤ j`), matching the verified PB backend.
+      .ok ((List.range num_vars).map (fun j => s!"(assert (<= {varName j} {j}))"))
+
   | IntConstraint.increasing vars =>
       -- FIXED: was using tail!, now using drop
       let pairs := List.zip vars (vars.drop 1)

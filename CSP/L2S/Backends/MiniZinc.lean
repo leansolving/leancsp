@@ -53,6 +53,11 @@ def patternToMiniZinc {num_vars : ℕ} (opts : BackendOptions)
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       .ok [s!"constraint increasing([{varList}]);"]
 
+  | IntConstraint.value_precedence _colors =>
+      -- Staircase relaxation of value precedence (`x_j ≤ j`), matching the verified PB
+      -- backend's encoding.  (MiniZinc's exact form is `seq_precede_chain`.)
+      .ok ((List.range num_vars).map (fun j => s!"constraint x{j} <= {j};"))
+
   | IntConstraint.sum vars op target =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       let opStr := relOpToMzn op

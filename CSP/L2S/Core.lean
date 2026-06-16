@@ -142,6 +142,13 @@ inductive IntConstraint (num_vars : ℕ)
   | linear_rel_var (vars : List ℕ) (coeffs : List ℤ) (op : RelOp) (target_var : ℕ)  -- Σ(coeffs[i]*vars[i]) op target_var
   | product_rel_var (vars : List ℕ) (op : RelOp) (target_var : ℕ)  -- product(vars) op target_var
 
+  -- Symmetry-breaking: value (colour) precedence with `colors` interchangeable colours.
+  -- A colour `v ∈ [1, colors)` may first appear (scanning `x_0, x_1, …`) only after `v-1`
+  -- has: every positive in-domain colour at some position has its predecessor earlier.
+  -- This is the Law–Lee (2004) value-precedence constraint, sound for any CSP closed under
+  -- all permutations of the colour values (see `CSP/L2S/ValuePrecedence.lean`).
+  | value_precedence (colors : ℕ)
+
   -- Scheduling constraints
   | disjunctive (tasks : List ℕ) (durations : List ℤ)  -- Tasks on unary resource must not overlap
 
@@ -242,6 +249,8 @@ def patternHolds {n : ℕ} : IntConstraint n → IntAssignment n → Prop
       relHolds op (List.zipWith (· * ·) coeffs (vars.map (valAt a))).sum (valAt a tvar)
   | .product_rel_var vars op tvar, a =>
       relHolds op ((vars.map (valAt a)).foldl (· * ·) 1) (valAt a tvar)
+  | .value_precedence _colors, a =>
+      ∀ j : Fin n, 1 ≤ a j → ∃ i : Fin n, i.val < j.val ∧ a i = a j - 1
   | .disjunctive _ _, _ => True   -- scheduling: not used by the PB pipeline
   | .unknown _ _, _ => True       -- fallback: no semantics
 

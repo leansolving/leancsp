@@ -93,6 +93,15 @@ def minimum {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
     IntConstraint num_vars :=
   IntConstraint.minimum (scope.toList.map (·.val)) minVar.val
 
+/-- Value-precedence symmetry-breaking constraint over `x₀ … x_{num_vars-1}` with `colors`
+    interchangeable colours: a colour `v ∈ [1, colors)` may first appear (scanning the
+    variables in index order) only after `v-1` has.  The Law–Lee (2004) constraint; sound
+    for any CSP whose solution set is closed under all colour permutations (see
+    `CSP/L2S/ValuePrecedence.lean`).  The PB backend encodes its staircase consequence
+    `xⱼ ≤ j`. -/
+def value_precedence (colors : ℕ) : IntConstraint num_vars :=
+  IntConstraint.value_precedence colors
+
 end GlobalConstraints
 
 -- ============================================================================

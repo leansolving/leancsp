@@ -324,6 +324,13 @@ def encodePattern (S : CSPSig) : IntConstraint S.nInt → List (EncConstr S)
       if h : (∀ v ∈ vars, v < S.nInt) ∧ tvar < S.nInt then
         encodeRel S op (coeffs.zip (toFinList S vars) ++ [((-1 : Int), ⟨tvar, h.2⟩)]) 0
       else []
+  -- Value (colour) precedence.  Its full Law–Lee semantics (`patternHolds`) implies the
+  -- *staircase* relaxation `x_j ≤ j` (a positive colour `v` needs a strictly-earlier chain
+  -- `v-1, …, 0`, so at most `j+1` distinct colours precede position `j`).  We emit exactly
+  -- that staircase — every bit of pruning is sound (`value_precedence_staircase`), aux-free,
+  -- and uses the existing unary `≤` encoder.
+  | .value_precedence _colors =>
+      (List.finRange S.nInt).flatMap (fun j => encodeRel S .LE [((1 : Int), j)] (j.val : Int))
   -- Constructors not yet in the PB fragment (wired in later milestones, or genuinely
   -- non-linear).  Each encodes to `[]` — sound, since dropping a constraint only weakens
   -- the PB formula.  Listed explicitly (no wildcard) so each `encodePattern` equation lemma
@@ -354,6 +361,27 @@ def encodePattern (S : CSPSig) : IntConstraint S.nInt → List (EncConstr S)
   | .product_rel_var _ _ _ => []
   | .disjunctive _ _ => []
   | .unknown _ _ => []
+
+/-- **Value precedence ⇒ staircase.**  If every positive colour at position `j` has its
+    predecessor strictly earlier, then `a j ≤ j` for all `j` (chain `a j, a j − 1, …, 0`
+    occupies `a j + 1 ≤ j + 1` distinct positions `≤ j`).  This is what makes the staircase
+    PB encoding of `value_precedence` sound. -/
+theorem value_precedence_staircase {m : ℕ} (a : Fin m → Int)
+    (h : ∀ j : Fin m, 1 ≤ a j → ∃ i : Fin m, i.val < j.val ∧ a i = a j - 1) :
+    ∀ j : Fin m, a j ≤ (j.val : Int) := by
+  intro j
+  have key : ∀ p : ℕ, ∀ j : Fin m, j.val < p → a j ≤ (j.val : Int) := by
+    intro p
+    induction p with
+    | zero => intro j hj; omega
+    | succ p ih =>
+      intro j hj
+      by_cases hpos : 1 ≤ a j
+      · obtain ⟨i, hij, hai⟩ := h j hpos
+        have hi : a i ≤ (i.val : Int) := ih i (by omega)
+        omega
+      · omega
+  exact key (j.val + 1) j (by omega)
 
 /-- Every entry `encodePattern` emits is aux-free. -/
 theorem encodePattern_setsAux (c : IntConstraint S.nInt) (a : Fin S.nInt → Int)
@@ -439,6 +467,10 @@ theorem encodePattern_setsAux (c : IntConstraint S.nInt) (a : Fin S.nInt → Int
     simp only [encodePattern] at he; split at he
     · exact encodeRel_setsAux _ _ _ a e he
     · exact absurd he (by simp)
+  case value_precedence colors =>
+    simp only [encodePattern, List.mem_flatMap] at he
+    obtain ⟨j, _, he⟩ := he
+    exact encodeRel_setsAux _ _ _ a e he
   all_goals (simp only [encodePattern] at he; exact absurd he (by simp))
 
 /-- **Generic per-constraint soundness.**  Each emitted entry's precondition follows from
@@ -641,6 +673,14 @@ theorem encodePattern_sound (c : IntConstraint S.nInt) (a : Fin S.nInt → Int)
           (List.zipWith (· * ·) coeffs (vars.map (valAt a))).sum (valAt a tvar) := hpat
         simpa only [valAt, h.2, dite_true] using hh
       · exact absurd he (by simp)
+  case value_precedence colors =>
+      simp only [encodePattern, List.mem_flatMap] at he
+      obtain ⟨j, _, he⟩ := he
+      have hp : ∀ j : Fin S.nInt, 1 ≤ a j → ∃ i : Fin S.nInt, i.val < j.val ∧ a i = a j - 1 :=
+        hpat
+      refine encodeRel_unary_sound .LE j (j.val : Int) a ?_ e he
+      show a j ≤ (j.val : Int)
+      exact value_precedence_staircase a hp j
   all_goals (simp only [encodePattern] at he; exact absurd he (by simp))
 
 /-! ### Boolean-gate fold bounds (over `{0,1}`)
