@@ -46,4 +46,21 @@ theorem extended_c7_2col_unsat : ¬ extended_c7_2col.isSatisfiableInt :=
 theorem extended_c9_2col_unsat : ¬ extended_c9_2col.isSatisfiableInt :=
   csp_unsat_file extended_c9_2col 9 "certs/c9_sbc.pbp"
 
+/-- `C₅` 2-colouring extended with full value precedence. -/
+def vp_c5_2col : IntCSP := (graph_coloring_csp 5 c5_edges 2).addConstraint (value_precedence 2)
+/-- `C₇` 2-colouring extended with full value precedence. -/
+def vp_c7_2col : IntCSP := (graph_coloring_csp 7 c7_edges 2).addConstraint (value_precedence 2)
+/-- `C₉` 2-colouring extended with full value precedence. -/
+def vp_c9_2col : IntCSP := (graph_coloring_csp 9 c9_edges 2).addConstraint (value_precedence 2)
+
+/-- **Value-precedence-extended: `C₅` is not 2-colourable.** -/
+theorem vp_c5_2col_unsat : ¬ vp_c5_2col.isSatisfiableInt :=
+  csp_unsat_file vp_c5_2col 5 "certs/c5_vp.pbp"
+/-- **Value-precedence-extended: `C₇` is not 2-colourable.** -/
+theorem vp_c7_2col_unsat : ¬ vp_c7_2col.isSatisfiableInt :=
+  csp_unsat_file vp_c7_2col 7 "certs/c7_vp.pbp"
+/-- **Value-precedence-extended: `C₉` is not 2-colourable.** -/
+theorem vp_c9_2col_unsat : ¬ vp_c9_2col.isSatisfiableInt :=
+  csp_unsat_file vp_c9_2col 9 "certs/c9_vp.pbp"
+
 end CSP.L2S.PB.OddCycleSBC

@@ -1,0 +1,22 @@
+pseudo-Boolean proof version 3.0
+f 33;
+rup >= 0 : ~ ;
+pol 2 1 +;
+pol 4 1 +;
+pol 6 1 +;
+pol 8 1 +;
+pol 21 22 + 38 + s 19 + s 37 + s 11 + s;
+pol 37 27 + 23 + s;
+pol 29 30 + 20 + s 40 + s 15 + s 36 + s 39 + s;
+rup 1 ~x3 >= 1 : ~ 41 35;
+pol 33 14 + 41 + 38 + s 19 + 42 + s;
+rup 1 ~x4 >= 1 : ~ 43 37;
+rup 1 x5 >= 1 : ~ 44 42 17;
+rup 1 ~x9 >= 1 : ~ 45 38;
+rup 1 ~x8 >= 1 : ~ 45 41 14;
+rup 1 ~x6 >= 1 : ~ 45 43 26;
+rup 1 ~x3 1 ~x9 1 ~x6 >= 3 : 46 48 42 ~;
+pol 21 49 +;
+output NONE ;
+conclusion UNSAT : 50;
+end pseudo-Boolean proof;
