@@ -101,6 +101,15 @@ It plugs into the *same* machinery: `value_precedence_is_domain_symmetry_breakin
 | `Schur.schur_2_5_unsat_via_value_precedence` | `schur_sb 5 2` | `value_precedence 2` | `schur_2_5_vp.pbp` |
 | `GraphColoring.k3_2col_unsat_via_value_precedence` | `graph_coloring_csp 3 K₃ 2` | `value_precedence 2` | `k3_vp.pbp` |
 | `GraphColoring.k4_3col_unsat_via_value_precedence` | `graph_coloring_csp 4 K₄ 3` | `value_precedence 3` | `k4_vp.pbp` |
+| `OddCycle.c{5,7,9}_2col_unsat_via_value_precedence` | `graph_coloring_csp n Cₙ 2` | `value_precedence 2` | `c{5,7,9}_vp.pbp` |
+| `VanDerWaerden.vdw_2_3_9_unsat_via_value_precedence` | `vdw_csp 9` (W(2,3)=9) | `value_precedence 2` | `vdw_2_3_9_vp.pbp` |
+| `Ramsey.ramsey_3_3_K6_unsat_via_value_precedence` | `ramsey_r33_csp 6` (R(3,3)=6) | `value_precedence 2` | `ramsey_3_3_vp.pbp` |
+| `Pigeonhole.php_{3_2,5_4}_unsat_via_value_precedence` | `php_sb p h` (0-indexed) | `value_precedence h` | `php_{3_2,5_4}_vp.pbp` |
+
+Discharge files: `CSP/L2S/Proofs/{Schur,GraphColoring,VanDerWaerden,Ramsey,Pigeonhole}ValuePrecedence.lean`.
+VdW/Ramsey are Schur-shaped (`bound 0 1` + `schur_triple`), reusing `schur_triple_preserved_by_perm`;
+Pigeonhole adds `alldifferent_preserved_by_perm` (a 0-indexed `php_sb` CSP, since the corpus PHP is
+1-indexed). Pigeonhole is CP-easy, so its value precedence is a correctness/breadth demonstrator.
 
 Because the encoder drops `if_then`/`if_then_or` (it has no facet for a multi-variable disjunctive
 conclusion), the constructor's *semantics* is the full Law–Lee precedence but the *encoding* emits its

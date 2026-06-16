@@ -1,0 +1,11 @@
+pseudo-Boolean proof version 3.0
+f 3;
+rup >= 0 : ~ ;
+pol 2 1 +;
+rup 1 ~x2 >= 1 : ~ 5;
+rup 1 ~x3 >= 1 : ~ 5;
+rup 1 ~x1 1 ~x2 1 ~x3 >= 2 : 6 7 ~;
+pol 3 8 +;
+output NONE ;
+conclusion UNSAT : 9;
+end pseudo-Boolean proof;
