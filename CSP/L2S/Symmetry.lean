@@ -282,6 +282,36 @@ theorem symmetryBreaking_equisatisfiability
   · exact variableSymmetryBreaking_equisatisfiability csp c h_variable
 
 -- ============================================================================
+-- End-to-end glue: SBC correctness + extended-CSP UNSAT ⇒ original UNSAT
+-- ============================================================================
+
+/-- **End-to-end composition.** If `c` is a (verified) symmetry-breaking constraint for `csp`
+    and the extended CSP `csp.addConstraint c` is UNSAT (e.g. via a kernel-checked PB
+    certificate from `csp_unsat_file`), then the *original* `csp` is UNSAT.
+
+    This is the single bridge between the symmetry-breaking correctness proofs
+    (`*SB.lean`) and the verified PB UNSAT backend. -/
+theorem unsat_of_sbc (csp : IntCSP) (c : IntConstraint csp.num_vars)
+    (h_sbc : symmetryBreakingConstraint csp c)
+    (h_unsat : ¬ isSatisfiableInt (csp.addConstraint c)) :
+    ¬ isSatisfiableInt csp :=
+  fun hs => h_unsat ((symmetryBreaking_equisatisfiability csp c h_sbc).mp hs)
+
+/-- `unsat_of_sbc` specialised to a domain symmetry-breaking constraint. -/
+theorem unsat_of_domain_sbc (csp : IntCSP) (c : IntConstraint csp.num_vars)
+    (h_sbc : domainSymmetryBreakingConstraint csp c)
+    (h_unsat : ¬ isSatisfiableInt (csp.addConstraint c)) :
+    ¬ isSatisfiableInt csp :=
+  unsat_of_sbc csp c (Or.inl h_sbc) h_unsat
+
+/-- `unsat_of_sbc` specialised to a variable symmetry-breaking constraint. -/
+theorem unsat_of_variable_sbc (csp : IntCSP) (c : IntConstraint csp.num_vars)
+    (h_sbc : variableSymmetryBreakingConstraint csp c)
+    (h_unsat : ¬ isSatisfiableInt (csp.addConstraint c)) :
+    ¬ isSatisfiableInt csp :=
+  unsat_of_sbc csp c (Or.inr h_sbc) h_unsat
+
+-- ============================================================================
 -- Compatibility with Heterogeneous Framework
 -- ============================================================================
 
