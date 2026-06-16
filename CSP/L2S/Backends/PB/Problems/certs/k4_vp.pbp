@@ -1,0 +1,18 @@
+pseudo-Boolean proof version 3.0
+f 24;
+rup >= 0 : ~ ;
+rup 1 x1 >= 1 : ~ 5;
+rup 1 x2 >= 1 : ~ 5;
+pol 7 26 +;
+rup 1 x4 >= 1 : ~ 28 6;
+pol 10 26 +;
+pol 13 26 +;
+rup 1 x4 1 ~x3 1 ~x5 >= 3 : 28 29 30 ~;
+pol 17 32 +;
+rup 1 x4 1 ~x3 1 ~x7 >= 3 : 28 29 31 ~;
+pol 20 34 +;
+rup 1 ~x6 1 ~x8 >= 2 : 33 35 ~;
+pol 24 36 +;
+output NONE ;
+conclusion UNSAT : 37;
+end pseudo-Boolean proof;

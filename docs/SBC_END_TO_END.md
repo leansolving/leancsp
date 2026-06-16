@@ -78,17 +78,40 @@ The backend solves with **RoundingSat (cutting planes)**. The *value* of symmetr
 have short cutting-planes proofs (those are *correctness/breadth* demonstrators, not speedup ones). See
 the per-family expectation in the roadmap; the quantitative comparison is the scaling experiment below.
 
+## Value precedence (full colour-symmetry break)
+
+The reused `x₀ = 0` SBC breaks one generator of `S_k` (orbit shrink ×`k`). The **Law–Lee value
+precedence** constraint — "colour `v ∈ [1,k)` may first appear only after `v-1`" — breaks the *full*
+`S_k`. It is implemented end-to-end:
+
+| Piece | Location |
+|-------|----------|
+| `value_precedence (colors)` constructor + `patternHolds` semantics | `CSP/L2S/Core.lean` |
+| smart constructor | `CSP/L2S/Constraints.lean` (`GlobalConstraints`) |
+| PB encoder: sound **staircase** relaxation `xⱼ ≤ j` (`value_precedence_staircase`) + `encodePattern_sound` | `CSP/L2S/Backends/PB/GenericEncode.lean` |
+| **`value_precedence_is_domain_symmetry_breaking`** — a `domainSymmetryBreakingConstraint` (δ = lex-minimiser of the solution's colour-orbit) | `CSP/L2S/ValuePrecedence.lean` |
+| family discharge (`*_interval_perm_is_symmetry`, `*_hdom`) + `*_unsat_of_value_precedence` | `CSP/L2S/Proofs/{Schur,GraphColoring}ValuePrecedence.lean` |
+
+It plugs into the *same* machinery: `value_precedence_is_domain_symmetry_breaking` →
+`domainSymmetryBreaking_equisatisfiability` → `unsat_of_domain_sbc`. End-to-end theorems
+(all axiom-clean):
+
+| Theorem (`CSP.L2S.EndToEnd.…`) | Original CSP | SBC | Cert |
+|---|---|---|---|
+| `Schur.schur_2_5_unsat_via_value_precedence` | `schur_sb 5 2` | `value_precedence 2` | `schur_2_5_vp.pbp` |
+| `GraphColoring.k3_2col_unsat_via_value_precedence` | `graph_coloring_csp 3 K₃ 2` | `value_precedence 2` | `k3_vp.pbp` |
+| `GraphColoring.k4_3col_unsat_via_value_precedence` | `graph_coloring_csp 4 K₄ 3` | `value_precedence 3` | `k4_vp.pbp` |
+
+Because the encoder drops `if_then`/`if_then_or` (it has no facet for a multi-variable disjunctive
+conclusion), the constructor's *semantics* is the full Law–Lee precedence but the *encoding* emits its
+sound staircase consequence `xⱼ ≤ j` (implied by precedence — `value_precedence_staircase`), which is
+what genuinely constrains the cutting-planes search.
+
 ## Roadmap (next steps)
 
-The pattern above is established and template-complete. Remaining work, in priority order:
-
-1. **Value precedence** (general SBC, `CSP/L2S/Symmetry.lean`). The reused SBCs fix `x₀ = 0`, one
-   generator of `S_k` (orbit shrink ×`k`). *Value precedence* — "colour `v` first appears only after
-   `v-1`" — breaks the full `S_k` (orbit → 1, shrink up to `k!`). Search-free correctness proof
-   (relabel colours by first occurrence); the one non-routine step is the Mathlib lemma
-   "injective partial map on a `Fintype` extends to a permutation". One lemma upgrades every
-   colour-symmetric family and enables the **none / one-swap / value-precedence** granularity
-   comparison.
+1. **Replicate value precedence** to Van der Waerden / Ramsey / Pigeonhole (each needs its
+   `*_interval_perm_is_symmetry` + `*_hdom`, analogous to Schur/graph-colouring), plus odd-cycle VP
+   certs (reuse `graph_coloring_value_precedence_is_sbc`).
 2. **Schur first-occurrence hierarchy** (capstone): prove `pⱼ ≤ S(j)+1` (the prefix before colour `j`
    is a `j`-colour sum-free colouring), a self-strengthening SBC that *consumes* the kernel-checked
    smaller-Schur theorem (Heule's *Schur Number Five* technique).
