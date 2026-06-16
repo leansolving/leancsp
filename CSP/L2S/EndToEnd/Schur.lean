@@ -1,4 +1,6 @@
 import CSP.L2S.Backends.PB.Problems.SchurSBC
+import CSP.L2S.Backends.PB.Problems.SchurVP
+import CSP.L2S.Proofs.SchurValuePrecedence
 
 /-!
 # End-to-end UNSAT via symmetry breaking — Schur `S(2) < 5`
@@ -42,5 +44,12 @@ theorem schur_3_14_unsat : ¬ (_root_.Schur.schur_sb 14 3).isSatisfiableInt :=
     (_root_.Schur.schur_sb_is_symmetry_breaking 14 3 (by decide) (by decide)
       (_root_.Schur.schurTriples 14))
     PB.SchurSBC.extended_schur_3_14_unsat
+
+/-- **End-to-end `S(2) < 5` via full value precedence.** Same UNSAT result, but the SBC is the
+    Law–Lee `value_precedence` constraint (the full colour-symmetry break, not just `x₀ = 0`),
+    proven a `domainSymmetryBreakingConstraint` and discharged through `unsat_of_domain_sbc`. -/
+theorem schur_2_5_unsat_via_value_precedence : ¬ (_root_.Schur.schur_sb 5 2).isSatisfiableInt :=
+  _root_.Schur.schur_unsat_of_value_precedence 5 2 (_root_.Schur.schurTriples 5)
+    PB.SchurVP.schur_2_5_vp_unsat
 
 end CSP.L2S.EndToEnd.Schur
