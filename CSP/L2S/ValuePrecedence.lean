@@ -6,21 +6,23 @@ import Mathlib.Order.PiLex
 import Mathlib.Tactic
 
 /-!
-# Value precedence preserves satisfiability
+# Value precedence as a domain symmetry-breaking constraint
 
-The `value_precedence colors` constraint (Law–Lee 2004) is a *symmetry-breaking* constraint for
-any CSP whose solution set is closed under permutations of the interchangeable colour values
-`{0, …, colors-1}`.  We prove that adding it preserves satisfiability, hence equisatisfiability,
-hence (with a PB UNSAT certificate for the extended CSP) UNSAT of the original.
+The `value_precedence colors` constraint (Law–Lee 2004) is proven to be a
+`domainSymmetryBreakingConstraint` for any CSP whose solution set is closed under all
+colour permutations preserving the colour interval `[0, colors-1]`.  It therefore plugs into
+the project's symmetry-breaking machinery: `domainSymmetryBreaking_equisatisfiability` gives
+equisatisfiability and `unsat_of_domain_sbc` (in `CSP/L2S/Symmetry.lean`) gives the end-to-end
+`¬ csp.isSatisfiableInt` from a PB UNSAT certificate of the extended CSP.
 
-## Proof idea (no orbit/permutation construction needed)
+## Construction of the symmetry `δ` (what the framework requires)
 
-Take the **lexicographically minimal** solution `b` (it exists: solutions have values in a finite
-interval, so there are finitely many).  Then `b` satisfies value precedence: otherwise, at the
-*least* violating position `p` (colour `v := b p ≥ 1` with no `v-1` earlier), swapping colours
-`v-1` and `v` yields another solution (closure) that agrees with `b` before `p` and is smaller at
-`p` (`v-1 < v`) — strictly lex-smaller, contradicting minimality.  The swap touches no earlier
-position because, by minimality of `p`, neither `v` nor `v-1` occurs before `p`.
+`domainSymmetryBreakingConstraint` asks, for each solution `a`, for a *single* domain symmetry
+`δ` such that `δ ∘ a` solves the extended CSP.  We take `δ` to be the **lexicographically
+minimal element of `a`'s colour-orbit** `{ δ' ∘ a | δ' interval-preserving }` (a finite set).
+Its minimality forces `δ ∘ a` to respect value precedence: otherwise, at the least violating
+position `p` (colour `v := (δ∘a) p ≥ 1` with no `v-1` earlier), composing with the colour
+transposition `swap(v-1, v)` stays in the orbit and is strictly lex-smaller — a contradiction.
 -/
 
 namespace CSP.L2S
@@ -28,63 +30,108 @@ namespace CSP.L2S
 open IntCSP
 open scoped Classical
 
-/-- The lex-minimality contradiction: if `b ≤ₗₑₓ b'`, they agree strictly before `p`, then
-    `b p ≤ b' p` — so a strictly-smaller value at `p` is impossible. -/
+-- ============================================================================
+-- Interval-preserving permutation helpers
+-- ============================================================================
+
+/-- The identity preserves every interval. -/
+lemma intervalPreserving_refl (lb ub : ℤ) : intervalPreserving (Equiv.refl ℤ) lb ub := by
+  intro d; simp only [Equiv.refl_apply]
+
+/-- A composition of interval-preserving permutations is interval-preserving. -/
+lemma intervalPreserving_comp {δ e : Equiv.Perm ℤ} {lb ub : ℤ}
+    (hδ : intervalPreserving δ lb ub) (he : intervalPreserving e lb ub) :
+    intervalPreserving (δ.trans e) lb ub := by
+  intro d; rw [Equiv.trans_apply]; exact (hδ d).trans (he (δ d))
+
+/-- Swapping two values inside `[lb, ub]` preserves the interval. -/
+lemma intervalPreserving_swap (c1 c2 lb ub : ℤ)
+    (h1 : lb ≤ c1 ∧ c1 ≤ ub) (h2 : lb ≤ c2 ∧ c2 ≤ ub) :
+    intervalPreserving (Equiv.swap c1 c2) lb ub := by
+  intro d
+  constructor
+  · intro hd
+    by_cases e1 : d = c1
+    · rw [e1, Equiv.swap_apply_left]; exact h2
+    · by_cases e2 : d = c2
+      · rw [e2, Equiv.swap_apply_right]; exact h1
+      · rw [Equiv.swap_apply_of_ne_of_ne e1 e2]; exact hd
+  · intro hd
+    by_cases e1 : d = c1
+    · rw [e1]; exact h1
+    · by_cases e2 : d = c2
+      · rw [e2]; exact h2
+      · rw [Equiv.swap_apply_of_ne_of_ne e1 e2] at hd; exact hd
+
+-- ============================================================================
+-- Lex-minimality core
+-- ============================================================================
+
+/-- If `b ≤ₗₑₓ b'`, they agree strictly before `p`, then `b p ≤ b' p` — so a strictly-smaller
+    value at `p` is impossible. -/
 private theorem lex_swap_contra {n : ℕ} (b b' : Fin n → ℤ) (p : Fin n)
     (hle : toLex b ≤ toLex b') (hagree : ∀ q : Fin n, q.val < p.val → b q = b' q)
     (hp : b' p < b p) : False := by
   have hkey : b p ≤ b' p := Pi.apply_le_of_toLex hle (fun j hj => hagree j (Fin.lt_def.mp hj))
   omega
 
-/-- **Value precedence preserves satisfiability.**  If `csp`'s solutions all take colours in
-    `[0, colors)` and the solution set is closed under transposing any two such colours, then a
-    solution of `csp` extends to a solution of `csp` together with the `value_precedence colors`
-    constraint. -/
-theorem value_precedence_preserves_satisfiability {colors : ℕ} (csp : IntCSP)
+-- ============================================================================
+-- Value precedence is a domain symmetry-breaking constraint
+-- ============================================================================
+
+/-- **Value precedence is a domain symmetry-breaking constraint.**  If every solution of `csp`
+    colours in `[0, colors-1]` and every interval-preserving colour permutation is a domain
+    symmetry, then `value_precedence colors` is a domain symmetry-breaking constraint. -/
+theorem value_precedence_is_domain_symmetry_breaking {colors : ℕ} (csp : IntCSP)
     (hdom : ∀ b : IntAssignment csp.num_vars, isSolutionInt csp b →
-      ∀ j : Fin csp.num_vars, 0 ≤ b j ∧ b j < (colors : ℤ))
-    (hclosure : ∀ c1 c2 : ℤ, 0 ≤ c1 → c1 < (colors : ℤ) → 0 ≤ c2 → c2 < (colors : ℤ) →
-      ∀ b : IntAssignment csp.num_vars, isSolutionInt csp b →
-        isSolutionInt csp (Equiv.swap c1 c2 ∘ b))
-    (hsat : isSatisfiableInt csp) :
-    isSatisfiableInt (csp.addConstraint (value_precedence colors)) := by
-  obtain ⟨a, ha⟩ := hsat
-  -- The (finite) set of all solutions.
-  set S : Set (IntAssignment csp.num_vars) := {b | isSolutionInt csp b} with hS
-  have hfin : S.Finite := by
+      ∀ j : Fin csp.num_vars, 0 ≤ b j ∧ b j ≤ (colors : ℤ) - 1)
+    (hsym : ∀ δ : Equiv.Perm ℤ, intervalPreserving δ 0 ((colors : ℤ) - 1) → DomainSymmetry csp δ) :
+    domainSymmetryBreakingConstraint csp (value_precedence colors) := by
+  intro a ha
+  have ha_dom : ∀ j, 0 ≤ a j ∧ a j ≤ (colors : ℤ) - 1 := hdom a ha
+  -- The colour-orbit of `a` (a finite set), and its lex-minimal element.
+  set Orbit : Set (IntAssignment csp.num_vars) :=
+    {b | ∃ δ : Equiv.Perm ℤ, intervalPreserving δ 0 ((colors : ℤ) - 1) ∧ b = ⇑δ ∘ a} with hOrbit
+  have hfin : Orbit.Finite := by
     apply Set.Finite.subset
       (Set.Finite.pi (fun _ : Fin csp.num_vars => Set.finite_Ico (0 : ℤ) (colors : ℤ)))
-    intro b hb
-    refine Set.mem_pi.mpr (fun j _ => ?_)
-    exact Set.mem_Ico.mpr (hdom b hb j)
-  have hne : S.Nonempty := ⟨a, ha⟩
-  obtain ⟨b, hbS, hbmin⟩ := Set.exists_min_image S toLex hfin hne
-  have hbsol : isSolutionInt csp b := hbS
-  -- `b` satisfies value precedence.
+    rintro b ⟨δ, hδ, rfl⟩
+    refine Set.mem_pi.mpr (fun j _ => Set.mem_Ico.mpr ?_)
+    have := (hδ (a j)).mp (ha_dom j)
+    simp only [Function.comp_apply]; omega
+  have hne : Orbit.Nonempty :=
+    ⟨a, Equiv.refl ℤ, intervalPreserving_refl 0 _, by simp only [Equiv.coe_refl, Function.id_comp]⟩
+  obtain ⟨b, hbOrbit, hbmin⟩ := Set.exists_min_image Orbit toLex hfin hne
+  obtain ⟨δ, hδip, hbeq⟩ := hbOrbit
+  have hbdom : ∀ j, 0 ≤ b j ∧ b j ≤ (colors : ℤ) - 1 := by
+    intro j; rw [hbeq]; simp only [Function.comp_apply]; exact (hδip (a j)).mp (ha_dom j)
+  -- `b = δ ∘ a` respects value precedence.
   have hVP : ∀ j : Fin csp.num_vars, 1 ≤ b j → ∃ i : Fin csp.num_vars, i.val < j.val ∧ b i = b j - 1 := by
     by_contra hcon
     push Not at hcon
     obtain ⟨j0, hj0pos, hj0⟩ := hcon
-    -- The nonempty finite set of violating positions; pick one of least index.
     have hviol_ne : (Finset.univ.filter
         (fun j : Fin csp.num_vars => 1 ≤ b j ∧ ∀ i : Fin csp.num_vars, i.val < j.val → b i ≠ b j - 1)).Nonempty :=
       ⟨j0, by simp only [Finset.mem_filter, Finset.mem_univ, true_and]; exact ⟨hj0pos, hj0⟩⟩
     obtain ⟨p, hpmem, hpmin⟩ := Finset.exists_min_image _ (fun j : Fin csp.num_vars => j.val) hviol_ne
     rw [Finset.mem_filter] at hpmem
     obtain ⟨_, hppos, hpno⟩ := hpmem
-    -- The swapped solution `b' = swap(v-1, v) ∘ b`.
-    obtain ⟨hpd1, hpd2⟩ := hdom b hbsol p
-    have hb'S : isSolutionInt csp (Equiv.swap (b p - 1) (b p) ∘ b) :=
-      hclosure (b p - 1) (b p) (Int.sub_nonneg_of_le hppos) ((sub_one_lt (b p)).trans hpd2)
-        hpd1 hpd2 b hbsol
+    -- `swap(v-1, v) ∘ b` is in the orbit (compose the interval-preserving perms).
+    have hbp := hbdom p
+    have hswap_ip : intervalPreserving (Equiv.swap (b p - 1) (b p)) 0 ((colors : ℤ) - 1) :=
+      intervalPreserving_swap (b p - 1) (b p) 0 ((colors : ℤ) - 1)
+        ⟨Int.sub_nonneg_of_le hppos, (sub_one_lt (b p)).le.trans hbp.2⟩ ⟨hbp.1, hbp.2⟩
+    have hb'Orbit : (⇑(Equiv.swap (b p - 1) (b p)) ∘ b) ∈ Orbit := by
+      refine ⟨δ.trans (Equiv.swap (b p - 1) (b p)), intervalPreserving_comp hδip hswap_ip, ?_⟩
+      rw [hbeq]; funext x; simp only [Function.comp_apply, Equiv.trans_apply]
+    have hle : toLex b ≤ toLex (⇑(Equiv.swap (b p - 1) (b p)) ∘ b) := hbmin _ hb'Orbit
     -- They agree strictly before `p` (neither `v` nor `v-1` occurs there).
     have hagree : ∀ q : Fin csp.num_vars, q.val < p.val →
-        b q = (Equiv.swap (b p - 1) (b p) ∘ b) q := by
+        b q = (⇑(Equiv.swap (b p - 1) (b p)) ∘ b) q := by
       intro q hq
       have hne1 : b q ≠ b p - 1 := hpno q hq
       have hne2 : b q ≠ b p := by
         intro hcontra
-        -- if `b q = b p = v` for `q < p`, then `q` violates too, contradicting minimality of `p`
         by_cases hqviol : ∀ i : Fin csp.num_vars, i.val < q.val → b i ≠ b q - 1
         · have : p.val ≤ q.val := hpmin q (by
             simp only [Finset.mem_filter, Finset.mem_univ, true_and]
@@ -94,43 +141,18 @@ theorem value_precedence_preserves_satisfiability {colors : ℕ} (csp : IntCSP)
           obtain ⟨i, hiq, hival⟩ := hqviol
           exact hpno i (by omega) (by rw [hcontra] at hival; exact hival)
       simp only [Function.comp_apply, Equiv.swap_apply_of_ne_of_ne hne1 hne2]
-    -- `b'` is lex ≥ `b` (minimality) but strictly smaller at `p`.
-    have hle : toLex b ≤ toLex (Equiv.swap (b p - 1) (b p) ∘ b) := hbmin _ hb'S
-    have hbp' : (Equiv.swap (b p - 1) (b p) ∘ b) p < b p := by
-      simp only [Function.comp_apply, Equiv.swap_apply_right]; exact sub_one_lt (b p)
-    exact lex_swap_contra b (Equiv.swap (b p - 1) (b p) ∘ b) p hle hagree hbp'
-  -- Assemble: `b` solves the extended CSP.
-  refine ⟨b, ?_⟩
+    have hbp' : (⇑(Equiv.swap (b p - 1) (b p)) ∘ b) p < b p := by
+      have hval : (⇑(Equiv.swap (b p - 1) (b p)) ∘ b) p = b p - 1 := by
+        simp only [Function.comp_apply, Equiv.swap_apply_right]
+      rw [hval]; exact sub_one_lt (b p)
+    exact lex_swap_contra b (⇑(Equiv.swap (b p - 1) (b p)) ∘ b) p hle hagree hbp'
+  -- Assemble the symmetry-breaking witness `δ`.
+  refine ⟨δ, hsym δ hδip, ?_⟩
   intro c hc
   rcases List.mem_cons.mp hc with hvp | horig
   · subst hvp
-    show patternHolds (value_precedence colors) b
-    exact hVP
-  · exact hbsol c horig
-
-/-- Equisatisfiability form of `value_precedence_preserves_satisfiability`. -/
-theorem value_precedence_equisatisfiable {colors : ℕ} (csp : IntCSP)
-    (hdom : ∀ b : IntAssignment csp.num_vars, isSolutionInt csp b →
-      ∀ j : Fin csp.num_vars, 0 ≤ b j ∧ b j < (colors : ℤ))
-    (hclosure : ∀ c1 c2 : ℤ, 0 ≤ c1 → c1 < (colors : ℤ) → 0 ≤ c2 → c2 < (colors : ℤ) →
-      ∀ b : IntAssignment csp.num_vars, isSolutionInt csp b →
-        isSolutionInt csp (Equiv.swap c1 c2 ∘ b)) :
-    equisatisfiable csp (csp.addConstraint (value_precedence colors)) := by
-  constructor
-  · intro hsat; exact value_precedence_preserves_satisfiability csp hdom hclosure hsat
-  · rintro ⟨b, hb⟩
-    exact ⟨b, fun c hc => hb c (List.mem_cons_of_mem _ hc)⟩
-
-/-- **End-to-end bridge for value precedence.**  Under colour-closure, UNSAT of the
-    value-precedence-extended CSP yields UNSAT of the original. -/
-theorem unsat_of_value_precedence {colors : ℕ} (csp : IntCSP)
-    (hdom : ∀ b : IntAssignment csp.num_vars, isSolutionInt csp b →
-      ∀ j : Fin csp.num_vars, 0 ≤ b j ∧ b j < (colors : ℤ))
-    (hclosure : ∀ c1 c2 : ℤ, 0 ≤ c1 → c1 < (colors : ℤ) → 0 ≤ c2 → c2 < (colors : ℤ) →
-      ∀ b : IntAssignment csp.num_vars, isSolutionInt csp b →
-        isSolutionInt csp (Equiv.swap c1 c2 ∘ b))
-    (h_unsat : ¬ isSatisfiableInt (csp.addConstraint (value_precedence colors))) :
-    ¬ isSatisfiableInt csp :=
-  fun hs => h_unsat (value_precedence_preserves_satisfiability csp hdom hclosure hs)
+    show patternHolds (value_precedence colors) (⇑δ ∘ a)
+    rw [← hbeq]; exact hVP
+  · exact hsym δ hδip a ha c horig
 
 end CSP.L2S
