@@ -16,9 +16,9 @@ Harness: [`scripts/sbc_scaling/`](../scripts/sbc_scaling/); data → `results/sb
 
 | Family | Instances | SBC |
 |---|---|---|
-| **clique** `Kₙ` / (n−1) colours | K3 … K16 | value precedence (n−1 colours) |
+| **clique** `Kₙ` / (n−1) colours | K3 … K15 | value precedence (n−1 colours) |
 | **Schur** `S(c)`, critical `n = S(c)+1` | c=2: n∈{5,6,7}; c=3: n∈{14,15}; c=4: n=45 | value precedence (c colours) |
-| **Van der Waerden** `W(r,3)` | (r,n) ∈ {(2,9),(2,10),(2,11),(3,27),(3,28)} | value precedence (r colours) |
+| **Van der Waerden** `W(r,3)` | (r,n) ∈ {(2,9),(2,10),(2,11),(3,27),(3,28),(4,76)} | value precedence (r colours) |
 | **pigeonhole** PHP(h+1,h) | h=2 … 12 | value precedence (h colours) |
 | **clique-colouring** Mycielskian `Mⱼ` (χ=j+2) / (j+1) colours | M2, M3, M4 | value precedence (j+1 colours) |
 
@@ -34,11 +34,29 @@ Harness: [`scripts/sbc_scaling/`](../scripts/sbc_scaling/); data → `results/sb
 | Family | Instances | SBC |
 |---|---|---|
 | **mutilated chessboard** `2k×2k` | 4×4, 6×6, 8×8, 10×10, 12×12 | diagonal reflection `(r,c)↦(c,r)` |
-| **perfect matching** `K₂ₘ₊₁` | K5, K7, K9, K11, K13, K15, K17 | vertex transposition (swap 0↔1) |
+| **perfect matching** `K₂ₘ₊₁` | K5, K7, K9, K11, K13, K15, K17, K19 | vertex transposition (swap 0↔1) |
 | **Langford** `L(2,n)` (UNSAT, n≡1,2 mod 4) | n ∈ {2,5,6,9,10} | sequence reversal (`x₀ ≤ n−1`) |
 
 Each family auto-stops at the RoundingSat timeout or the `native_decide` certificate-size cap
 (harder instances would only time out too).
+
+## How the sizes were chosen (two family classes)
+
+A size probe (RoundingSat `none` regime, the hard baseline) shows families split in two:
+
+* **Search-hard — solving time grows into seconds/minutes.** clique (K12 2.1s → K15 196s),
+  clique-colouring (M4 63s), perfect matching (K17 1.5s → K19 14.2s; K21+ time out), Langford
+  (n9 2.7s, n10 4.5s; n13+ time out), and the **high-colour** instances of Schur/VdW. **For
+  Schur and VdW the hard axis is the *number of colours* at the critical n, not n itself** —
+  pushing n past the threshold adds constraints and makes the instance *easier*. The hard points
+  are **Schur c=4 (n=45)** and **VdW r=4 (n=76)**: `none` times out, the SBC solves in tens of
+  seconds. The ladders above are tuned to this — they end just before the timeout cliff.
+* **CP-easy — solving time stays in the milliseconds at every size** (1–2 conflicts): pigeonhole,
+  mutilated chessboard, Ramsey, odd cycle. No size increase moves them (intrinsic to cutting
+  planes), so their meaningful metric is **certificate size / conflicts**, not wall-clock.
+
+Note: the search-hard instances produce large certificates that exceed the `native_decide` cap,
+so they are measured for solving time **externally** but fall outside the Lean-verified subset.
 
 ## Results
 

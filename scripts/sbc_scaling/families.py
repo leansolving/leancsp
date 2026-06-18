@@ -54,9 +54,15 @@ RMVP = "CSP.L2S.Proofs.RamseyValuePrecedence"
 # ---------------------------------------------------------------------------
 # critical thresholds + near-critical bands (more points without over-constraining)
 # ---------------------------------------------------------------------------
+# Hardness scales with the COLOUR count c at criticality n=S(c)+1, NOT with n past it (extra-n
+# points within a colour are time-flat — kept only for cert-size scaling).  c=4 (n=45) is the hard
+# point: `none` times out, `vp` ≈ 43 s (external-only — cert exceeds the native_decide cap).
 SCHUR_BAND = {2: [5, 6, 7], 3: [14, 15], 4: [45]}        # n = S(c)+1 … (S(c)=4,13,44)
 # VdW is restricted to k=3 (schur_triple → colour-symmetric → value precedence VERIFIED for any r).
-VDW_BAND = [(2, 9), (2, 10), (2, 11), (3, 27), (3, 28)]   # (r, n ≥ W(r,3));  W(2,3)=9, W(3,3)=27
+# Hardness scales with the COLOUR count r at criticality (n ≥ W(r,3)), NOT with n past threshold
+# (bigger n adds AP constraints → smaller refutation core → easier).  r=4 (W(4,3)=76) is the hard
+# point: `none` ~times out, `vp` solves in minutes (external-only — cert exceeds the native_decide cap).
+VDW_BAND = [(2, 9), (2, 10), (2, 11), (3, 27), (3, 28), (4, 76)]   # (r, n = W(r,3))
 # Ramsey is the diagonal R(3,3) (schur_triple over triangles → vp VERIFIED); scale n above R(3,3)=6.
 RAMSEY_N = [6, 7, 8, 9, 10]
 LANGFORD_N = [2, 5, 6, 9, 10]                            # UNSAT residues n ≡ 1,2 (mod 4)
@@ -75,7 +81,7 @@ FAMILIES = {
         glue_import=GCVP,
         glue=lambda i: f"graph_coloring_unsat_of_value_precedence {i['nat']} {i['nat'] - 1} "
                        f"{_edges_lit(_clique_edges(i['nat']))}",
-        instances=[inst(f"K{n}", n, _clique(n), n - 1) for n in range(3, 17)]),
+        instances=[inst(f"K{n}", n, _clique(n), n - 1) for n in range(3, 16)]),
     "schur": dict(module=SCH, axis="vars", regimes=["none", "vp"], note="critical n=S(c)+1, scale c",
         glue_import=SCVP,
         glue=lambda i: f"Schur.schur_unsat_of_value_precedence {i['nat']} {i['colors']} "
@@ -120,7 +126,7 @@ FAMILIES = {
         var_sbc=lambda i: f"Bench.matching_sb {i['m']}",
         glue_import="CSP.L2S.Proofs.MatchingSB",
         glue=lambda i: f"CSP.L2S.PB.MatchingSB.matching_unsat_of_var {i['m']} (by norm_num)",
-        instances=[inst(f"K{2 * m + 1}", 2 * m + 1, f"Bench.gen_matching {m}", 2, m=m) for m in range(2, 9)]),
+        instances=[inst(f"K{2 * m + 1}", 2 * m + 1, f"Bench.gen_matching {m}", 2, m=m) for m in range(2, 10)]),
     "langford": dict(module=GEN, axis="n", regimes=["none", "var"],
         note="L(2,n) UNSAT (n≡1,2 mod4); reversal SBC x0≤n-1 (verified)",
         var_sbc=lambda i: f"Bench.langford_sb {i['n']}",
