@@ -9,3 +9,9 @@ build/
 __pycache__/
 
 CSP/L2S/Backends/PB/Problems/_dump.lean
+results/sbc/
+results/sbc_v2/
+CSP/L2S/Backends/PB/Bench/*
+!CSP/L2S/Backends/PB/Bench/Generators.lean
+scripts/sbc_scaling/__pycache__/
+results/sbc_v3/_work/
