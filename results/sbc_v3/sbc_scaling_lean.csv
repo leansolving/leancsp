@@ -1,0 +1,11 @@
+family,module,n_theorems,build_time_s,build_time_per_theorem_s
+clique,CSP.L2S.Backends.PB.Bench.V3CliqueBench,20,14.2,0.712
+schur,CSP.L2S.Backends.PB.Bench.V3SchurBench,10,6.2,0.615
+vdw,CSP.L2S.Backends.PB.Bench.V3VdwBench,8,19.5,2.433
+php,CSP.L2S.Backends.PB.Bench.V3PhpBench,22,7.3,0.330
+clique_coloring,CSP.L2S.Backends.PB.Bench.V3CliqueColoringBench,4,7.8,1.961
+ramsey,CSP.L2S.Backends.PB.Bench.V3RamseyBench,10,22.6,2.256
+oddcycle,CSP.L2S.Backends.PB.Bench.V3OddcycleBench,48,94.1,1.961
+mutilated,CSP.L2S.Backends.PB.Bench.V3MutilatedBench,10,111.3,11.131
+matching,CSP.L2S.Backends.PB.Bench.V3MatchingBench,6,40.3,6.717
+langford,CSP.L2S.Backends.PB.Bench.V3LangfordBench,4,4.8,1.212

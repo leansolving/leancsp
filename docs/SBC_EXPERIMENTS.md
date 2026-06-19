@@ -60,10 +60,26 @@ so they are measured for solving time **externally** but fall outside the Lean-v
 
 ## Results
 
-<!-- fill in when the run completes: results/sbc_v3/sbc_scaling.csv (per-instance metrics),
-     sbc_scaling_lean.csv (per-family native_decide build), sbc_speedup.csv, sbc_<family>.png -->
+Data: `results/sbc_v3/` — `sbc_scaling.csv` (per-instance), `sbc_speedup.csv` (det-time
+speedup), `sbc_scaling_lean.csv` (per-family `native_decide` build), `sbc_<fam>.png` (log-y) and
+`sbc_<fam>_linear.png` (linear-y). Search effort = RoundingSat **deterministic time** (a
+machine-independent operation count); wall-clock is sub-ms noise on the easy instances.
 
-_(to be filled in)_
+* **Value precedence is decisive on colour-symmetric, search-hard families.** clique `Kₙ`: no-SBC
+  effort grows exponentially (K10 4.7M → K15 **10.9 billion** ops; wall **185 s**), value
+  precedence flattens it to ~constant (K15 550 ops, **6.5 ms**) — a **~2×10⁷×** speedup at K15.
+  clique-colouring M4: 63 s → 0.71 s. **Schur c=4 (n=45): `none` times out (>600 s) → `vp` 43 s.**
+* **The hard axis is colour count, not n.** Schur/VdW at fixed colours stay cheap as n grows;
+  the win appears only at more colours (Schur c4, VdW r4). VdW r4 (n=76) is too hard for *both*
+  regimes (>600 s) — even the SBC can't crack it.
+* **Variable SBCs (matching, Langford) are inconsistent** — instance-dependent: Langford n9 4.1×
+  but n10 0.8×; matching K19 1.8× but K17 0.3× (slower). No uniform win.
+* **CP-easy families gain nothing — and the SBC can hurt.** Pigeonhole value precedence is **~10×
+  slower** (short cutting-planes refutations already; the SBC only enlarges the formula). Ramsey /
+  odd cycle / binary Schur·VdW: modest 2–9× (binary ⇒ vp ≡ x₀).
+* **Lean-verified tier:** small-cert instances kernel-check (clique 20 thms, odd cycle 48, PHP 22,
+  mutilated 10; ~0.3–11 s/theorem). The search-hard instances are **external-only** — their certs
+  blow past the 500 KB cap (clique K15 `none` ≈ 390 MB).
 
 ## Reproduce
 

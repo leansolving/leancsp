@@ -48,8 +48,9 @@ def _series(rows, fam, regime, ykey, xcol):
     return [p[0] for p in pts], [float(p[1]) for p in pts]
 
 
-def plot_family(rows, fam):
+def plot_family(rows, fam, logscale=True):
     xcol, xlabel = _xkey(rows, fam)
+    xunit = f"{xlabel} (vars)" if xcol == "pb_vars" else f"{xlabel} (problem parameter)"
     fig, axs = plt.subplots(1, 3, figsize=(15, 4.2))
     for regime in REGIMES:
         mk, col = STYLE[regime]
@@ -58,17 +59,20 @@ def plot_family(rows, fam):
             x, y = _series(rows, fam, regime, key, xcol)
             if x:
                 ax.plot(x, y, mk, color=col, label=LABEL[regime])
-    axs[0].set(title=f"{fam}: roundingsat deterministic time", xlabel=xlabel, ylabel="det. time")
-    axs[0].set_yscale("log")
-    axs[1].set(title=f"{fam}: conflicts", xlabel=xlabel, ylabel="conflicts")
-    axs[2].set(title=f"{fam}: kernel certificate size", xlabel=xlabel, ylabel="cert chars")
-    axs[2].set_yscale("log")
+    tag = "log y" if logscale else "linear y"
+    axs[0].set(title=f"{fam}: roundingsat deterministic time ({tag})",
+               xlabel=xunit, ylabel="deterministic time (ops)")
+    axs[1].set(title=f"{fam}: conflicts", xlabel=xunit, ylabel="conflicts (count)")
+    axs[2].set(title=f"{fam}: kernel certificate size ({tag})",
+               xlabel=xunit, ylabel="certificate size (chars)")
+    if logscale:
+        axs[0].set_yscale("log"); axs[2].set_yscale("log")
     for ax in axs:
         ax.grid(True, alpha=0.3)
         if ax.get_legend_handles_labels()[0]:
             ax.legend()
     fig.tight_layout()
-    out = RES / f"sbc_{fam}.png"
+    out = RES / (f"sbc_{fam}.png" if logscale else f"sbc_{fam}_linear.png")
     fig.savefig(out, dpi=110); plt.close(fig)
     print(f"wrote {out}")
 
@@ -78,12 +82,13 @@ def speedup_table(rows):
     for r in rows:
         if r["roundingsat_status"] == "UNSAT" and r.get("rsat_det_time"):
             by[(r["family"], r["size_param"])][r["regime"]] = int(r["rsat_det_time"])
-    lines = ["family,size,det_none,det_x0,det_vp,speedup_x0,speedup_vp"]
+    lines = ["family,size,det_none,det_x0,det_vp,det_var,speedup_x0,speedup_vp,speedup_var"]
     for (fam, size), d in sorted(by.items()):
-        n = d.get("none"); x0 = d.get("x0"); vp = d.get("vp")
+        n = d.get("none"); x0 = d.get("x0"); vp = d.get("vp"); var = d.get("var")
         sx = f"{n/x0:.1f}" if n and x0 else ""
         sv = f"{n/vp:.1f}" if n and vp else ""
-        lines.append(f"{fam},{size},{n or ''},{x0 or ''},{vp or ''},{sx},{sv}")
+        sr = f"{n/var:.1f}" if n and var else ""
+        lines.append(f"{fam},{size},{n or ''},{x0 or ''},{vp or ''},{var or ''},{sx},{sv},{sr}")
     (RES / "sbc_speedup.csv").write_text("\n".join(lines) + "\n")
     print(f"wrote {RES / 'sbc_speedup.csv'}")
     print("\n".join(lines))
@@ -93,7 +98,8 @@ def main():
     ext = load()
     fams = sorted({r["family"] for r in ext})
     for fam in fams:
-        plot_family(ext, fam)
+        plot_family(ext, fam, logscale=True)    # current log-y figures (sbc_<fam>.png)
+        plot_family(ext, fam, logscale=False)   # new linear-y figures (sbc_<fam>_linear.png)
     speedup_table(ext)
 
 
