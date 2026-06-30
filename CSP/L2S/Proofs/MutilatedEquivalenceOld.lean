@@ -8,7 +8,14 @@ import Mathlib.Tactic.Linarith
 open CSP.L2S CSP.L2S.IntCSP Bench
 
 /-!
-# Orientation-based mutilated chessboard ≡ edge / exact-cover model
+# Orientation-based mutilated chessboard ≡ edge / exact-cover model  (ARCHIVED)
+
+**Archived reference copy.**  This is the original orientation proof with the
+`U=0, D=1, L=2, R=3` direction encoding (removed cells pinned to `0`, which
+coincided with UP).  It is kept under the namespace `CSP.L2S.MutilatedOrientOld`
+for reference / proof-technique reuse.  The live version
+(`MutilatedEquivalence.lean`, namespace `CSP.L2S.MutilatedOrient`) uses the
+cleaner `none=0, U=1, D=2, L=3, R=4` encoding.
 
 The project models the `2k×2k` mutilated chessboard (two opposite same-colour
 corners removed) as the **edge / exact-cover** CSP `Bench.gen_mutilated k`
@@ -28,18 +35,17 @@ The orientation model is never PB-encoded (its `if_then` constraints are outside
 the PB encoder); its UNSAT is obtained purely from `gen_mutilated k`'s UNSAT via
 `equisatisfiable` (`mutilated_orient_unsat_of_edge_unsat`).
 
-Direction codes: `none = 0`, `U = 1`, `D = 2`, `L = 3`, `R = 4`
-(`0` is reserved for the removed corners, which point nowhere).
+Direction codes: `U = 0`, `D = 1`, `L = 2`, `R = 3`.
 -/
 
-namespace CSP.L2S.MutilatedOrient
+namespace CSP.L2S.MutilatedOrientOld
 
 /-! ### The orientation CSP -/
 
 /-- The `2k×2k` orientation CSP: one variable per cell (`cell r c = r*N + c`,
-    `N = 2k`), domain `{1,2,3,4}` = `U/D/L/R`; removed corners pinned to `0` (= none,
-    not a direction).  For each present cell and direction, either `ne_const` (the
-    neighbour is off-board or removed — illegal) or `if_then` reciprocity. -/
+    `N = 2k`), domain `{0,1,2,3}` = `U/D/L/R`; removed corners pinned to `0`.
+    For each present cell and direction, either `ne_const` (the neighbour is
+    off-board or removed — illegal) or `if_then` reciprocity. -/
 def gen_orient (k : ℕ) : IntCSP :=
   let N := 2 * k
   let bounds : List (IntConstraint (2 * k * (2 * k))) :=
@@ -47,23 +53,23 @@ def gen_orient (k : ℕ) : IntCSP :=
       (List.range N).map fun c =>
         if Bench.mutRemoved N r c
         then IntConstraint.bound (r * N + c) 0 0
-        else IntConstraint.bound (r * N + c) 1 4
+        else IntConstraint.bound (r * N + c) 0 3
   let recip : List (IntConstraint (2 * k * (2 * k))) :=
     (List.range N).flatMap fun r =>
       (List.range N).flatMap fun c =>
         if Bench.mutRemoved N r c then ([] : List (IntConstraint (2 * k * (2 * k)))) else
           (if decide (c + 1 < N) && !Bench.mutRemoved N r (c + 1)
-             then [IntConstraint.if_then (r * N + c) 4 (r * N + (c + 1)) 3]
-             else [IntConstraint.ne_const (r * N + c) 4]) ++
-          (if decide (0 < c) && !Bench.mutRemoved N r (c - 1)
-             then [IntConstraint.if_then (r * N + c) 3 (r * N + (c - 1)) 4]
+             then [IntConstraint.if_then (r * N + c) 3 (r * N + (c + 1)) 2]
              else [IntConstraint.ne_const (r * N + c) 3]) ++
-          (if decide (r + 1 < N) && !Bench.mutRemoved N (r + 1) c
-             then [IntConstraint.if_then (r * N + c) 2 ((r + 1) * N + c) 1]
+          (if decide (0 < c) && !Bench.mutRemoved N r (c - 1)
+             then [IntConstraint.if_then (r * N + c) 2 (r * N + (c - 1)) 3]
              else [IntConstraint.ne_const (r * N + c) 2]) ++
+          (if decide (r + 1 < N) && !Bench.mutRemoved N (r + 1) c
+             then [IntConstraint.if_then (r * N + c) 1 ((r + 1) * N + c) 0]
+             else [IntConstraint.ne_const (r * N + c) 1]) ++
           (if decide (0 < r) && !Bench.mutRemoved N (r - 1) c
-             then [IntConstraint.if_then (r * N + c) 1 ((r - 1) * N + c) 2]
-             else [IntConstraint.ne_const (r * N + c) 1])
+             then [IntConstraint.if_then (r * N + c) 0 ((r - 1) * N + c) 1]
+             else [IntConstraint.ne_const (r * N + c) 0])
   ⟨2 * k * (2 * k), bounds ++ recip⟩
 
 /-! ### The projection `gen_orient → gen_mutilated` -/
@@ -76,15 +82,15 @@ def edgeVal (k : ℕ) (x : IntAssignment (2 * (2 * k) * (2 * k - 1))) (i : ℕ) 
 /-- Projection `π`: an orientation assignment ↦ the edge/matching assignment.
     Edge `e` (matching `gen_mutilated`'s indexing: horizontal `h(r,c)=r*(N-1)+c`
     for `e < nH = N*(N-1)`, vertical `v(r,c)=nH+r*N+c` otherwise) is selected iff
-    its *designated* endpoint points along it — the left cell points `R = 4` for a
-    horizontal, the upper cell points `D = 2` for a vertical. -/
+    its *designated* endpoint points along it — the left cell points `R = 3` for a
+    horizontal, the upper cell points `D = 1` for a vertical. -/
 def piMap (k : ℕ) (a : IntAssignment (2 * k * (2 * k))) :
     IntAssignment (2 * (2 * k) * (2 * k - 1)) :=
   fun e =>
     let nH := (2 * k) * (2 * k - 1)
     let r := if e.val < nH then e.val / (2 * k - 1) else (e.val - nH) / (2 * k)
     let c := if e.val < nH then e.val % (2 * k - 1) else (e.val - nH) % (2 * k)
-    let dir : ℤ := if e.val < nH then 4 else 2
+    let dir : ℤ := if e.val < nH then 3 else 1
     if h : r * (2 * k) + c < 2 * k * (2 * k)
     then (if a ⟨r * (2 * k) + c, h⟩ = dir then 1 else 0)
     else 0
@@ -100,19 +106,19 @@ def liftOrient (k : ℕ) (x : IntAssignment (2 * (2 * k) * (2 * k - 1))) :
     let c := p.val % N
     if Bench.mutRemoved N r c then 0
     else
-      if decide (c + 1 < N) && (edgeVal k x (r * (N - 1) + c) == 1) then 4        -- R
-      else if decide (0 < c) && (edgeVal k x (r * (N - 1) + (c - 1)) == 1) then 3 -- L
-      else if decide (r + 1 < N) && (edgeVal k x (nH + r * N + c) == 1) then 2    -- D
-      else if decide (0 < r) && (edgeVal k x (nH + (r - 1) * N + c) == 1) then 1  -- U
+      if decide (c + 1 < N) && (edgeVal k x (r * (N - 1) + c) == 1) then 3        -- R
+      else if decide (0 < c) && (edgeVal k x (r * (N - 1) + (c - 1)) == 1) then 2 -- L
+      else if decide (r + 1 < N) && (edgeVal k x (nH + r * N + c) == 1) then 1    -- D
+      else if decide (0 < r) && (edgeVal k x (nH + (r - 1) * N + c) == 1) then 0  -- U
       else 0
 
 /-! ### `piMap` roundtrip on the two edge kinds -/
 
 /-- Value of `piMap k a` on a horizontal edge `h(r,c) = r*(N-1)+c` (`N = 2k`):
-    `1` iff the left cell `(r,c)` points `R = 4`. -/
+    `1` iff the left cell `(r,c)` points `R = 3`. -/
 private lemma valAt_piMap_h (k : ℕ) (hk : 2 ≤ k) (a : IntAssignment (2 * k * (2 * k)))
     (r c : ℕ) (hr : r < 2 * k) (hc : c + 1 < 2 * k) :
-    valAt (piMap k a) (r * (2 * k - 1) + c) = (if valAt a (r * (2 * k) + c) = 4 then 1 else 0) := by
+    valAt (piMap k a) (r * (2 * k - 1) + c) = (if valAt a (r * (2 * k) + c) = 3 then 1 else 0) := by
   have hN1 : 0 < 2 * k - 1 := by omega
   have hcN1 : c < 2 * k - 1 := by omega
   have hdiv : (r * (2 * k - 1) + c) / (2 * k - 1) = r := by
@@ -137,11 +143,11 @@ private lemma valAt_piMap_h (k : ℕ) (hk : 2 ≤ k) (a : IntAssignment (2 * k *
   simp only [dif_pos hcell]
 
 /-- Value of `piMap k a` on a vertical edge `v(r,c) = N*(N-1)+r*N+c` (`N = 2k`):
-    `1` iff the upper cell `(r,c)` points `D = 2`. -/
+    `1` iff the upper cell `(r,c)` points `D = 1`. -/
 private lemma valAt_piMap_v (k : ℕ) (hk : 2 ≤ k) (a : IntAssignment (2 * k * (2 * k)))
     (r c : ℕ) (hr : r + 1 < 2 * k) (hc : c < 2 * k) :
     valAt (piMap k a) ((2 * k) * (2 * k - 1) + r * (2 * k) + c)
-      = (if valAt a (r * (2 * k) + c) = 2 then 1 else 0) := by
+      = (if valAt a (r * (2 * k) + c) = 1 then 1 else 0) := by
   have hNpos : 0 < 2 * k := by omega
   have hdiv : (r * (2 * k) + c) / (2 * k) = r := by
     rw [Nat.add_comm, Nat.add_mul_div_right _ _ hNpos, Nat.div_eq_of_lt hc, Nat.zero_add]
@@ -175,33 +181,33 @@ private lemma orient_constraints_def (k : ℕ) :
     (gen_orient k).constraints =
       ((List.range (2 * k)).flatMap fun r => (List.range (2 * k)).map fun c =>
         if Bench.mutRemoved (2 * k) r c then IntConstraint.bound (r * (2 * k) + c) 0 0
-        else IntConstraint.bound (r * (2 * k) + c) 1 4)
+        else IntConstraint.bound (r * (2 * k) + c) 0 3)
       ++ ((List.range (2 * k)).flatMap fun r => (List.range (2 * k)).flatMap fun c =>
         if Bench.mutRemoved (2 * k) r c then ([] : List (IntConstraint (2 * k * (2 * k)))) else
           (if decide (c + 1 < 2 * k) && !Bench.mutRemoved (2 * k) r (c + 1)
-             then [IntConstraint.if_then (r * (2 * k) + c) 4 (r * (2 * k) + (c + 1)) 3]
-             else [IntConstraint.ne_const (r * (2 * k) + c) 4]) ++
-          (if decide (0 < c) && !Bench.mutRemoved (2 * k) r (c - 1)
-             then [IntConstraint.if_then (r * (2 * k) + c) 3 (r * (2 * k) + (c - 1)) 4]
+             then [IntConstraint.if_then (r * (2 * k) + c) 3 (r * (2 * k) + (c + 1)) 2]
              else [IntConstraint.ne_const (r * (2 * k) + c) 3]) ++
-          (if decide (r + 1 < 2 * k) && !Bench.mutRemoved (2 * k) (r + 1) c
-             then [IntConstraint.if_then (r * (2 * k) + c) 2 ((r + 1) * (2 * k) + c) 1]
+          (if decide (0 < c) && !Bench.mutRemoved (2 * k) r (c - 1)
+             then [IntConstraint.if_then (r * (2 * k) + c) 2 (r * (2 * k) + (c - 1)) 3]
              else [IntConstraint.ne_const (r * (2 * k) + c) 2]) ++
+          (if decide (r + 1 < 2 * k) && !Bench.mutRemoved (2 * k) (r + 1) c
+             then [IntConstraint.if_then (r * (2 * k) + c) 1 ((r + 1) * (2 * k) + c) 0]
+             else [IntConstraint.ne_const (r * (2 * k) + c) 1]) ++
           (if decide (0 < r) && !Bench.mutRemoved (2 * k) (r - 1) c
-             then [IntConstraint.if_then (r * (2 * k) + c) 1 ((r - 1) * (2 * k) + c) 2]
-             else [IntConstraint.ne_const (r * (2 * k) + c) 1])) := rfl
+             then [IntConstraint.if_then (r * (2 * k) + c) 0 ((r - 1) * (2 * k) + c) 1]
+             else [IntConstraint.ne_const (r * (2 * k) + c) 0])) := rfl
 
-/-- A present cell's value lies in `[1,4]`. -/
+/-- A present cell's value lies in `[0,3]`. -/
 private lemma orient_range (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
     (ha : isSolutionInt (gen_orient k) a) (r c : ℕ) (hr : r < 2 * k) (hc : c < 2 * k)
     (hpres : Bench.mutRemoved (2 * k) r c = false) :
-    1 ≤ valAt a (r * (2 * k) + c) ∧ valAt a (r * (2 * k) + c) ≤ 4 := by
-  have hmem : IntConstraint.bound (r * (2 * k) + c) 1 4 ∈ (gen_orient k).constraints := by
+    0 ≤ valAt a (r * (2 * k) + c) ∧ valAt a (r * (2 * k) + c) ≤ 3 := by
+  have hmem : IntConstraint.bound (r * (2 * k) + c) 0 3 ∈ (gen_orient k).constraints := by
     rw [orient_constraints_def]
     refine List.mem_append_left _ (List.mem_flatMap.mpr ⟨r, List.mem_range.mpr hr, ?_⟩)
     have hfc : (if Bench.mutRemoved (2 * k) r c
         then (IntConstraint.bound (r * (2 * k) + c) 0 0 : IntConstraint (2 * k * (2 * k)))
-        else IntConstraint.bound (r * (2 * k) + c) 1 4) = IntConstraint.bound (r * (2 * k) + c) 1 4 := by
+        else IntConstraint.bound (r * (2 * k) + c) 0 3) = IntConstraint.bound (r * (2 * k) + c) 0 3 := by
       simp [hpres]
     exact List.mem_map.mpr ⟨c, List.mem_range.mpr hc, hfc⟩
   have := ha _ hmem
@@ -217,7 +223,7 @@ private lemma orient_removed_zero (k : ℕ) (a : IntAssignment (2 * k * (2 * k))
     refine List.mem_append_left _ (List.mem_flatMap.mpr ⟨r, List.mem_range.mpr hr, ?_⟩)
     have hfc : (if Bench.mutRemoved (2 * k) r c
         then (IntConstraint.bound (r * (2 * k) + c) 0 0 : IntConstraint (2 * k * (2 * k)))
-        else IntConstraint.bound (r * (2 * k) + c) 1 4) = IntConstraint.bound (r * (2 * k) + c) 0 0 := by
+        else IntConstraint.bound (r * (2 * k) + c) 0 3) = IntConstraint.bound (r * (2 * k) + c) 0 0 := by
       simp [hrem]
     exact List.mem_map.mpr ⟨c, List.mem_range.mpr hc, hfc⟩
   have hb : (0 : ℤ) ≤ valAt a (r * (2 * k) + c) ∧ valAt a (r * (2 * k) + c) ≤ 0 := by
@@ -225,62 +231,24 @@ private lemma orient_removed_zero (k : ℕ) (a : IntAssignment (2 * k * (2 * k))
     simpa only [satisfiesConstraintInt, patternHolds] using this
   omega
 
-/-- **R reciprocity / legality.** If a present cell points `R = 4`, then `R` is legal
-    (the right neighbour exists and is present) and that neighbour points `L = 3`. -/
+/-- **R reciprocity / legality.** If a present cell points `R = 3`, then `R` is legal
+    (the right neighbour exists and is present) and that neighbour points `L = 2`. -/
 private lemma orient_R (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
     (ha : isSolutionInt (gen_orient k) a) (r c : ℕ) (hr : r < 2 * k) (hc : c < 2 * k)
-    (hpres : Bench.mutRemoved (2 * k) r c = false) (hd : valAt a (r * (2 * k) + c) = 4) :
+    (hpres : Bench.mutRemoved (2 * k) r c = false) (hd : valAt a (r * (2 * k) + c) = 3) :
     c + 1 < 2 * k ∧ Bench.mutRemoved (2 * k) r (c + 1) = false
-      ∧ valAt a (r * (2 * k) + (c + 1)) = 3 := by
+      ∧ valAt a (r * (2 * k) + (c + 1)) = 2 := by
   by_cases hleg : (decide (c + 1 < 2 * k) && !Bench.mutRemoved (2 * k) r (c + 1)) = true
   · have hlegit : c + 1 < 2 * k ∧ Bench.mutRemoved (2 * k) r (c + 1) = false := by
       simp only [Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true] at hleg
       exact hleg
-    have hmem : IntConstraint.if_then (r * (2 * k) + c) 4 (r * (2 * k) + (c + 1)) 3
+    have hmem : IntConstraint.if_then (r * (2 * k) + c) 3 (r * (2 * k) + (c + 1)) 2
         ∈ (gen_orient k).constraints := by
       rw [orient_constraints_def]
       refine List.mem_append_right _ (List.mem_flatMap.mpr ⟨r, List.mem_range.mpr hr, ?_⟩)
       refine List.mem_flatMap.mpr ⟨c, List.mem_range.mpr hc, ?_⟩
       rw [if_neg (by simp [hpres])]
       refine List.mem_append_left _ (List.mem_append_left _ (List.mem_append_left _ ?_))
-      rw [if_pos hleg]
-      exact List.mem_singleton.mpr rfl
-    have hsat := ha _ hmem
-    simp only [satisfiesConstraintInt, patternHolds] at hsat
-    rcases hsat with hne | hyes
-    · exact absurd hd hne
-    · exact ⟨hlegit.1, hlegit.2, hyes⟩
-  · exfalso
-    have hmem : IntConstraint.ne_const (r * (2 * k) + c) 4 ∈ (gen_orient k).constraints := by
-      rw [orient_constraints_def]
-      refine List.mem_append_right _ (List.mem_flatMap.mpr ⟨r, List.mem_range.mpr hr, ?_⟩)
-      refine List.mem_flatMap.mpr ⟨c, List.mem_range.mpr hc, ?_⟩
-      rw [if_neg (by simp [hpres])]
-      refine List.mem_append_left _ (List.mem_append_left _ (List.mem_append_left _ ?_))
-      rw [if_neg hleg]
-      exact List.mem_singleton.mpr rfl
-    have hsat := ha _ hmem
-    simp only [satisfiesConstraintInt, patternHolds] at hsat
-    exact hsat hd
-
-/-- **L reciprocity / legality.** If a present cell points `L = 3`, then `L` is legal
-    and the left neighbour points `R = 4`. -/
-private lemma orient_L (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
-    (ha : isSolutionInt (gen_orient k) a) (r c : ℕ) (hr : r < 2 * k) (hc : c < 2 * k)
-    (hpres : Bench.mutRemoved (2 * k) r c = false) (hd : valAt a (r * (2 * k) + c) = 3) :
-    0 < c ∧ Bench.mutRemoved (2 * k) r (c - 1) = false
-      ∧ valAt a (r * (2 * k) + (c - 1)) = 4 := by
-  by_cases hleg : (decide (0 < c) && !Bench.mutRemoved (2 * k) r (c - 1)) = true
-  · have hlegit : 0 < c ∧ Bench.mutRemoved (2 * k) r (c - 1) = false := by
-      simp only [Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true] at hleg
-      exact hleg
-    have hmem : IntConstraint.if_then (r * (2 * k) + c) 3 (r * (2 * k) + (c - 1)) 4
-        ∈ (gen_orient k).constraints := by
-      rw [orient_constraints_def]
-      refine List.mem_append_right _ (List.mem_flatMap.mpr ⟨r, List.mem_range.mpr hr, ?_⟩)
-      refine List.mem_flatMap.mpr ⟨c, List.mem_range.mpr hc, ?_⟩
-      rw [if_neg (by simp [hpres])]
-      refine List.mem_append_left _ (List.mem_append_left _ (List.mem_append_right _ ?_))
       rw [if_pos hleg]
       exact List.mem_singleton.mpr rfl
     have hsat := ha _ hmem
@@ -294,31 +262,31 @@ private lemma orient_L (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
       refine List.mem_append_right _ (List.mem_flatMap.mpr ⟨r, List.mem_range.mpr hr, ?_⟩)
       refine List.mem_flatMap.mpr ⟨c, List.mem_range.mpr hc, ?_⟩
       rw [if_neg (by simp [hpres])]
-      refine List.mem_append_left _ (List.mem_append_left _ (List.mem_append_right _ ?_))
+      refine List.mem_append_left _ (List.mem_append_left _ (List.mem_append_left _ ?_))
       rw [if_neg hleg]
       exact List.mem_singleton.mpr rfl
     have hsat := ha _ hmem
     simp only [satisfiesConstraintInt, patternHolds] at hsat
     exact hsat hd
 
-/-- **D reciprocity / legality.** If a present cell points `D = 2`, then `D` is legal
-    and the lower neighbour points `U = 1`. -/
-private lemma orient_D (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
+/-- **L reciprocity / legality.** If a present cell points `L = 2`, then `L` is legal
+    and the left neighbour points `R = 3`. -/
+private lemma orient_L (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
     (ha : isSolutionInt (gen_orient k) a) (r c : ℕ) (hr : r < 2 * k) (hc : c < 2 * k)
     (hpres : Bench.mutRemoved (2 * k) r c = false) (hd : valAt a (r * (2 * k) + c) = 2) :
-    r + 1 < 2 * k ∧ Bench.mutRemoved (2 * k) (r + 1) c = false
-      ∧ valAt a ((r + 1) * (2 * k) + c) = 1 := by
-  by_cases hleg : (decide (r + 1 < 2 * k) && !Bench.mutRemoved (2 * k) (r + 1) c) = true
-  · have hlegit : r + 1 < 2 * k ∧ Bench.mutRemoved (2 * k) (r + 1) c = false := by
+    0 < c ∧ Bench.mutRemoved (2 * k) r (c - 1) = false
+      ∧ valAt a (r * (2 * k) + (c - 1)) = 3 := by
+  by_cases hleg : (decide (0 < c) && !Bench.mutRemoved (2 * k) r (c - 1)) = true
+  · have hlegit : 0 < c ∧ Bench.mutRemoved (2 * k) r (c - 1) = false := by
       simp only [Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true] at hleg
       exact hleg
-    have hmem : IntConstraint.if_then (r * (2 * k) + c) 2 ((r + 1) * (2 * k) + c) 1
+    have hmem : IntConstraint.if_then (r * (2 * k) + c) 2 (r * (2 * k) + (c - 1)) 3
         ∈ (gen_orient k).constraints := by
       rw [orient_constraints_def]
       refine List.mem_append_right _ (List.mem_flatMap.mpr ⟨r, List.mem_range.mpr hr, ?_⟩)
       refine List.mem_flatMap.mpr ⟨c, List.mem_range.mpr hc, ?_⟩
       rw [if_neg (by simp [hpres])]
-      refine List.mem_append_left _ (List.mem_append_right _ ?_)
+      refine List.mem_append_left _ (List.mem_append_left _ (List.mem_append_right _ ?_))
       rw [if_pos hleg]
       exact List.mem_singleton.mpr rfl
     have hsat := ha _ hmem
@@ -332,6 +300,44 @@ private lemma orient_D (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
       refine List.mem_append_right _ (List.mem_flatMap.mpr ⟨r, List.mem_range.mpr hr, ?_⟩)
       refine List.mem_flatMap.mpr ⟨c, List.mem_range.mpr hc, ?_⟩
       rw [if_neg (by simp [hpres])]
+      refine List.mem_append_left _ (List.mem_append_left _ (List.mem_append_right _ ?_))
+      rw [if_neg hleg]
+      exact List.mem_singleton.mpr rfl
+    have hsat := ha _ hmem
+    simp only [satisfiesConstraintInt, patternHolds] at hsat
+    exact hsat hd
+
+/-- **D reciprocity / legality.** If a present cell points `D = 1`, then `D` is legal
+    and the lower neighbour points `U = 0`. -/
+private lemma orient_D (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
+    (ha : isSolutionInt (gen_orient k) a) (r c : ℕ) (hr : r < 2 * k) (hc : c < 2 * k)
+    (hpres : Bench.mutRemoved (2 * k) r c = false) (hd : valAt a (r * (2 * k) + c) = 1) :
+    r + 1 < 2 * k ∧ Bench.mutRemoved (2 * k) (r + 1) c = false
+      ∧ valAt a ((r + 1) * (2 * k) + c) = 0 := by
+  by_cases hleg : (decide (r + 1 < 2 * k) && !Bench.mutRemoved (2 * k) (r + 1) c) = true
+  · have hlegit : r + 1 < 2 * k ∧ Bench.mutRemoved (2 * k) (r + 1) c = false := by
+      simp only [Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true] at hleg
+      exact hleg
+    have hmem : IntConstraint.if_then (r * (2 * k) + c) 1 ((r + 1) * (2 * k) + c) 0
+        ∈ (gen_orient k).constraints := by
+      rw [orient_constraints_def]
+      refine List.mem_append_right _ (List.mem_flatMap.mpr ⟨r, List.mem_range.mpr hr, ?_⟩)
+      refine List.mem_flatMap.mpr ⟨c, List.mem_range.mpr hc, ?_⟩
+      rw [if_neg (by simp [hpres])]
+      refine List.mem_append_left _ (List.mem_append_right _ ?_)
+      rw [if_pos hleg]
+      exact List.mem_singleton.mpr rfl
+    have hsat := ha _ hmem
+    simp only [satisfiesConstraintInt, patternHolds] at hsat
+    rcases hsat with hne | hyes
+    · exact absurd hd hne
+    · exact ⟨hlegit.1, hlegit.2, hyes⟩
+  · exfalso
+    have hmem : IntConstraint.ne_const (r * (2 * k) + c) 1 ∈ (gen_orient k).constraints := by
+      rw [orient_constraints_def]
+      refine List.mem_append_right _ (List.mem_flatMap.mpr ⟨r, List.mem_range.mpr hr, ?_⟩)
+      refine List.mem_flatMap.mpr ⟨c, List.mem_range.mpr hc, ?_⟩
+      rw [if_neg (by simp [hpres])]
       refine List.mem_append_left _ (List.mem_append_right _ ?_)
       rw [if_neg hleg]
       exact List.mem_singleton.mpr rfl
@@ -339,18 +345,18 @@ private lemma orient_D (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
     simp only [satisfiesConstraintInt, patternHolds] at hsat
     exact hsat hd
 
-/-- **U reciprocity / legality.** If a present cell points `U = 1`, then `U` is legal
-    and the upper neighbour points `D = 2`. -/
+/-- **U reciprocity / legality.** If a present cell points `U = 0`, then `U` is legal
+    and the upper neighbour points `D = 1`. -/
 private lemma orient_U (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
     (ha : isSolutionInt (gen_orient k) a) (r c : ℕ) (hr : r < 2 * k) (hc : c < 2 * k)
-    (hpres : Bench.mutRemoved (2 * k) r c = false) (hd : valAt a (r * (2 * k) + c) = 1) :
+    (hpres : Bench.mutRemoved (2 * k) r c = false) (hd : valAt a (r * (2 * k) + c) = 0) :
     0 < r ∧ Bench.mutRemoved (2 * k) (r - 1) c = false
-      ∧ valAt a ((r - 1) * (2 * k) + c) = 2 := by
+      ∧ valAt a ((r - 1) * (2 * k) + c) = 1 := by
   by_cases hleg : (decide (0 < r) && !Bench.mutRemoved (2 * k) (r - 1) c) = true
   · have hlegit : 0 < r ∧ Bench.mutRemoved (2 * k) (r - 1) c = false := by
       simp only [Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true] at hleg
       exact hleg
-    have hmem : IntConstraint.if_then (r * (2 * k) + c) 1 ((r - 1) * (2 * k) + c) 2
+    have hmem : IntConstraint.if_then (r * (2 * k) + c) 0 ((r - 1) * (2 * k) + c) 1
         ∈ (gen_orient k).constraints := by
       rw [orient_constraints_def]
       refine List.mem_append_right _ (List.mem_flatMap.mpr ⟨r, List.mem_range.mpr hr, ?_⟩)
@@ -365,7 +371,7 @@ private lemma orient_U (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
     · exact absurd hd hne
     · exact ⟨hlegit.1, hlegit.2, hyes⟩
   · exfalso
-    have hmem : IntConstraint.ne_const (r * (2 * k) + c) 1 ∈ (gen_orient k).constraints := by
+    have hmem : IntConstraint.ne_const (r * (2 * k) + c) 0 ∈ (gen_orient k).constraints := by
       rw [orient_constraints_def]
       refine List.mem_append_right _ (List.mem_flatMap.mpr ⟨r, List.mem_range.mpr hr, ?_⟩)
       refine List.mem_flatMap.mpr ⟨c, List.mem_range.mpr hc, ?_⟩
@@ -377,15 +383,15 @@ private lemma orient_U (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
     simp only [satisfiesConstraintInt, patternHolds] at hsat
     exact hsat hd
 
-/-- The left neighbour of a cell that does not point `L = 3` cannot point `R = 4`
+/-- The left neighbour of a cell that does not point `L = 2` cannot point `R = 3`
     (else reciprocity would force this cell to point `L`). -/
 private lemma nbr_left_ne3 (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
     (ha : isSolutionInt (gen_orient k) a) (r c : ℕ) (hr : r < 2 * k) (hc : c < 2 * k)
-    (hcpos : 0 < c) (hne2 : valAt a (r * (2 * k) + c) ≠ 3) :
-    valAt a (r * (2 * k) + (c - 1)) ≠ 4 := by
-  intro h4
+    (hcpos : 0 < c) (hne2 : valAt a (r * (2 * k) + c) ≠ 2) :
+    valAt a (r * (2 * k) + (c - 1)) ≠ 3 := by
+  intro h3
   by_cases hp : Bench.mutRemoved (2 * k) r (c - 1) = false
-  · have hd := orient_R k a ha r (c - 1) hr (by omega) hp h4
+  · have hd := orient_R k a ha r (c - 1) hr (by omega) hp h3
     have hcc : c - 1 + 1 = c := by omega
     rw [hcc] at hd
     exact hne2 hd.2.2
@@ -393,16 +399,16 @@ private lemma nbr_left_ne3 (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
       cases hb : Bench.mutRemoved (2 * k) r (c - 1) with
       | false => exact absurd hb hp
       | true => rfl
-    rw [orient_removed_zero k a ha r (c - 1) hr (by omega) hrem] at h4; omega
+    rw [orient_removed_zero k a ha r (c - 1) hr (by omega) hrem] at h3; omega
 
-/-- The upper neighbour of a cell that does not point `U = 1` cannot point `D = 2`. -/
+/-- The upper neighbour of a cell that does not point `U = 0` cannot point `D = 1`. -/
 private lemma nbr_up_ne1 (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
     (ha : isSolutionInt (gen_orient k) a) (r c : ℕ) (hr : r < 2 * k) (hc : c < 2 * k)
-    (hrpos : 0 < r) (hne0 : valAt a (r * (2 * k) + c) ≠ 1) :
-    valAt a ((r - 1) * (2 * k) + c) ≠ 2 := by
-  intro h2
+    (hrpos : 0 < r) (hne0 : valAt a (r * (2 * k) + c) ≠ 0) :
+    valAt a ((r - 1) * (2 * k) + c) ≠ 1 := by
+  intro h1
   by_cases hp : Bench.mutRemoved (2 * k) (r - 1) c = false
-  · have hd := orient_D k a ha (r - 1) c (by omega) hc hp h2
+  · have hd := orient_D k a ha (r - 1) c (by omega) hc hp h1
     have hrr : r - 1 + 1 = r := by omega
     rw [hrr] at hd
     exact hne0 hd.2.2
@@ -410,7 +416,7 @@ private lemma nbr_up_ne1 (k : ℕ) (a : IntAssignment (2 * k * (2 * k)))
       cases hb : Bench.mutRemoved (2 * k) (r - 1) c with
       | false => exact absurd hb hp
       | true => rfl
-    rw [orient_removed_zero k a ha (r - 1) c (by omega) hc hrem] at h2; omega
+    rw [orient_removed_zero k a ha (r - 1) c (by omega) hc hrem] at h1; omega
 
 /-- **The exact-cover constraint, forward.** For a present cell, exactly one incident
     edge is selected by `piMap k a`. -/
@@ -424,59 +430,59 @@ private lemma forward_cell (k : ℕ) (hk : 2 ≤ k) (a : IntAssignment (2 * k * 
     intro P _ e; split_ifs <;> simp
   simp only [Bench.mutIncident, List.map_append, List.sum_append, hcond]
   rw [show (if c + 1 < 2 * k then valAt (piMap k a) (r * (2 * k - 1) + c) else 0)
-        = (if c + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (4 : ℤ) then (1 : ℤ) else 0)
+        = (if c + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (3 : ℤ) then (1 : ℤ) else 0)
            else 0) from by
         by_cases h : c + 1 < 2 * k
         · rw [if_pos h, if_pos h]; exact valAt_piMap_h k hk a r c hr h
         · rw [if_neg h, if_neg h],
       show (if 0 < c then valAt (piMap k a) (r * (2 * k - 1) + (c - 1)) else 0)
-        = (if 0 < c then (if valAt a (r * (2 * k) + (c - 1)) = (4 : ℤ) then (1 : ℤ) else 0)
+        = (if 0 < c then (if valAt a (r * (2 * k) + (c - 1)) = (3 : ℤ) then (1 : ℤ) else 0)
            else 0) from by
         by_cases h : 0 < c
         · rw [if_pos h, if_pos h]; exact valAt_piMap_h k hk a r (c - 1) hr (by omega)
         · rw [if_neg h, if_neg h],
       show (if r + 1 < 2 * k then valAt (piMap k a) (2 * k * (2 * k - 1) + r * (2 * k) + c) else 0)
-        = (if r + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (2 : ℤ) then (1 : ℤ) else 0)
+        = (if r + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (1 : ℤ) then (1 : ℤ) else 0)
            else 0) from by
         by_cases h : r + 1 < 2 * k
         · rw [if_pos h, if_pos h]; exact valAt_piMap_v k hk a r c h hc
         · rw [if_neg h, if_neg h],
       show (if 0 < r then valAt (piMap k a) (2 * k * (2 * k - 1) + (r - 1) * (2 * k) + c) else 0)
-        = (if 0 < r then (if valAt a ((r - 1) * (2 * k) + c) = (2 : ℤ) then (1 : ℤ) else 0)
+        = (if 0 < r then (if valAt a ((r - 1) * (2 * k) + c) = (1 : ℤ) then (1 : ℤ) else 0)
            else 0) from by
         by_cases h : 0 < r
         · rw [if_pos h, if_pos h]; exact valAt_piMap_v k hk a (r - 1) c (by omega) hc
         · rw [if_neg h, if_neg h]]
   obtain ⟨hge, hle⟩ := orient_range k a ha r c hr hc hpres
-  rcases (show valAt a (r * (2 * k) + c) = 1 ∨ valAt a (r * (2 * k) + c) = 2
-      ∨ valAt a (r * (2 * k) + c) = 3 ∨ valAt a (r * (2 * k) + c) = 4 from by omega)
+  rcases (show valAt a (r * (2 * k) + c) = 0 ∨ valAt a (r * (2 * k) + c) = 1
+      ∨ valAt a (r * (2 * k) + c) = 2 ∨ valAt a (r * (2 * k) + c) = 3 from by omega)
     with h | h | h | h
   · -- U : points up
     have hU := orient_U k a ha r c hr hc hpres h
-    have t1 : (if c + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (4 : ℤ) then (1 : ℤ) else 0)
+    have t1 : (if c + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (3 : ℤ) then (1 : ℤ) else 0)
         else 0) = 0 := by simp [h]
-    have t2 : (if 0 < c then (if valAt a (r * (2 * k) + (c - 1)) = (4 : ℤ) then (1 : ℤ) else 0)
+    have t2 : (if 0 < c then (if valAt a (r * (2 * k) + (c - 1)) = (3 : ℤ) then (1 : ℤ) else 0)
         else 0) = 0 := by
       by_cases hcp : 0 < c
       · simp [hcp, nbr_left_ne3 k a ha r c hr hc hcp (by omega)]
       · simp [hcp]
-    have t3 : (if r + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (2 : ℤ) then (1 : ℤ) else 0)
+    have t3 : (if r + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (1 : ℤ) then (1 : ℤ) else 0)
         else 0) = 0 := by simp [h]
-    have t4 : (if 0 < r then (if valAt a ((r - 1) * (2 * k) + c) = (2 : ℤ) then (1 : ℤ) else 0)
+    have t4 : (if 0 < r then (if valAt a ((r - 1) * (2 * k) + c) = (1 : ℤ) then (1 : ℤ) else 0)
         else 0) = 1 := by simp [hU.1, hU.2.2]
     linarith [t1, t2, t3, t4]
   · -- D : points down
     have hD := orient_D k a ha r c hr hc hpres h
-    have t1 : (if c + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (4 : ℤ) then (1 : ℤ) else 0)
+    have t1 : (if c + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (3 : ℤ) then (1 : ℤ) else 0)
         else 0) = 0 := by simp [h]
-    have t2 : (if 0 < c then (if valAt a (r * (2 * k) + (c - 1)) = (4 : ℤ) then (1 : ℤ) else 0)
+    have t2 : (if 0 < c then (if valAt a (r * (2 * k) + (c - 1)) = (3 : ℤ) then (1 : ℤ) else 0)
         else 0) = 0 := by
       by_cases hcp : 0 < c
       · simp [hcp, nbr_left_ne3 k a ha r c hr hc hcp (by omega)]
       · simp [hcp]
-    have t3 : (if r + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (2 : ℤ) then (1 : ℤ) else 0)
+    have t3 : (if r + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (1 : ℤ) then (1 : ℤ) else 0)
         else 0) = 1 := by simp [hD.1, h]
-    have t4 : (if 0 < r then (if valAt a ((r - 1) * (2 * k) + c) = (2 : ℤ) then (1 : ℤ) else 0)
+    have t4 : (if 0 < r then (if valAt a ((r - 1) * (2 * k) + c) = (1 : ℤ) then (1 : ℤ) else 0)
         else 0) = 0 := by
       by_cases hrp : 0 < r
       · simp [hrp, nbr_up_ne1 k a ha r c hr hc hrp (by omega)]
@@ -484,13 +490,13 @@ private lemma forward_cell (k : ℕ) (hk : 2 ≤ k) (a : IntAssignment (2 * k * 
     linarith [t1, t2, t3, t4]
   · -- L : points left
     have hL := orient_L k a ha r c hr hc hpres h
-    have t1 : (if c + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (4 : ℤ) then (1 : ℤ) else 0)
+    have t1 : (if c + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (3 : ℤ) then (1 : ℤ) else 0)
         else 0) = 0 := by simp [h]
-    have t2 : (if 0 < c then (if valAt a (r * (2 * k) + (c - 1)) = (4 : ℤ) then (1 : ℤ) else 0)
+    have t2 : (if 0 < c then (if valAt a (r * (2 * k) + (c - 1)) = (3 : ℤ) then (1 : ℤ) else 0)
         else 0) = 1 := by simp [hL.1, hL.2.2]
-    have t3 : (if r + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (2 : ℤ) then (1 : ℤ) else 0)
+    have t3 : (if r + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (1 : ℤ) then (1 : ℤ) else 0)
         else 0) = 0 := by simp [h]
-    have t4 : (if 0 < r then (if valAt a ((r - 1) * (2 * k) + c) = (2 : ℤ) then (1 : ℤ) else 0)
+    have t4 : (if 0 < r then (if valAt a ((r - 1) * (2 * k) + c) = (1 : ℤ) then (1 : ℤ) else 0)
         else 0) = 0 := by
       by_cases hrp : 0 < r
       · simp [hrp, nbr_up_ne1 k a ha r c hr hc hrp (by omega)]
@@ -498,16 +504,16 @@ private lemma forward_cell (k : ℕ) (hk : 2 ≤ k) (a : IntAssignment (2 * k * 
     linarith [t1, t2, t3, t4]
   · -- R : points right
     have hR := orient_R k a ha r c hr hc hpres h
-    have t1 : (if c + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (4 : ℤ) then (1 : ℤ) else 0)
+    have t1 : (if c + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (3 : ℤ) then (1 : ℤ) else 0)
         else 0) = 1 := by simp [hR.1, h]
-    have t2 : (if 0 < c then (if valAt a (r * (2 * k) + (c - 1)) = (4 : ℤ) then (1 : ℤ) else 0)
+    have t2 : (if 0 < c then (if valAt a (r * (2 * k) + (c - 1)) = (3 : ℤ) then (1 : ℤ) else 0)
         else 0) = 0 := by
       by_cases hcp : 0 < c
       · simp [hcp, nbr_left_ne3 k a ha r c hr hc hcp (by omega)]
       · simp [hcp]
-    have t3 : (if r + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (2 : ℤ) then (1 : ℤ) else 0)
+    have t3 : (if r + 1 < 2 * k then (if valAt a (r * (2 * k) + c) = (1 : ℤ) then (1 : ℤ) else 0)
         else 0) = 0 := by simp [h]
-    have t4 : (if 0 < r then (if valAt a ((r - 1) * (2 * k) + c) = (2 : ℤ) then (1 : ℤ) else 0)
+    have t4 : (if 0 < r then (if valAt a ((r - 1) * (2 * k) + c) = (1 : ℤ) then (1 : ℤ) else 0)
         else 0) = 0 := by
       by_cases hrp : 0 < r
       · simp [hrp, nbr_up_ne1 k a ha r c hr hc hrp (by omega)]
@@ -554,7 +560,7 @@ private lemma piMap_dead_zero (k : ℕ) (hk : 2 ≤ k) (a : IntAssignment (2 * k
           = (Bench.mutRemoved (2 * k) r c || Bench.mutRemoved (2 * k) r (c + 1)) := by
         simp only [Bench.mutDead]; rw [if_pos hxh, ← hr_def, ← hc_def]
       rw [he] at hdead; exact (Bool.or_eq_true _ _).mp hdead
-    have hkey : valAt a (r * (2 * k) + c) ≠ 4 := by
+    have hkey : valAt a (r * (2 * k) + c) ≠ 3 := by
       intro h3
       by_cases hpc : Bench.mutRemoved (2 * k) r c = false
       · have hrr := orient_R k a ha r c hrlt (by omega) hpc h3
@@ -584,7 +590,7 @@ private lemma piMap_dead_zero (k : ℕ) (hk : 2 ≤ k) (a : IntAssignment (2 * k
           = (Bench.mutRemoved (2 * k) r c || Bench.mutRemoved (2 * k) (r + 1) c) := by
         simp only [Bench.mutDead]; rw [if_neg hxh, ← hr_def, ← hc_def]
       rw [he] at hdead; exact (Bool.or_eq_true _ _).mp hdead
-    have hkey : valAt a (r * (2 * k) + c) ≠ 2 := by
+    have hkey : valAt a (r * (2 * k) + c) ≠ 1 := by
       intro h1
       by_cases hpc : Bench.mutRemoved (2 * k) r c = false
       · have hdd := orient_D k a ha r c (by omega) hclt hpc h1
@@ -692,10 +698,10 @@ private lemma lift_at (k : ℕ) (hk : 2 ≤ k) (x : IntAssignment (2 * (2 * k) *
     (r c : ℕ) (hr : r < 2 * k) (hc : c < 2 * k) :
     valAt (liftOrient k x) (r * (2 * k) + c) =
       (if Bench.mutRemoved (2 * k) r c then 0
-       else if decide (c + 1 < 2 * k) && (valAt x (r * (2 * k - 1) + c) == 1) then 4
-       else if decide (0 < c) && (valAt x (r * (2 * k - 1) + (c - 1)) == 1) then 3
-       else if decide (r + 1 < 2 * k) && (valAt x (2 * k * (2 * k - 1) + r * (2 * k) + c) == 1) then 2
-       else if decide (0 < r) && (valAt x (2 * k * (2 * k - 1) + (r - 1) * (2 * k) + c) == 1) then 1
+       else if decide (c + 1 < 2 * k) && (valAt x (r * (2 * k - 1) + c) == 1) then 3
+       else if decide (0 < c) && (valAt x (r * (2 * k - 1) + (c - 1)) == 1) then 2
+       else if decide (r + 1 < 2 * k) && (valAt x (2 * k * (2 * k - 1) + r * (2 * k) + c) == 1) then 1
+       else if decide (0 < r) && (valAt x (2 * k * (2 * k - 1) + (r - 1) * (2 * k) + c) == 1) then 0
        else 0) := by
   have hcell : r * (2 * k) + c < 2 * k * (2 * k) := by
     have h1 : (r + 1) * (2 * k) ≤ (2 * k) * (2 * k) := Nat.mul_le_mul_right _ (by omega)
@@ -783,13 +789,13 @@ private lemma v_edge_dead_of (k r c : ℕ) (hk : 2 ≤ k) (_hr : r + 1 < 2 * k) 
 private lemma lift_cases (k : ℕ) (hk : 2 ≤ k) (x : IntAssignment (2 * (2 * k) * (2 * k - 1)))
     (hx : isSolutionInt (gen_mutilated k) x) (r c : ℕ) (hr : r < 2 * k) (hc : c < 2 * k)
     (hpres : Bench.mutRemoved (2 * k) r c = false) :
-    (valAt (liftOrient k x) (r * (2 * k) + c) = 4 ∧ c + 1 < 2 * k
+    (valAt (liftOrient k x) (r * (2 * k) + c) = 3 ∧ c + 1 < 2 * k
         ∧ valAt x (r * (2 * k - 1) + c) = 1) ∨
-    (valAt (liftOrient k x) (r * (2 * k) + c) = 3 ∧ 0 < c
+    (valAt (liftOrient k x) (r * (2 * k) + c) = 2 ∧ 0 < c
         ∧ valAt x (r * (2 * k - 1) + (c - 1)) = 1) ∨
-    (valAt (liftOrient k x) (r * (2 * k) + c) = 2 ∧ r + 1 < 2 * k
+    (valAt (liftOrient k x) (r * (2 * k) + c) = 1 ∧ r + 1 < 2 * k
         ∧ valAt x (2 * k * (2 * k - 1) + r * (2 * k) + c) = 1) ∨
-    (valAt (liftOrient k x) (r * (2 * k) + c) = 1 ∧ 0 < r
+    (valAt (liftOrient k x) (r * (2 * k) + c) = 0 ∧ 0 < r
         ∧ valAt x (2 * k * (2 * k - 1) + (r - 1) * (2 * k) + c) = 1) := by
   rw [lift_at k hk x r c hr hc, if_neg (by simp [hpres])]
   split_ifs with hR hL hD hU
@@ -839,11 +845,11 @@ private lemma lift_cases (k : ℕ) (hk : 2 ≤ k) (x : IntAssignment (2 * (2 * k
 private lemma lift_iff (k : ℕ) (hk : 2 ≤ k) (x : IntAssignment (2 * (2 * k) * (2 * k - 1)))
     (hx : isSolutionInt (gen_mutilated k) x) (r c : ℕ) (hr : r < 2 * k) (hc : c < 2 * k)
     (hpres : Bench.mutRemoved (2 * k) r c = false) :
-    (valAt (liftOrient k x) (r * (2 * k) + c) = 4 ↔ c + 1 < 2 * k ∧ valAt x (r * (2 * k - 1) + c) = 1) ∧
-    (valAt (liftOrient k x) (r * (2 * k) + c) = 3 ↔ 0 < c ∧ valAt x (r * (2 * k - 1) + (c - 1)) = 1) ∧
-    (valAt (liftOrient k x) (r * (2 * k) + c) = 2 ↔
-        r + 1 < 2 * k ∧ valAt x (2 * k * (2 * k - 1) + r * (2 * k) + c) = 1) ∧
+    (valAt (liftOrient k x) (r * (2 * k) + c) = 3 ↔ c + 1 < 2 * k ∧ valAt x (r * (2 * k - 1) + c) = 1) ∧
+    (valAt (liftOrient k x) (r * (2 * k) + c) = 2 ↔ 0 < c ∧ valAt x (r * (2 * k - 1) + (c - 1)) = 1) ∧
     (valAt (liftOrient k x) (r * (2 * k) + c) = 1 ↔
+        r + 1 < 2 * k ∧ valAt x (2 * k * (2 * k - 1) + r * (2 * k) + c) = 1) ∧
+    (valAt (liftOrient k x) (r * (2 * k) + c) = 0 ↔
         0 < r ∧ valAt x (2 * k * (2 * k - 1) + (r - 1) * (2 * k) + c) = 1) := by
   have hsum := x_sum_decomp k hk x hx r c hr hc hpres
   have p1 : 0 ≤ (if c + 1 < 2 * k then valAt x (r * (2 * k - 1) + c) else 0) := by
@@ -900,12 +906,10 @@ private lemma lift_removed (k : ℕ) (hk : 2 ≤ k) (x : IntAssignment (2 * (2 *
   rw [lift_at k hk x r c hr hc, if_pos hrem]
 
 private lemma lift_range (k : ℕ) (hk : 2 ≤ k) (x : IntAssignment (2 * (2 * k) * (2 * k - 1)))
-    (hx : isSolutionInt (gen_mutilated k) x)
-    (r c : ℕ) (hr : r < 2 * k) (hc : c < 2 * k) (hpres : Bench.mutRemoved (2 * k) r c = false) :
-    1 ≤ valAt (liftOrient k x) (r * (2 * k) + c)
-      ∧ valAt (liftOrient k x) (r * (2 * k) + c) ≤ 4 := by
-  rcases lift_cases k hk x hx r c hr hc hpres with ⟨hv, _, _⟩ | ⟨hv, _, _⟩ | ⟨hv, _, _⟩ | ⟨hv, _, _⟩ <;>
-    rw [hv] <;> omega
+    (r c : ℕ) (hr : r < 2 * k) (hc : c < 2 * k) :
+    0 ≤ valAt (liftOrient k x) (r * (2 * k) + c)
+      ∧ valAt (liftOrient k x) (r * (2 * k) + c) ≤ 3 := by
+  rw [lift_at k hk x r c hr hc]; split_ifs <;> omega
 
 /-- **Backward.** Every matching solution lifts to an orientation solution that
     projects back to it. -/
@@ -933,7 +937,7 @@ theorem orient_backward (k : ℕ) (hk : 2 ≤ k)
           | true => exact absurd hb2 hrem
         rw [if_neg (by simp [hpres])] at heq; subst heq
         simp only [satisfiesConstraintInt, patternHolds]
-        exact lift_range k hk x hx r c hrr hcr hpres
+        exact lift_range k hk x r c hrr hcr
     · -- reciprocity / legality constraint
       obtain ⟨r, hrr, hrest⟩ := List.mem_flatMap.mp hrec
       obtain ⟨c, hcr, hrest2⟩ := List.mem_flatMap.mp hrest
@@ -954,7 +958,7 @@ theorem orient_backward (k : ℕ) (hk : 2 ≤ k)
           · obtain rfl := List.eq_of_mem_singleton hR
             simp only [Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true] at hl
             simp only [satisfiesConstraintInt, patternHolds]
-            by_cases h3 : valAt (liftOrient k x) (r * (2 * k) + c) = 4
+            by_cases h3 : valAt (liftOrient k x) (r * (2 * k) + c) = 3
             · right
               have : valAt x (r * (2 * k - 1) + c) = 1 := (iff3.mp h3).2
               obtain ⟨_, iff2', _, _⟩ := lift_iff k hk x hx r (c + 1) hrr (by omega) hl.2
@@ -978,7 +982,7 @@ theorem orient_backward (k : ℕ) (hk : 2 ≤ k)
           · obtain rfl := List.eq_of_mem_singleton hL
             simp only [Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true] at hl
             simp only [satisfiesConstraintInt, patternHolds]
-            by_cases h2 : valAt (liftOrient k x) (r * (2 * k) + c) = 3
+            by_cases h2 : valAt (liftOrient k x) (r * (2 * k) + c) = 2
             · right
               have hon : valAt x (r * (2 * k - 1) + (c - 1)) = 1 := (iff2.mp h2).2
               obtain ⟨iff3', _, _, _⟩ := lift_iff k hk x hx r (c - 1) hrr (by omega) hl.2
@@ -1002,7 +1006,7 @@ theorem orient_backward (k : ℕ) (hk : 2 ≤ k)
           · obtain rfl := List.eq_of_mem_singleton hD
             simp only [Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true] at hl
             simp only [satisfiesConstraintInt, patternHolds]
-            by_cases h1 : valAt (liftOrient k x) (r * (2 * k) + c) = 2
+            by_cases h1 : valAt (liftOrient k x) (r * (2 * k) + c) = 1
             · right
               have hon : valAt x (2 * k * (2 * k - 1) + r * (2 * k) + c) = 1 := (iff1.mp h1).2
               obtain ⟨_, _, _, iff0'⟩ := lift_iff k hk x hx (r + 1) c (by omega) hcr hl.2
@@ -1026,7 +1030,7 @@ theorem orient_backward (k : ℕ) (hk : 2 ≤ k)
           · obtain rfl := List.eq_of_mem_singleton hU
             simp only [Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true] at hl
             simp only [satisfiesConstraintInt, patternHolds]
-            by_cases h0 : valAt (liftOrient k x) (r * (2 * k) + c) = 1
+            by_cases h0 : valAt (liftOrient k x) (r * (2 * k) + c) = 0
             · right
               have hon : valAt x (2 * k * (2 * k - 1) + (r - 1) * (2 * k) + c) = 1 := (iff0.mp h0).2
               obtain ⟨_, _, iff1', _⟩ := lift_iff k hk x hx (r - 1) c (by omega) hcr hl.2
@@ -1120,12 +1124,12 @@ private lemma orient_recover (k : ℕ) (hk : 2 ≤ k) (a a' : IntAssignment (2 *
     valAt a (r * (2 * k) + c) = valAt a' (r * (2 * k) + c) := by
   have hedge : ∀ e, valAt (piMap k a) e = valAt (piMap k a') e := fun e => by rw [hpi]
   obtain ⟨hge, hle⟩ := orient_range k a ha r c hr hc hpres
-  rcases (show valAt a (r * (2 * k) + c) = 1 ∨ valAt a (r * (2 * k) + c) = 2
-      ∨ valAt a (r * (2 * k) + c) = 3 ∨ valAt a (r * (2 * k) + c) = 4 from by omega)
+  rcases (show valAt a (r * (2 * k) + c) = 0 ∨ valAt a (r * (2 * k) + c) = 1
+      ∨ valAt a (r * (2 * k) + c) = 2 ∨ valAt a (r * (2 * k) + c) = 3 from by omega)
     with h | h | h | h
-  · -- U = 1: the up edge `v(r-1,c)` is selected
+  · -- U = 0: the up edge `v(r-1,c)` is selected
     have hU := orient_U k a ha r c hr hc hpres h
-    have hiff : valAt a ((r - 1) * (2 * k) + c) = 2 ↔ valAt a' ((r - 1) * (2 * k) + c) = 2 := by
+    have hiff : valAt a ((r - 1) * (2 * k) + c) = 1 ↔ valAt a' ((r - 1) * (2 * k) + c) = 1 := by
       apply ite_eq_ite_iff
       have he := hedge (2 * k * (2 * k - 1) + (r - 1) * (2 * k) + c)
       rwa [valAt_piMap_v k hk a (r - 1) c (by omega) hc,
@@ -1133,16 +1137,16 @@ private lemma orient_recover (k : ℕ) (hk : 2 ≤ k) (a a' : IntAssignment (2 *
     have hD := orient_D k a' ha' (r - 1) c (by omega) hc hU.2.1 (hiff.mp hU.2.2)
     rw [show r - 1 + 1 = r from by omega] at hD
     have := hD.2.2; omega
-  · -- D = 2: the down edge `v(r,c)` is selected
+  · -- D = 1: the down edge `v(r,c)` is selected
     have hD := orient_D k a ha r c hr hc hpres h
-    have hiff : valAt a (r * (2 * k) + c) = 2 ↔ valAt a' (r * (2 * k) + c) = 2 := by
+    have hiff : valAt a (r * (2 * k) + c) = 1 ↔ valAt a' (r * (2 * k) + c) = 1 := by
       apply ite_eq_ite_iff
       have he := hedge (2 * k * (2 * k - 1) + r * (2 * k) + c)
       rwa [valAt_piMap_v k hk a r c hD.1 hc, valAt_piMap_v k hk a' r c hD.1 hc] at he
     have := hiff.mp h; omega
-  · -- L = 3: the left edge `h(r,c-1)` is selected
+  · -- L = 2: the left edge `h(r,c-1)` is selected
     have hL := orient_L k a ha r c hr hc hpres h
-    have hiff : valAt a (r * (2 * k) + (c - 1)) = 4 ↔ valAt a' (r * (2 * k) + (c - 1)) = 4 := by
+    have hiff : valAt a (r * (2 * k) + (c - 1)) = 3 ↔ valAt a' (r * (2 * k) + (c - 1)) = 3 := by
       apply ite_eq_ite_iff
       have he := hedge (r * (2 * k - 1) + (c - 1))
       rwa [valAt_piMap_h k hk a r (c - 1) hr (by omega),
@@ -1150,9 +1154,9 @@ private lemma orient_recover (k : ℕ) (hk : 2 ≤ k) (a a' : IntAssignment (2 *
     have hR := orient_R k a' ha' r (c - 1) hr (by omega) hL.2.1 (hiff.mp hL.2.2)
     rw [show c - 1 + 1 = c from by omega] at hR
     have := hR.2.2; omega
-  · -- R = 4: the right edge `h(r,c)` is selected
+  · -- R = 3: the right edge `h(r,c)` is selected
     have hR := orient_R k a ha r c hr hc hpres h
-    have hiff : valAt a (r * (2 * k) + c) = 4 ↔ valAt a' (r * (2 * k) + c) = 4 := by
+    have hiff : valAt a (r * (2 * k) + c) = 3 ↔ valAt a' (r * (2 * k) + c) = 3 := by
       apply ite_eq_ite_iff
       have he := hedge (r * (2 * k - 1) + c)
       rwa [valAt_piMap_h k hk a r c hr hR.1, valAt_piMap_h k hk a' r c hr hR.1] at he
@@ -1213,4 +1217,4 @@ theorem mutilated_orient_unsat_of_edge_unsat (k : ℕ) (hk : 2 ≤ k)
     ¬ (gen_orient k).isSatisfiableInt :=
   fun hgo => h ((mutilated_orient_equisatisfiable k hk).mpr hgo)
 
-end CSP.L2S.MutilatedOrient
+end CSP.L2S.MutilatedOrientOld
