@@ -73,4 +73,19 @@ theorem schur_unsat_of_value_precedence (n colors : ℕ)
   unsat_of_domain_sbc (schur_csp_sb n colors triples) (value_precedence colors)
     (schur_value_precedence_is_sbc n colors triples) h_unsat
 
+/-- **Full equisatisfiability** of the Schur CSP and its value-precedence extension — the SAT
+    counterpart of `schur_unsat_of_value_precedence`, used to lift a witness of the extended
+    CSP back to a satisfiability proof of the original. -/
+theorem schur_vp_equisatisfiability (n colors : ℕ) (triples : List (Fin n × Fin n × Fin n)) :
+    equisatisfiable (schur_csp_sb n colors triples)
+      ((schur_csp_sb n colors triples).addConstraint (value_precedence colors)) :=
+  domainSymmetryBreaking_equisatisfiability (schur_csp_sb n colors triples)
+    (value_precedence colors) (schur_value_precedence_is_sbc n colors triples)
+
+/-- `schur_sb`-specialised value-precedence equisatisfiability (triples computed from `n`). -/
+theorem schur_vp_equisatisfiability' (n colors : ℕ) :
+    equisatisfiable (schur_sb n colors)
+      ((schur_sb n colors).addConstraint (value_precedence colors)) :=
+  schur_vp_equisatisfiability n colors (schurTriples n)
+
 end Schur

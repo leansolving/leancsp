@@ -22,4 +22,11 @@ def schur_2_5_vp : IntCSP := (Schur.schur_sb 5 2).addConstraint (value_precedenc
 theorem schur_2_5_vp_unsat : ¬ schur_2_5_vp.isSatisfiableInt :=
   csp_unsat_file schur_2_5_vp 5 "certs/schur_2_5_vp.pbp"
 
+/-- The Schur `S(3) < 14` CSP extended with the value-precedence SBC. -/
+def schur_3_14_vp : IntCSP := (Schur.schur_sb 14 3).addConstraint (value_precedence 3)
+
+/-- **Value-precedence-extended `S(3) < 14` is UNSAT.** -/
+theorem schur_3_14_vp_unsat : ¬ schur_3_14_vp.isSatisfiableInt :=
+  csp_unsat_file schur_3_14_vp 28 "certs/schur_3_14_vp.pbp"
+
 end CSP.L2S.PB.SchurVP
