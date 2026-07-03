@@ -209,6 +209,51 @@ dominated by elaborating the CSP term itself, not by proof work. For comparison,
 the 6×6 module took 28 s to build under the old pipeline, dominated by its
 34-cell × 2-half bridge proof `mc_hlin` — that cost class no longer exists.
 
+### 5.1 Full-ladder verification (`run_lean_tier.py`)
+
+The committed checkpoints above are nine hand-picked sizes. `scripts/scaling/run_lean_tier.py`
+kernel-checks the **entire external ladder** in Lean: for every instance whose certificate fits the
+`native_decide` cap (500 KB — never binding here, these families' certs stay ≤ 6.5 KB) it dumps the
+canonical OPB of the *parametric base CSP* straight from Lean, solves + elaborates a certificate,
+emits a one-line `csp_unsat_file` theorem into a generated `Bench/Scaling<Fam>Bench.lean` module,
+and `lake build`s it so `native_decide` checks every instance at once. (The generated modules and
+certificates are local-only — gitignored; the permanent corpus stays the nine committed checkpoints
+above.) All **37 instances verify** (`results/scaling_lean.csv`, `verified = Y`).
+
+To separate the **encoding** cost from the **checking** cost we time both in *one* Lean process via
+its monotonic clock (`IO.monoNanosNow`): `encode_us` is the runtime of building the checker-ready
+formula `(cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp)` (strict `Array.map` forces
+every constraint), and `check_us` is the runtime of `VeriPB.Reflect.checkProofBool` — the exact
+compiled function that `native_decide`'s `ofReduceBool` reduces — on the certificate.  Both phases
+share one clock with startup paid once outside them, so there is no cross-run subtraction:
+
+| family | ladder | cert (chars) | **encode** (µs) | **check** (µs) | reflect-compile (s) | module build (s) |
+|---|---|----:|----:|----:|----:|----:|
+| pigeonhole | h = 2 … **20** | 168 → 628   | ~1 | 64 – 261  | ≤ 1.7   | 21.6 / 19 thms |
+| mutilated  | k = 2 … **8**  | 456 → 6 484 | ~1 | 150 → **535** | 0.1 → **96.8** | 219 / 7 thms |
+| odd-cycle  | n = 3 … **101**| 224 → 3 515 | ~1 | 59 → 274  | 0.1 → 2.1 | 48.2 / 11 thms |
+
+**The verified-in-Lean tier now passes the resolution wall.** Pigeonhole **h = 11 and h = 12** and
+mutilated **k = 7 and k = 8** are kernel-checked here — the exact sizes where the resolution/DRAT
+pipeline walls (§2: cadical times out at h = 12, and at h = 11 drat-trim cannot even check the
+2.2 GB proof; §3: the DRAT proof is 174 MB at k = 7). So the cutting-planes-over-resolution
+separation is demonstrated *inside the Lean kernel*, not only in external certificate sizes.
+
+**Neither encoding nor checking is the cost — reflection is.** Measured in one process, the *runtime*
+of both phases is negligible at **every** size: the encoder builds the formula in **~1 µs**, and
+PBLean's verified checker validates the certificate in **0.06 – 0.54 ms** (it is the larger of the
+two, by ~100×, but still sub-millisecond — even the 16×16 board's 508-constraint formula checks in
+0.45 ms). What actually scales to seconds-and-minutes is the `native_decide` **reflect-compile**: the
+one-time cost of Lean compiling the closed formula term to native code so `ofReduceBool` can run it,
+which grows with the *formula size* (mutilated `verify_wall_s` 0.1 s → 97 s over k = 2…8; the
+7-theorem module builds in 219 s, ~31 s/theorem). So what bounds how far the in-kernel tier reaches
+is term *compilation*, not the certificate (≤ 6.5 KB), the search (≤ 10 ms), the encoder evaluation,
+or the verified check — those last three are all microseconds-to-milliseconds.
+
+(`verify_wall_s` is one `lake env lean` minus an import baseline, so it is noisy below ~1 s — the
+honest aggregate is the per-family `module build`, a real `lake build` that native_decide-checks
+every theorem.)
+
 ---
 
 ## 6. Reproducing
@@ -223,8 +268,10 @@ uv run python scripts/scaling/run_scaling.py mutilated
 uv run python scripts/scaling/run_scaling.py oddcycle
 #    (or `run_scaling.py` for all three; `run_scaling.py merge` to recombine)
 
-# 3. Measure the in-Lean checkpoint costs (writes results/scaling_lean.csv)
-uv run python scripts/scaling/lean_timing.py
+# 3. Kernel-check the whole ladder in Lean (writes results/scaling_lean.csv):
+#    dumps each base CSP, solves+elaborates a cert, native_decide-checks it (§5.1)
+uv run python scripts/scaling/run_lean_tier.py
+#    (lean_timing.py is the older variant: min-of-5 timings of the 9 committed checkpoints only)
 ```
 
 `scripts/scaling/gen_mutilated_lean.py` regenerates the `MutilatedChessboard<2k>.lean`

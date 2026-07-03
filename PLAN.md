@@ -54,11 +54,8 @@ that *one* soundness theorem discharges every instance:
   `Proofs/PatternBridges.lean` (two-way `*_holds_iff` bridges from `patternHolds` to
   the `Fin`-indexed forms). Every headline theorem is axiom-clean
   (`propext, Classical.choice, Quot.sound`; UnreachableInputElimination only the
-  first + `Quot.sound`), **except `CircuitTwinSymmetryBreaking`**, which retains two
-  pre-existing unproven `axiom`s (`gate_constraint_preserved_by_twin_perm`,
-  `ordering_constraint_satisfied_by_sort`) — its results are therefore conjectures,
-  not theorems, until those are discharged. **No new axioms are to be introduced in
-  this corpus, and these two should be proved out.** No `sorry`. The cert-era
+  first + `Quot.sound`). **No new axioms are to be introduced in this corpus.**
+  No `sorry`. The cert-era
   `Experiments/` benchmarking harness (Python runners, the
   `ParityCircuitBenchmarks.lean` generator ported to the `IntCSP` API, and the
   historical result CSVs) was also carried over and verified end-to-end

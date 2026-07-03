@@ -35,7 +35,6 @@ OUTPUT_LATEX = "CSP/L2S/Proofs/Experiments/proof_metrics.tex"
 EXCLUDED_FILES = [
     "CircuitInputSymmetryBreaking.lean",  # Excluded per user request
     "NQueensEquivalence_temp.lean",       # Temporary file
-    "CircuitTwinSymmetryBreaking.lean",
     "ParityPathCSP.lean",
 ]
 

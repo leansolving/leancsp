@@ -15,4 +15,5 @@ CSP/L2S/Backends/PB/Bench/*
 !CSP/L2S/Backends/PB/Bench/Generators.lean
 scripts/sbc_scaling/__pycache__/
 results/sbc_v3/_work/
+results/_work_lean/
 scripts/sbc_scaling/.venv/

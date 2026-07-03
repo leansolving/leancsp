@@ -112,6 +112,9 @@ FAMILIES = {
     # odd-cycle is a graph_coloring_csp → value precedence is VERIFIED (encodes as x0=0 for 2 colours)
     "oddcycle": dict(module=GC, axis="len", regimes=["none", "vp"],
         note="C_{2m+1} 2-colour (graph_coloring → vp verified, encodes as x0=0)",
+        glue_import=GCVP,
+        glue=lambda i: f"graph_coloring_unsat_of_value_precedence {i['nat']} {i['colors']} "
+                       f"{_edges_lit(_cycle_edges(i['nat']))}",
         instances=[inst(f"C{2 * m + 1}", 2 * m + 1, _cycle(m), 2) for m in range(2, 26)]),
 
     # ===== VARIABLE-symmetric (lex/reflection variable SBC; verified via *SB.lean) =====
