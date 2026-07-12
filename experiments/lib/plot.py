@@ -18,8 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 REPO = Path(__file__).resolve().parent.parent.parent
-# results subdir: `python plot.py [sbc|sbc_v2|sbc_v3]` (default sbc_v3)
-RES = REPO / "results" / (sys.argv[1] if len(sys.argv) > 1 else "sbc_v3")
+RES = REPO / "experiments" / "sbc" / "results"
 REGIMES = ["none", "x0", "vp", "var"]
 STYLE = {"none": ("o-", "#d62728"), "x0": ("s-", "#ff7f0e"),
          "vp": ("^-", "#2ca02c"), "var": ("D-", "#1f77b4")}
@@ -77,30 +76,14 @@ def plot_family(rows, fam, logscale=True):
     print(f"wrote {out}")
 
 
-def speedup_table(rows):
-    by = defaultdict(dict)
-    for r in rows:
-        if r["roundingsat_status"] == "UNSAT" and r.get("rsat_det_time"):
-            by[(r["family"], r["size_param"])][r["regime"]] = int(r["rsat_det_time"])
-    lines = ["family,size,det_none,det_x0,det_vp,det_var,speedup_x0,speedup_vp,speedup_var"]
-    for (fam, size), d in sorted(by.items()):
-        n = d.get("none"); x0 = d.get("x0"); vp = d.get("vp"); var = d.get("var")
-        sx = f"{n/x0:.1f}" if n and x0 else ""
-        sv = f"{n/vp:.1f}" if n and vp else ""
-        sr = f"{n/var:.1f}" if n and var else ""
-        lines.append(f"{fam},{size},{n or ''},{x0 or ''},{vp or ''},{var or ''},{sx},{sv},{sr}")
-    (RES / "sbc_speedup.csv").write_text("\n".join(lines) + "\n")
-    print(f"wrote {RES / 'sbc_speedup.csv'}")
-    print("\n".join(lines))
-
-
 def main():
+    # The deterministic-time speedup table is produced by aggregate.py (wall + pblean, geomean);
+    # this module only draws the supplementary per-family search-effort / cert-size figures.
     ext = load()
     fams = sorted({r["family"] for r in ext})
     for fam in fams:
-        plot_family(ext, fam, logscale=True)    # current log-y figures (sbc_<fam>.png)
-        plot_family(ext, fam, logscale=False)   # new linear-y figures (sbc_<fam>_linear.png)
-    speedup_table(ext)
+        plot_family(ext, fam, logscale=True)    # log-y figures (sbc_<fam>.png)
+        plot_family(ext, fam, logscale=False)   # linear-y figures (sbc_<fam>_linear.png)
 
 
 if __name__ == "__main__":

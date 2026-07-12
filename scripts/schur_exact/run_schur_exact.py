@@ -15,7 +15,7 @@ equisatisfiable in `CSP/L2S/Proofs/SchurValuePrecedence.lean`, so every measurem
 a CSP-level theorem about the original simple CSP `Schur.schur_sb n c`
 (`CSP/L2S/EndToEnd/SchurCertify.lean`).
 
-Reuses scripts/sbc_scaling/{harness,lean_recheck}.py.  Writes results/schur_exact/timings.csv.
+Reuses experiments/lib/{harness,lean_recheck}.py.  Writes results/schur_exact/timings.csv.
 One representative run per stage (no median-of-N) — startup noise dwarfs the cheap stages, and
 the S(4) solve is too costly to repeat.
 
@@ -30,7 +30,7 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "scripts" / "sbc_scaling"))
+sys.path.insert(0, str(REPO / "experiments" / "lib"))
 import harness          # noqa: E402
 import lean_recheck     # noqa: E402
 

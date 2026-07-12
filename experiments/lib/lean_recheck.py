@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""In-Lean native_decide recheck timing for the SBC bench instances.
+"""In-Lean certificate-recheck timing for the experiment instances.
 
-Adapted from scripts/scaling/lean_timing.py: times `lake env lean` re-elaborating the
-certificate-soundness obligation of `csp_unsat_file <csp> <nv> <cert>` (PBLean's verified checker
-run via native_decide on the committed cert), minus an import-only baseline for the same module.
-Works for any csp expression + cert path.
+The committed UNSAT discharge is `Lean.ofReduceBool` reflection (docs/MIGRATION_ofReduceBool.md):
+`csp_unsat_file` builds an `ofReduceBool` term over the compiled `checkProofBool`. `runtime_split`
+below times exactly that compiled function, so its `check_us` is the real in-Lean checking cost
+regardless of how the theorem is discharged. (`native_decide_time`/`recheck_expr` retain a
+`native_decide`-tactic goal for the older schur_exact harness; both routes reduce the same
+`checkProofBool`.) Works for any csp expression + cert path.
 """
 from __future__ import annotations
 
@@ -35,7 +37,7 @@ def _rmartifacts(module: str):
 
 def module_build_time(module: str) -> float:
     """Time `lake build <module>` after deleting its olean — one warm Lean process that
-    native_decide-checks EVERY theorem in the module (the real per-family verification cost)."""
+    ofReduceBool-reflection kernel-checks EVERY theorem in the module (per-family build cost)."""
     _rmartifacts(module)
     t0 = time.monotonic()
     subprocess.run(["lake", "build", module], cwd=REPO, capture_output=True)
@@ -116,7 +118,7 @@ def runtime_split(module: str, csp_expr: str, num_vars: int, cert_abspath: str,
     Returns (wall_minus_base_s|None, encode_us|None, check_us|None, ok).  `encode_us` builds the
     checker-ready formula `(cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp)` (strict
     `Array.map` forces every constraint); `check_us` runs `checkProofBool` — the exact compiled
-    function `native_decide`'s `ofReduceBool` reduces — on the certificate.  `wall_minus_base_s` is
+    function the committed `Lean.ofReduceBool` reflection reduces — on the certificate.  `wall_minus_base_s` is
     the whole `lake env lean`, i.e. ≈ the cost of *compiling* the reflected term (what scales with
     instance size), not the (sub-ms) runtime."""
     body = (

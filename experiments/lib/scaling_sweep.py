@@ -59,11 +59,12 @@ if not Path(RSAT).exists():
 def have(tool: str) -> bool:
     return shutil.which(tool) is not None
 
-HERE = Path(__file__).resolve().parent
-REPO = HERE.parent.parent
-WORK = REPO / "results" / "_work"          # scratch (git-excluded); big files deleted
-CSV_PATH = REPO / "results" / "scaling.csv"
-ENV_PATH = REPO / "results" / "scaling_env.txt"
+HERE = Path(__file__).resolve().parent            # experiments/lib
+REPO = HERE.parent.parent                         # repo root
+RESULTS = REPO / "experiments" / "scaling" / "results"           # committed CSVs
+WORK = REPO / "experiments" / "scaling" / "artifacts" / "_work"  # scratch (git-excluded)
+CSV_PATH = RESULTS / "scaling.csv"
+ENV_PATH = RESULTS / "scaling_env.txt"
 
 # Size ranges.  PB sweeps wider (polynomial); DRAT auto-stops at the wall.
 # Odd cycle is the easy baseline: both pipelines stay small, so it sweeps far and
@@ -217,12 +218,15 @@ def fmt(t):
 
 
 # ---- sweep orchestration --------------------------------------------------- #
-def sweep_family(family, writer, fh):
+def sweep_family(family, writer, fh, limit=None):
     cfg = SWEEP[family]
+    # `limit` keeps only the smallest few sizes (smoke test)
+    pb_sizes = cfg["pb"] if limit is None else cfg["pb"][:limit]
+    drat_sizes = cfg["drat"] if limit is None else cfg["drat"][:limit]
     rows = {}
     # PB sweep (auto-stop on timeout).
     pb_ok = True
-    for size in cfg["pb"]:
+    for size in pb_sizes:
         if not pb_ok:
             break
         row = {c: "" for c in COLUMNS}
@@ -238,7 +242,7 @@ def sweep_family(family, writer, fh):
             pb_ok = False
     # DRAT sweep (auto-stop on timeout).
     drat_ok = True
-    for size in cfg["drat"]:
+    for size in drat_sizes:
         if not drat_ok:
             break
         row = rows.get(size) or {c: "" for c in COLUMNS}
@@ -258,7 +262,7 @@ def sweep_family(family, writer, fh):
         fh.flush()
 
 
-def write_env():
+def write_env(suffix=""):
     def cap(cmd):
         try:
             return subprocess.run(cmd, capture_output=True, timeout=20
@@ -302,45 +306,51 @@ def write_env():
         f"timeout            : {TIMEOUT}s per call; median of up to {REPEATS} runs",
         "mathlib cache       : lake exe cache get (unpacked oleans)",
     ]
-    ENV_PATH.write_text("\n".join(lines) + "\n")
+    (RESULTS / f"scaling_env{suffix}.txt").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
 
 
-def merge_csvs():
-    """Combine all results/scaling_<family>.csv into results/scaling.csv."""
+def merge_csvs(families=("php", "mutilated", "oddcycle"), suffix=""):
+    """Combine the per-family scaling_<family>.csv into scaling.csv (both under RESULTS)."""
     rows = []
-    for fam in ("php", "mutilated", "oddcycle"):
-        p = REPO / "results" / f"scaling_{fam}.csv"
+    for fam in families:
+        p = RESULTS / f"scaling_{fam}{suffix}.csv"
         if p.exists():
             with open(p, newline="") as fh:
                 rows.extend(list(csv.DictReader(fh)))
-    with open(CSV_PATH, "w", newline="") as fh:
+    out = RESULTS / f"scaling{suffix}.csv"
+    with open(out, "w", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=COLUMNS)
         writer.writeheader()
         for r in rows:
             writer.writerow(r)
-    print(f"Merged {len(rows)} rows -> {CSV_PATH}")
+    print(f"Merged {len(rows)} rows -> {out}")
 
 
 def main():
-    families = sys.argv[1:] or ["php", "mutilated", "oddcycle"]
+    argv = sys.argv[1:]
+    smoke = "--smoke" in argv                          # only the 2 smallest sizes per family
+    families = [a for a in argv if not a.startswith("-")] or ["php", "mutilated", "oddcycle"]
     if families == ["merge"]:
         merge_csvs()
         return
+    suffix = ".smoke" if smoke else ""
+    limit = 2 if smoke else None
+    RESULTS.mkdir(parents=True, exist_ok=True)
     if WORK.exists():
         shutil.rmtree(WORK)
     WORK.mkdir(parents=True)
-    write_env()
+    write_env(suffix)
     for fam in families:
         print(f"\n===== {fam} =====", flush=True)
-        out = REPO / "results" / f"scaling_{fam}.csv"
+        out = RESULTS / f"scaling_{fam}{suffix}.csv"
         with open(out, "w", newline="") as fh:
             writer = csv.DictWriter(fh, fieldnames=COLUMNS)
             writer.writeheader()
-            sweep_family(fam, writer, fh)
+            sweep_family(fam, writer, fh, limit)
         print(f"Wrote {out}")
     shutil.rmtree(WORK, ignore_errors=True)
-    merge_csvs()
+    merge_csvs(families, suffix)
 
 
 if __name__ == "__main__":

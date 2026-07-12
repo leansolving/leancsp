@@ -9,11 +9,19 @@ build/
 __pycache__/
 
 CSP/L2S/Backends/PB/Problems/_dump.lean
-results/sbc/
-results/sbc_v2/
 CSP/L2S/Backends/PB/Bench/*
 !CSP/L2S/Backends/PB/Bench/Generators.lean
-scripts/sbc_scaling/__pycache__/
-results/sbc_v3/_work/
+
+# Experiment scratch / generated certificates — data lives in */results/, artifacts stay local.
+experiments/*/artifacts/
+experiments/lib/__pycache__/
+experiments/lib/.venv/
+# Smoke-test output (--smoke) never counts as a committed result.
+experiments/*/results/*.smoke.*
+
+# Legacy experiment output (superseded by experiments/; schur_exact still lives here).
+results/sbc/
+results/sbc_v2/
+results/sbc_v3/
+results/_work/
 results/_work_lean/
-scripts/sbc_scaling/.venv/

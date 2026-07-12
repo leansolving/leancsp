@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
 """Lean-verified tier for the PB scaling study — check the certificates *inside Lean*.
 
-The external sweep (run_scaling.py) produces a kernel certificate per instance and records its
+The external sweep (scaling_sweep.py) produces a kernel certificate per instance and records its
 size, then deletes it.  This driver instead keeps the certificate and kernel-checks it in Lean:
-for each (family, size) whose certificate fits the native_decide cap, it
+for each (family, size) whose certificate fits the in-Lean check cap, it
 
   1. dumps the canonical OPB of the *parametric base CSP* straight from Lean (lean_dump) — so the
      certificate is valid for the `csp_unsat_file` theorem by construction, independent of pbgen,
   2. roundingsat -> .pbp  ->  veripb --elaborate -> kernel certificate (kept under Bench/certs/),
   3. emits a one-line `csp_unsat_file <csp> <nv> "certs/..."` theorem (= `¬ csp.isSatisfiableInt`,
-     PBLean's verified checker run via native_decide on the committed cert),
-  4. `lake build`s the generated module so native_decide kernel-checks every instance at once,
-  5. times each instance's native_decide recheck individually (recheck-minus-baseline).
+     PBLean's verified checker run via an `Lean.ofReduceBool` reflection on the committed cert),
+  4. `lake build`s the generated module so the reflection kernel-checks every instance at once,
+  5. times each instance's compiled checkProofBool runtime individually (`runtime_split`).
 
-This extends results/scaling_lean.csv from the 9 hand-committed checkpoints to the whole generated
-ladder.  Because these families are cutting-planes-easy their certs stay small, so native_decide
+This extends scaling_lean.csv from the 9 hand-committed checkpoints to the whole generated ladder.
+Because these families are cutting-planes-easy their certs stay small, so the in-Lean check
 verifies far up the ladder (the cap only excludes the rare oversized cert).
 
-Outputs: results/scaling_lean.csv and CSP/L2S/Backends/PB/Bench/Scaling*Bench.lean (+ certs/);
-the Bench artifacts are gitignored (local-only), like the SBC v3 tier.
+Outputs: experiments/scaling/results/scaling_lean.csv and
+CSP/L2S/Backends/PB/Bench/Scaling*Bench.lean (+ certs/); the Bench artifacts are gitignored
+(local-only), because `lake build` only kernel-checks modules under CSP/.
 
-Usage:  uv run python scripts/scaling/run_lean_tier.py [family ...]
+Usage:  uv run python experiments/lib/scaling_lean.py [family ...]  (or via experiments/run_scaling.py)
 """
 from __future__ import annotations
 
@@ -28,25 +29,26 @@ import csv
 import sys
 from pathlib import Path
 
-# reuse the battle-tested SBC harness modules (dump / recheck / roundingsat+veripb)
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "sbc_scaling"))
+# shared harness modules now live alongside this file in experiments/lib/
 import harness as H          # noqa: E402
 import lean_dump             # noqa: E402
 import lean_recheck          # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent.parent
+# The Lean-verified tier still emits gitignored bench modules under the source tree, because
+# `lake build` only kernel-checks modules that live under CSP/ (see docs/experiments README).
 BENCH = REPO / "CSP" / "L2S" / "Backends" / "PB" / "Bench"
 CERTS = BENCH / "certs"
-WORK = REPO / "results" / "_work_lean"
-OUT = REPO / "results" / "scaling_lean.csv"
-LEAN_CAP = 500_000           # bytes; native_decide-verify a certificate only below this
+WORK = REPO / "experiments" / "scaling" / "artifacts" / "_work_lean"
+OUT = REPO / "experiments" / "scaling" / "results" / "scaling_lean.csv"
+LEAN_CAP = 500_000           # bytes; in-Lean check a certificate only below this
 
 COLUMNS = ["family", "size_param", "pb_vars", "pb_constraints",
            "kernel_cert_chars", "verified",
            "encode_us",                 # encoder RUNTIME (build the formula), microseconds
            "check_us",                  # PBLean checkProofBool RUNTIME on the cert, microseconds
            "verify_wall_s",             # one-process wall − baseline ≈ compiling the reflected term
-           "module_build_time_s"]       # per-family `lake build` (native_decide kernel-checks all)
+           "module_build_time_s"]       # per-family `lake build` (ofReduceBool kernel-checks all)
 
 
 def _cycle_lit(n):
@@ -87,7 +89,7 @@ def emit_module(fam, module_lean, entries):
         "open CSP.L2S CSP.L2S.PB IntCSP",
         "",
         f"/-! PB scaling study — Lean-verified tier for `{fam}` "
-        "(native_decide kernel-checks each cert). -/",
+        "(an ofReduceBool reflection kernel-checks each cert). -/",
         "",
     ]
     for e in entries:
@@ -99,19 +101,20 @@ def emit_module(fam, module_lean, entries):
     (BENCH / f"Scaling{cap}Bench.lean").write_text("\n".join(lines) + "\n")
 
 
-def sweep_family(fam, writer, fh):
+def sweep_family(fam, writer, fh, limit=None):
     cfg = FAMILIES[fam]
     cap = _cap(fam)
     module_lean = f"CSP.L2S.Backends.PB.Bench.Scaling{cap}Bench"
+    sizes = cfg["sizes"] if limit is None else cfg["sizes"][:limit]  # smallest few (smoke test)
     print(f"\n===== {fam} =====", flush=True)
-    items = [(str(s), cfg["expr"](s)) for s in cfg["sizes"]]
+    items = [(str(s), cfg["expr"](s)) for s in sizes]
     print(f"  batch-dumping {len(items)} instances in one Lean process ...", flush=True)
     dumps = lean_dump.dump_batch(cfg["module"], items)
 
     WORK.mkdir(parents=True, exist_ok=True)
     CERTS.mkdir(parents=True, exist_ok=True)
     rows, entries = {}, []
-    for s in cfg["sizes"]:
+    for s in sizes:
         row = {c: "" for c in COLUMNS}
         row["family"], row["size_param"] = fam, s
         rows[s] = row
@@ -142,15 +145,15 @@ def sweep_family(fam, writer, fh):
         print(f"  [{fam} {s}] vars={row['pb_vars']} cert={row['kernel_cert_chars']}ch -> Lean tier",
               flush=True)
 
-    # Emit + build the module: native_decide kernel-checks every theorem in one warm process.
+    # Emit + build the module: ofReduceBool reflection kernel-checks every theorem in one process.
     emit_module(fam, module_lean, entries)
     n = len(entries)
-    print(f"  building {module_lean} ({n} theorems, native_decide) ...", flush=True)
+    print(f"  building {module_lean} ({n} theorems, ofReduceBool) ...", flush=True)
     bt = lean_recheck.module_build_time(module_lean) if n else 0.0
     print(f"  module build={bt:.1f}s over {n} theorems", flush=True)
 
     # Per-instance runtime split: in ONE process, time the compiled encoder and the compiled
-    # checker (checkProofBool — exactly what native_decide's ofReduceBool reduces) separately, via
+    # checker (checkProofBool — exactly what the committed ofReduceBool reflection reduces) via
     # Lean's monotonic clock.  No cross-run subtraction: both phases share one clock, startup is
     # paid once outside both.  The process wall (− baseline) ≈ the cost of *compiling* the reflected
     # term, which is what scales to seconds — the runtimes themselves stay sub-millisecond.
@@ -168,22 +171,26 @@ def sweep_family(fam, writer, fh):
     if entries:                                  # attach module build to the largest verified row
         rows[entries[-1]["size"]]["module_build_time_s"] = f"{bt:.1f}"
 
-    for s in cfg["sizes"]:
+    for s in sizes:
         writer.writerow(rows[s]); fh.flush()
 
 
 def main():
-    fams = sys.argv[1:] or list(FAMILIES.keys())
-    OUT.parent.mkdir(parents=True, exist_ok=True)
+    argv = sys.argv[1:]
+    smoke = "--smoke" in argv                          # only the 2 smallest sizes per family
+    fams = [a for a in argv if not a.startswith("-")] or list(FAMILIES.keys())
+    limit = 2 if smoke else None
+    out_path = OUT.with_name(f"scaling_lean{'.smoke' if smoke else ''}.csv")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     WORK.mkdir(parents=True, exist_ok=True)
-    with open(OUT, "w", newline="") as fh:
+    with open(out_path, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=COLUMNS)
         w.writeheader()
         for fam in fams:
-            sweep_family(fam, w, fh)
+            sweep_family(fam, w, fh, limit)
     import shutil
     shutil.rmtree(WORK, ignore_errors=True)
-    print(f"\nWrote {OUT}")
+    print(f"\nWrote {out_path}")
 
 
 if __name__ == "__main__":
