@@ -44,7 +44,7 @@ theorem csp_unsat (csp : IntCSP)
 
 Everything is derived from the CSP automatically — the order-encoding signature `cspSig csp` from its `bound` constraints (aux-sized by `cspNAux`), the PB formula `encodeCSP csp` by dispatching each `IntConstraint` to its verified per-pattern encoder (threading a selector base for the Big-M families), and the in-domain / per-constraint preconditions from the constraint semantics (`patternHolds`).
 
-The `csp_unsat_file csp numVars "certs/foo.pbp"` macro is `csp_unsat` with the certificate loaded from a committed `.pbp` file at compile time (`include_str`) and re-checked by PBLean via `native_decide`. (`numVars` is the OPB variable count — threshold bits plus Big-M selectors — printed by `scripts/gen_cert.sh`.)
+The `csp_unsat_file csp numVars "certs/foo.pbp"` form is `csp_unsat` with the certificate loaded from a committed `.pbp` file at compile time (`include_str`) and re-checked by PBLean's reflection checker. The reflection step is discharged by a hand-built `Lean.ofReduceBool` proof term (see `cspUnsatReflect` in `GenericEncode.lean`), *not* the `native_decide` tactic, so the theorem's only extra axioms are the stable, nameable `Lean.ofReduceBool` / `Lean.trustCompiler` — never a fresh per-theorem `._native.native_decide.ax`. (`numVars` is the OPB variable count — threshold bits plus Big-M selectors — printed by `scripts/gen_cert.sh`.)
 
 **This replaces the old per-problem hand-written Lean proofs.** Previously each instance carried its own `CSPSig`, hand-rolled encoding, per-constraint soundness bridges, and a multi-step `csp_unsat_generic` assembly (tens to hundreds of lines). Now **every committed instance is one line plus a certificate file**; adding a new constraint family means adding one `encodePatternAt` case and one soundness case — never per-problem proof work.
 
@@ -67,7 +67,7 @@ OPB file  ──[ RoundingSat, UNTRUSTED ]──▶  VeriPB proof
                                   kernel proof  (committed as Problems/certs/<name>.pbp,
                                                  loaded via include_str)
    │
-   │  PBLean reflection checker  checkProof_sound  (VERIFIED IN LEAN; run by native_decide)
+   │  PBLean reflection checker  checkProof_sound  (VERIFIED IN LEAN; run via a Lean.ofReduceBool term)
    ▼
 formulaUnsat  ──[ csp_unsat soundness theorem ]──▶  ¬ csp.isSatisfiableInt   (kernel-checked)
 ```
@@ -95,18 +95,18 @@ The corresponding predicates are `isSolutionInt` and `isSatisfiableInt`. (The na
 | `PB/Semantics.lean` | `intValue` (recover the integer from the threshold bits), `monotonicity` (staircase clauses), `intValue_mem_values`. |
 | `PB/Substitution.lean` | `linear_le_of_threshold_sum` — a linear constraint over CSP variables becomes a linear PB constraint over threshold bits. |
 | `PB/SignedPB.lean`, `PB/Encode.lean` | Signed→natural PB normalization and `encodeLinearLe` (+ soundness), the base every linear encoder builds on. |
-| `PB/AllDifferent.lean`, `PB/Cardinality.lean`, `PB/LinearNe.lean`, `PB/NotAllEqual.lean`, `PB/BoolGates.lean` | The per-family encoders, each with a Lean soundness lemma. |
+| `PB/AllDifferent.lean`, `PB/Cardinality.lean`, `PB/LinearNe.lean`, `PB/NotAllEqual.lean`, `PB/BoolGates.lean`, `PB/LexLeader.lean` | The per-family encoders, each with a Lean soundness lemma (`PB/LexLeader.lean` is the strict reversal lex leader's base-3 mirror-`≠` encoding + its base-3 non-vanishing lemma). |
 | `PB/ToNat.lean` | Injects typed `PBVar` into `Nat`, maps to PBLean's `Sat.PB.Constr`, proves `unsat_bridge`. |
 | `PB/Extend.lean` | The order-encoding spine `csp_unsat_generic`: "every CSP solution extends to a PB model" + a certificate ⇒ `¬ ∃ solution`. |
 | `PB/Compose.lean` | `EncConstr` (a soundness-carrying encoded constraint) and the assumption-free composition `csp_unsat_of_enc` / `csp_unsat_of_enc_alloc` (with an automatic aux-index allocator). |
 | `PB/Library.lean` | One `enc<Pattern>` smart constructor per supported family, each bundling its encoding with its per-constraint soundness (reusing the `extend_sat_*` lemmas). |
-| **`PB/GenericEncode.lean`** | **`cspSig` (aux-sized), `encodePattern`/`encodePatternAt` (`IntConstraint` → `EncConstr` list, selector-base-threaded) + their soundness, the selector-distinctness machinery (`encodeCSP_keys_nodup`, hypothesis-free), the gated-disjunction and indicator encoders, `encodeCSP`, the general theorem `csp_sat_pb_sat`, its corollary `csp_unsat`, and the `csp_unsat_file` macro.** |
+| **`PB/GenericEncode.lean`** | **`cspSig` (aux-sized), `encodePattern`/`encodePatternAt` (`IntConstraint` → `EncConstr` list, selector-base-threaded) + their soundness, the selector-distinctness machinery (`encodeCSP_keys_nodup`, hypothesis-free), the gated-disjunction and indicator encoders, `encodeCSP`, the general theorem `csp_sat_pb_sat`, its corollary `csp_unsat`, and `csp_unsat_file` (the `cspUnsatReflect` term elaborator that discharges the reflection check with a hand-built `Lean.ofReduceBool` term).** |
 | `PB/Adapter.lean`, `PB/NotAllEqualBridge.lean` | Domain-value lists, `bound_sat`, and the per-pattern `*_sat` bridges reused by the encoders. |
 | `PB/Tactic.lean` | The older `csp_reflect_unsat` command (reads a `.pbp` and discharges `formulaUnsat`) and `csp_decide` (shells out at elaboration time, non-hermetic). `csp_unsat_file` is the preferred form. |
 
 ### Trust boundary
 
-**Trusted:** Lean's kernel; PBLean's PB proof checker (its soundness `checkProof_sound` is proved in Lean, *run* by `native_decide`, which places the Lean compiler in the trusted base via `Lean.ofReduceBool` — the same trust shape as `bv_decide`); this backend's order-encoder and `encodePattern` soundness theorems (verified in Lean).
+**Trusted:** Lean's kernel; PBLean's PB proof checker (its soundness `checkProof_sound` is proved in Lean, its `Bool` check *run* natively and admitted via a `Lean.ofReduceBool` term, which places the Lean compiler in the trusted base — the same trust shape as `bv_decide`/`native_decide`); this backend's order-encoder and `encodePattern` soundness theorems (verified in Lean).
 
 **Untrusted** (a fault is *caught*, never certifies a false theorem): RoundingSat, veripb, and the OPB serializer. If the on-disk OPB or proof doesn't match the Lean-side PB formula, `checkProof_sound`'s hypothesis fails to discharge and the theorem does not go through.
 
@@ -123,12 +123,13 @@ is stable and nameable across all theorems — not a fresh per-theorem `._native
 
 ### Supported constraint fragment
 
-The generic encoder covers **44 of the 48 `IntConstraint` constructors**, fully automatically via `csp_unsat`:
+The generic encoder covers **45 of the 49 `IntConstraint` constructors**, fully automatically via `csp_unsat`:
 
 - **Linear / cardinality:** `bound` (domains) · `linear` / `sum` (all six relations, `≠` via an allocator-managed Big-M selector) · `sum_rel_var` / `linear_rel_var` · `at_most_k` / `at_least_k` / `exactly_k` · `sliding_sum` (per window).
 - **Comparisons / logic:** binary `eq`/`ne`/`lt`/`le`/`gt`/`ge` · the `*_const` comparisons · `implies` / `iff` · `if_then` / `if_then_or` (indicator-implication facets, aux-free).
 - **Global:** `alldifferent` (per-value cardinality) · `alldifferentOffset` (pairwise Big-M expansion — the N-Queens diagonals) · `increasing` · `count` / `count_var` (indicator sums) · `maximum` / `minimum` (bounds **and** attainment facets — exact) · `element` (index bounds + per-position implication) · `modulo` (domain filter — exact) · `abs_diff_rel` (all six relations) / `abs_diff_var` (gated disjunctions) · `schur_triple`.
 - **Boolean gates over `{0,1}`:** `not`/`and`/`or`/`xor`/`nand`/`nor_gate` · `and_all`/`or_all` (min/max facets) · `xor_all` of arity 2–3 (the parity-polytope facets; the full-adder sum).
+- **Symmetry-breaking:** `strictLexRevLeader` (the strict reversal lex leader `x <_lex rev x`, encoded over `{0,1,2}` domains as the single Big-M base-3 mirror disequality `Σ (3ⁱ − 3^{rev i})·xᵢ ≠ 0`; see `PB/LexLeader.lean` and the cautionary example in `Proofs/SchurReversalCounterexample.lean`).
 
 The only constructors left at the sound default `[]`: `xor_all` of arity ≥ 4 (model wide parity as a chain of ternary gates, as the corpus adders do), `product_rel_var` (genuinely non-linear), and `disjunctive`/`unknown` (whose semantics is `True`, so the empty encoding is exact). Gates over non-`{0,1}` domains are dropped by their decidable domain guards (sound).
 
@@ -200,7 +201,7 @@ and `scripts/gen_cert.sh CSP.L2S.Tests.lean.«NN_my_problem» myCSP my` produces
 
 ### Next steps
 
-The generic-coverage goal is **done**: every committed problem is a one-line `csp_unsat_file`, and 44 of 48 constraint constructors are encoded with per-case soundness (see the fragment summary above for the four documented exceptions). What remains is orthogonal to the encoder:
+The generic-coverage goal is **done**: every committed problem is a one-line `csp_unsat_file`, and 45 of 49 constraint constructors are encoded with per-case soundness (see the fragment summary above for the four documented exceptions). What remains is orthogonal to the encoder:
 
 1. **Scaling** — larger corpus sizes (wider ripple-carry, larger Paley graphs — probe UNSAT with RoundingSat first) and a regeneration sweep (`scripts/gen_cert.sh` over all instances) whenever an encoder changes shape. The external scaling harness (`scripts/scaling/`, `docs/SCALING.md`) is ported to the generic pipeline (`validate.py` asserts byte-identity against `encodeCSP` at 9 committed sizes) — see `PLAN.md` §8.
 2. **Dead-code cleanup** — the bespoke-era modules (`BoolExprCompiler`/`BoolGates`, `CircuitGates`, the demo cluster, the legacy tactics) are inventoried with a staged removal plan in `PLAN.md` §7.

@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Strict reversal lex leader constraint** `IntConstraint.strictLexRevLeader`
+  (`x <_lex rev x`), wired through `patternHolds`, the MiniZinc/SMT-LIB translators,
+  and the verified PB backend: `PB/LexLeader.lean` encodes it over `{0,1,2}` domains as
+  the single Big-M base-3 mirror disequality `Σ (3ⁱ − 3^{rev i})·xᵢ ≠ 0` (a sound
+  relaxation, `0` iff `x` is a palindrome), with a base-3 non-vanishing soundness lemma.
+- **Schur cautionary example** (`Proofs/SchurReversalCounterexample.lean`,
+  `Problems/SchurLexLeader.lean`): `schur_leader_not_variableSBC` proves the strict
+  reversal leader is *not* a valid `variableSymmetryBreakingConstraint` on the 3-colour
+  Schur CSP at `n = 13` — base CSP SAT (`csp_sat_file` witness) but augmented CSP UNSAT
+  (kernel-checked PB certificate `certs/schur_lex_13.pbp`), breaking equisatisfiability.
+  Plus reformulation-level, `decide`-only companions (`reversal_not_schur_symmetry`).
+
+### Changed
+
+- **UNSAT discharge migrated to `Lean.ofReduceBool`.** `csp_unsat_file` is now a term
+  elaborator (`cspUnsatReflect`) that builds the PBLean reflection proof as a hand-rolled
+  `Lean.ofReduceBool` term instead of the `native_decide` tactic. Call sites are
+  unchanged, but every committed UNSAT theorem now carries the stable, nameable
+  `Lean.ofReduceBool` / `Lean.trustCompiler` axioms rather than a fresh per-theorem
+  `._native.native_decide.ax`. (SAT-witness lower bounds via `csp_sat_file` are
+  unaffected — still kernel `decide`, `native_decide`-free.)
+
+### Added (earlier)
+
 - **Single generic UNSAT theorem** `csp_unsat csp cert : ¬ csp.isSatisfiableInt`
   (`PB/GenericEncode.lean`): derives the order-encoding signature, the PB formula,
   and all soundness preconditions from the CSP automatically — no per-instance proof.

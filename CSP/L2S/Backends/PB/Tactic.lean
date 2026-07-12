@@ -9,8 +9,8 @@ namespace CSP.L2S.PB
 
 Two ways to register `name : VeriPB.Reflect.formulaUnsat cs` from a pseudo-Boolean
 UNSAT certificate, both discharging the kernel proof through PBLean's reflection
-checker (`checkProofBool`) via `native_decide` (`Lean.ofReduceBool`) and
-`checkProof_sound`:
+checker (`checkProofBool`) with a hand-built `Lean.ofReduceBool` term and
+`checkProof_sound` (this is also the discharge `csp_unsat_file` now uses):
 
 * **`csp_reflect_unsat name cs numVars "proof.pbp"`** (PLAN.md §9) reads a
   *committed* VeriPB kernel proof file.  No external solver runs at build time, so
@@ -26,7 +26,7 @@ checker (`checkProofBool`) via `native_decide` (`Lean.ofReduceBool`) and
   switch to `csp_reflect_unsat` for reproducibility.
 
 The trust base is identical for both: PBLean's checker + Lean's kernel + the
-`native_decide` reflection axiom (`Lean.ofReduceBool`).  RoundingSat, veripb, the
+reflection axioms `Lean.ofReduceBool` / `Lean.trustCompiler`.  RoundingSat, veripb, the
 serializer, and the `.opb`/`.pbp` files stay **outside** it — a wrong certificate
 makes `checkProofBool` return `false` against the *Lean-side* `cs`, so the command
 fails to elaborate rather than producing an unsound theorem.
@@ -36,8 +36,8 @@ Adapted from PBLean's `independent_set_reflect` / `independent_set_decide`. -/
 open Lean Lean.Elab Lean.Elab.Command Lean.Meta
 
 /-- Register `declName : VeriPB.Reflect.formulaUnsat csExpr` from a VeriPB kernel
-    proof string, checked by PBLean's reflection checker via `native_decide`
-    (`Lean.ofReduceBool`).  Shared by both commands; the certificate `proofStr` is
+    proof string, checked by PBLean's reflection checker and discharged by a hand-built
+    `Lean.ofReduceBool` term.  Shared by both commands; the certificate `proofStr` is
     untrusted (a wrong one makes the `checkProofBool` reduction `false`, so the
     `Eq.refl` term fails to typecheck). -/
 private def registerFormulaUnsat (declName : Name) (csExpr numVarsExpr : Expr)
@@ -73,7 +73,7 @@ private def elabUnsatArgs (cs numVars : Syntax) : TermElabM (Expr × Expr) := do
 
 /-- `csp_reflect_unsat name cs numVars "proof.pbp"` registers
     `name : VeriPB.Reflect.formulaUnsat cs` from a committed VeriPB kernel proof,
-    checked by PBLean's reflection checker via `native_decide`. -/
+    checked by PBLean's reflection checker and discharged by a `Lean.ofReduceBool` term. -/
 elab "csp_reflect_unsat " name:ident ppSpace cs:term:max ppSpace
     numVars:term:max ppSpace proofFile:str : command => do
   let declName := (← getCurrNamespace) ++ name.getId
@@ -136,7 +136,7 @@ elab "csp_decide " name:ident ppSpace cs:term:max ppSpace
       let proofStr ← IO.FS.readFile (System.FilePath.mk kernelPath)
       registerFormulaUnsat declName csExpr numVarsExpr proofStr
       rm
-      logInfo m!"Registered {declName} : formulaUnsat (RoundingSat + veripb, native_decide)"
+      logInfo m!"Registered {declName} : formulaUnsat (RoundingSat + veripb, ofReduceBool)"
     catch e =>
       rm
       throw e

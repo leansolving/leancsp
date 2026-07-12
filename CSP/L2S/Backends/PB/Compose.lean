@@ -30,7 +30,8 @@ assumption-free theorem.
   `decide`-able when the owned indices are static.
 
 The trust base is unchanged: every `sound` reuses already-verified `extend_sat_*`
-lemmas, and the certificate still rides through PBLean's checker via `native_decide`.
+lemmas, and the certificate still rides through PBLean's checker, discharged by a
+`Lean.ofReduceBool` term.
 -/
 
 variable {S : CSPSig}

@@ -101,7 +101,7 @@ def mutilatedChessboard6 : IntCSP :=
 
 /-- **UNSAT via the generic pipeline** — the 6 × 6 mutilated chessboard has
     no domino tiling, kernel-checked through PBLean's verified reflection checker
-    (`native_decide`; RoundingSat / veripb / serializer untrusted). -/
+    (discharged by a `Lean.ofReduceBool` term; RoundingSat / veripb / serializer untrusted). -/
 theorem mutilated_chessboard_6_unsat :
     ¬ mutilatedChessboard6.isSatisfiableInt :=
   csp_unsat_file mutilatedChessboard6 56 "certs/mutilated6.pbp"

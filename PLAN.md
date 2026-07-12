@@ -37,7 +37,8 @@ that *one* soundness theorem discharges every instance:
   signature (`cspSig`, aux-sized by `cspNAux`), the PB formula (`encodeCSP`, via the
   selector-base-threaded `encodePatternAt`), and all preconditions automatically.
 - **File-based certificates.** `csp_unsat_file csp numVars "certs/foo.pbp"`
-  (`include_str` + `native_decide`) replaces inline kernel-proof strings;
+  (`include_str` + a hand-built `Lean.ofReduceBool` reflection term, via the
+  `cspUnsatReflect` elaborator) replaces inline kernel-proof strings;
   `scripts/gen_cert.sh` regenerates them against `encodeCSP` (its `numVars` counts
   thresholds *plus* Big-M selectors). Corpus instances live in
   `CSP/L2S/Backends/PB/Problems/` with certificates under `Problems/certs/`.
@@ -46,7 +47,9 @@ that *one* soundness theorem discharges every instance:
   expansion), the circuit family (Boolean-gate facet encodings), and full-adder /
   ripple-carry (ternary-XOR parity-polytope facets + the Big-M `≠` identity).
 - Every end-to-end theorem's axioms: `propext, Classical.choice, Quot.sound` plus
-  exactly **one** `native_decide` (the certificate recheck); no `sorryAx`.
+  the two reflection axioms `Lean.ofReduceBool` / `Lean.trustCompiler` (the
+  certificate recheck; stable and nameable, not a per-theorem `native_decide` axiom);
+  no `sorryAx`.
 - The `CSP/L2S/Proofs/` equivalence + symmetry-breaking proofs (NQueens/GraphColoring
   π-equivalence, NQueens/GraphColoring/LatinSquare SB, circuit input/twin SB,
   unreachable-input + parity theorems) have been **restored and ported** to the
@@ -95,7 +98,7 @@ OPB file  ──[ RoundingSat, UNTRUSTED ]──▶  VeriPB proof
                                               ▼
                                            kernel proof  (committed as Problems/certs/*.pbp,
                                                           loaded via include_str)
-   │  PBLean checker  checkProof_sound  (VERIFIED IN LEAN; run by native_decide)
+   │  PBLean checker  checkProof_sound  (VERIFIED IN LEAN; run via a Lean.ofReduceBool term)
    ▼
 formulaUnsat  ──[ csp_unsat soundness theorem ]──▶  ¬ csp.isSatisfiableInt
 ```
@@ -126,6 +129,9 @@ formulaUnsat  ──[ csp_unsat soundness theorem ]──▶  ¬ csp.isSatisfiab
 - `LinearNe.lean` — general `Σ aᵢxᵢ ≠ b` via a Big-M aux selector (the only
   aux-allocating encoder used).
 - `NotAllEqual.lean` — literal-level and binary not-all-equal.
+- `LexLeader.lean` — the strict reversal lex leader `x <_lex rev x`, encoded over
+  `{0,1,2}` as the single Big-M base-3 mirror disequality `Σ (3ⁱ − 3^{rev i})·xᵢ ≠ 0`
+  (+ the base-3 non-vanishing lemma making it a sound relaxation).
 - `BoolGates.lean`, `BoolExprCompiler.lean` — Tseitin gate primitives and a
   recursive `BoolExpr` compiler (verified; see §5 — no current consumer).
 - `CircuitGates.lean` — `{nv}`-generic circuit gate bridges (`xor_all3_sat`,
@@ -154,8 +160,9 @@ formulaUnsat  ──[ csp_unsat soundness theorem ]──▶  ¬ csp.isSatisfiab
 - `GenericEncode.lean` — `cspSig` (signature from the CSP's `bound`s), `toFinList`
   (ℕ→`Fin` index conversion), `encodePattern` (`IntConstraint` → `EncConstr` list,
   via the per-pattern library), `encodePattern_sound` (each entry's `pre` from
-  `patternHolds`), `encodeCSP`, the generic theorem **`csp_unsat`**, and the
-  **`csp_unsat_file`** macro (`include_str` + `native_decide`).
+  `patternHolds`), `encodeCSP`, the generic theorem **`csp_unsat`**, and
+  **`csp_unsat_file`** (`include_str` + the `cspUnsatReflect` elaborator's
+  `Lean.ofReduceBool` reflection term).
 
 **Serialization + tactic**
 - `Serialize.lean` — OPB text serializer (untrusted; outside the trust base).
@@ -167,12 +174,13 @@ formulaUnsat  ──[ csp_unsat soundness theorem ]──▶  ¬ csp.isSatisfiab
 ### Trust boundary
 
 Trusted: Lean's kernel; PBLean's reflection checker (`checkProof_sound`, proved in
-Lean, run via `native_decide` — places the Lean compiler in the TCB through
-`Lean.ofReduceBool`, the same shape as `bv_decide`); and this backend's
-order-encoder soundness theorems. Untrusted: RoundingSat, veripb, and the OPB
-serializer — a fault in any of them causes a *failure to elaborate*, never an
-unsound theorem. Every end-to-end theorem's `#print axioms` is exactly `propext,
-Classical.choice, Quot.sound` plus one `native_decide` axiom — no `sorryAx`.
+Lean, its `Bool` check run natively and admitted by a `Lean.ofReduceBool` term —
+placing the Lean compiler in the TCB, the same shape as `bv_decide`/`native_decide`);
+and this backend's order-encoder soundness theorems. Untrusted: RoundingSat, veripb,
+and the OPB serializer — a fault in any of them causes a *failure to elaborate*, never
+an unsound theorem. Every end-to-end theorem's `#print axioms` is exactly `propext,
+Classical.choice, Quot.sound` plus the reflection axioms `Lean.ofReduceBool` /
+`Lean.trustCompiler` — no `sorryAx`.
 
 ---
 
@@ -343,7 +351,7 @@ against the import graph on `csp-unsat-generic`:
   it; its only mention is a comment in `Serialize.lean`.
 - `csp_reflect_unsat` in `Backends/PB/Tactic.lean` — reads a `.pbp` file and
   discharges `formulaUnsat`. Its only caller is the demo `DemoReflect.lean`. The
-  committed theorems all use `csp_unsat_file` (`include_str` + `native_decide`)
+  committed theorems all use `csp_unsat_file` (`include_str` + a `Lean.ofReduceBool` term)
   instead.
 
 **Demonstration scaffolding (illustrative, off the problem pipeline).**

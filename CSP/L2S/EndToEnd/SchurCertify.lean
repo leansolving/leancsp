@@ -23,7 +23,7 @@ proof; every theorem below is stated about the *plain* `schur_sb`:
 
 `S(2) = 4` and `S(3) = 13` are pinned exactly (both directions kernel-checked).  `S(4)`
 has its lower bound `≥ 44` kernel-checked here; its upper bound `< 45` is the hard case
-(the vp certificate is ~100 MB, far beyond the `native_decide` reach) — see
+(the vp certificate is ~100 MB, far beyond the reach of the native reflection recheck) — see
 `docs/SCHUR_EXACT.md`.
 -/
 
@@ -55,7 +55,7 @@ theorem schur_4_lb : (Schur.schur_sb 44 4).isSatisfiableInt :=
       "CSP/L2S/EndToEnd/sols/schur_c4_n44.sol")
 
 -- ============================================================================
--- Upper bounds (UNSAT): vp certificate → native_decide → lift via vp SBC
+-- Upper bounds (UNSAT): vp certificate → ofReduceBool reflection → lift via vp SBC
 -- ============================================================================
 
 /-- **`S(2) < 5`.** -/
