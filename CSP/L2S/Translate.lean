@@ -242,6 +242,7 @@ def countConstraintsByType (csp : IntCSP) : String :=
       | IntConstraint.linear_rel_var _ _ _ _ => "linear_rel_var"
       | IntConstraint.product_rel_var _ _ _ => "product_rel_var"
       | IntConstraint.value_precedence _ => "value_precedence"
+      | IntConstraint.strictLexRevLeader => "strictLexRevLeader"
       | IntConstraint.disjunctive _ _ => "disjunctive"
       | IntConstraint.unknown _ _ => "unknown"
     match acc.find? key with

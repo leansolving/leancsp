@@ -1,5 +1,6 @@
 import CSP.Core
 import Mathlib.Data.Fin.Basic
+import Mathlib.Data.Fin.Rev
 import Mathlib.Data.Set.Basic
 import Mathlib.Data.List.Basic
 import Mathlib.Data.Vector.Basic
@@ -149,6 +150,12 @@ inductive IntConstraint (num_vars : ℕ)
   -- all permutations of the colour values (see `CSP/L2S/ValuePrecedence.lean`).
   | value_precedence (colors : ℕ)
 
+  -- Symmetry-breaking: strict lexicographic reversal leader `x <_lex rev(x)`, where
+  -- `rev` is the variable-index reversal `i ↦ (num_vars-1)-i`.  A whole-CSP constraint
+  -- (no explicit scope; the scope is all variables in order).  Sound ONLY when the index
+  -- reversal is a symmetry of the CSP; the Schur cautionary example shows it is not.
+  | strictLexRevLeader
+
   -- Scheduling constraints
   | disjunctive (tasks : List ℕ) (durations : List ℤ)  -- Tasks on unary resource must not overlap
 
@@ -251,6 +258,10 @@ def patternHolds {n : ℕ} : IntConstraint n → IntAssignment n → Prop
       relHolds op ((vars.map (valAt a)).foldl (· * ·) 1) (valAt a tvar)
   | .value_precedence _colors, a =>
       ∀ j : Fin n, 1 ≤ a j → ∃ i : Fin n, i.val < j.val ∧ a i = a j - 1
+  | .strictLexRevLeader, a =>
+      -- `x <_lex rev(x)`: at the first index `p` where `x` and its reversal differ,
+      -- `x` is strictly smaller.
+      ∃ p : Fin n, (∀ q : Fin n, q < p → a q = a (Fin.rev q)) ∧ a p < a (Fin.rev p)
   | .disjunctive _ _, _ => True   -- scheduling: not used by the PB pipeline
   | .unknown _ _, _ => True       -- fallback: no semantics
 

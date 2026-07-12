@@ -102,6 +102,13 @@ def minimum {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
 def value_precedence (colors : ℕ) : IntConstraint num_vars :=
   IntConstraint.value_precedence colors
 
+/-- Strict lexicographic reversal leader `x <_lex rev(x)` over all variables, where the
+    reversal is the index map `i ↦ (num_vars-1)-i`.  A whole-CSP symmetry-breaking
+    constraint (no explicit scope), sound only when the index reversal is a symmetry of the
+    CSP.  See `CSP/L2S/Proofs/SchurReversalCounterexample.lean` for the cautionary case. -/
+def strictLexRevLeader : IntConstraint num_vars :=
+  IntConstraint.strictLexRevLeader
+
 end GlobalConstraints
 
 -- ============================================================================

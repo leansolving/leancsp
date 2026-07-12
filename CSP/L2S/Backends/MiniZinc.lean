@@ -237,6 +237,11 @@ def patternToMiniZinc {num_vars : ℕ} (opts : BackendOptions)
       let dur_vals := "[" ++ String.intercalate ", " (durs.map toString) ++ "]"
       .ok [s!"constraint disjunctive({task_vars}, {dur_vals});"]
 
+  | IntConstraint.strictLexRevLeader =>
+      let fwd := (List.range num_vars).map (s!"x{·}") |> String.intercalate ", "
+      let rev := (List.range num_vars).reverse.map (s!"x{·}") |> String.intercalate ", "
+      .ok [s!"constraint lex_less([{fwd}], [{rev}]);"]
+
   | IntConstraint.unknown _ scope =>
       .error ⟨s!"Unknown constraint on variables: {scope}"⟩
 
@@ -258,6 +263,7 @@ def getRequiredIncludes (csp : IntCSP) : List String :=
     | IntConstraint.maximum _ _ => "maximum" :: acc
     | IntConstraint.minimum _ _ => "minimum" :: acc
     | IntConstraint.disjunctive _ _ => "disjunctive" :: acc
+    | IntConstraint.strictLexRevLeader => "lex_less" :: acc
     | IntConstraint.bound _ _ _ => acc
     | _ => acc
   ) []

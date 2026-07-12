@@ -1,4 +1,5 @@
 import CSP.L2S.Backends.PB.Library
+import CSP.L2S.Backends.PB.LexLeader
 
 namespace CSP.L2S.PB
 
@@ -62,6 +63,7 @@ def auxCount {n : ℕ} : IntConstraint n → ℕ
   | .abs_diff_rel _ _ .EQ _ => 1
   | .abs_diff_rel _ _ .NE _ => 2
   | .abs_diff_var _ _ _ => 1
+  | .strictLexRevLeader => 1
   | _ => 0
 
 /-- Total auxiliary count of a CSP: the selectors its constraints' encodings own. -/
@@ -359,6 +361,7 @@ def encodePattern (S : CSPSig) : IntConstraint S.nInt → List (EncConstr S)
   | .if_then _ _ _ _ => []
   | .if_then_or _ _ _ _ => []
   | .product_rel_var _ _ _ => []
+  | .strictLexRevLeader => []   -- aux-free dispatcher; the real (aux-using) encoding lives in `encodePatternAt`
   | .disjunctive _ _ => []
   | .unknown _ _ => []
 
@@ -1934,6 +1937,12 @@ def encodePatternAt (S : CSPSig) (base : ℕ) : IntConstraint S.nInt → List (E
                   :: (toFinList S vars).map (fun v => ((-1 : Int), v))) 0]
         else []
       else []
+  -- `strictLexRevLeader`: the base-3 mirror `≠` (one Big-M selector), only over `{0,1,2}`
+  -- domains (where the encoding is a sound relaxation of `x <_lex rev x`); dropped otherwise.
+  | .strictLexRevLeader =>
+      if hg : ∀ i : Fin S.nInt, S.values i = [0, 1, 2] then
+        if hb : base < S.nAux then [encStrictLexRev S base hb hg] else []
+      else []
   | c => encodePattern S c
 
 /-- Soundness of `encodePatternAt`: each emitted entry's precondition follows from
@@ -2511,6 +2520,18 @@ theorem encodePatternAt_sound (base : ℕ) (c : IntConstraint S.nInt) (a : Fin S
             omega
         · exact absurd he (by simp)
       · exact absurd he (by simp)
+  case strictLexRevLeader =>
+      simp only [encodePatternAt] at he
+      by_cases hg : ∀ i : Fin S.nInt, S.values i = [0, 1, 2]
+      · rw [dif_pos hg] at he
+        by_cases hb : base < S.nAux
+        · rw [dif_pos hb, List.mem_singleton] at he
+          subst he
+          simp only [patternHolds] at hpat
+          obtain ⟨p, _, hp⟩ := hpat
+          exact ⟨p, ne_of_lt hp⟩
+        · rw [dif_neg hb] at he; exact absurd he (by simp)
+      · rw [dif_neg hg] at he; exact absurd he (by simp)
   all_goals exact encodePattern_sound _ a hpat e he
 
 /-! ### The combined encoding and the generic theorem -/
@@ -2952,6 +2973,14 @@ theorem encodePatternAt_keys_block (base : ℕ) (c : IntConstraint S.nInt)
         · rw [List.mem_singleton] at he; subst he; rfl
       · exact keys_block_of_nil rfl _ _
     · exact keys_block_of_nil rfl _ _
+  case strictLexRevLeader =>
+    simp only [encodePatternAt]
+    by_cases hg : ∀ i : Fin S.nInt, S.values i = [0, 1, 2]
+    · rw [dif_pos hg]
+      by_cases hb : base < S.nAux
+      · rw [dif_pos hb]; exact keys_block_of_single base _ (Nat.le_refl 1) hb rfl
+      · rw [dif_neg hb]; exact keys_block_of_nil rfl _ _
+    · rw [dif_neg hg]; exact keys_block_of_nil rfl _ _
   all_goals
     refine keys_block_of_nil ?_ _ _
     simp only [encodePatternAt]

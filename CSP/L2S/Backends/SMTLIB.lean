@@ -317,6 +317,15 @@ def patternToSMTLIB {num_vars : ℕ} (opts : BackendOptions)
       let disj_str := String.intercalate " " disjuncts
       .ok [s!"(assert (and {disj_str}))"]
 
+  | IntConstraint.strictLexRevLeader =>
+      -- `x <_lex rev(x)` unfolded to nested or/and: compare `x_i` with `x_{n-1-i}`.
+      let n := num_vars
+      let body := (List.range n).reverse.foldl (fun acc i =>
+        let xi := varName i
+        let xr := varName (n - 1 - i)
+        s!"(or (< {xi} {xr}) (and (= {xi} {xr}) {acc}))") "false"
+      .ok [s!"(assert {body})"]
+
   | IntConstraint.unknown _ scope =>
       .error ⟨s!"Unknown constraint on variables: {scope}"⟩
 
