@@ -15,10 +15,10 @@ are each proved `¬ isSatisfiableInt` by a **single** application of the generic
 encoding, or soundness bridge.  The only per-problem datum is the committed
 VeriPB kernel certificate under `certs/`, regenerated against the canonical
 encoder by `scripts/gen_cert.sh` and loaded at compile time (`include_str`),
-kernel-checked through PBLean via `native_decide`.
+kernel-checked through PBLean's reflection checker.
 
-`#print axioms` for each is `propext, Classical.choice, Quot.sound` + the one
-`native_decide` axiom (no `sorryAx`).
+`#print axioms` for each is `propext, Classical.choice, Quot.sound` + the two
+reflection axioms `Lean.ofReduceBool` / `Lean.trustCompiler` (no `sorryAx`).
 -/
 
 /-- **Pigeonhole `php_3_2`** (three pigeons, two holes) is unsatisfiable. -/

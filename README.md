@@ -110,13 +110,16 @@ The corresponding predicates are `isSolutionInt` and `isSatisfiableInt`. (The na
 
 **Untrusted** (a fault is *caught*, never certifies a false theorem): RoundingSat, veripb, and the OPB serializer. If the on-disk OPB or proof doesn't match the Lean-side PB formula, `checkProof_sound`'s hypothesis fails to discharge and the theorem does not go through.
 
-Every end-to-end theorem depends (`#print axioms`) on exactly:
+Every end-to-end UNSAT theorem depends (`#print axioms`) on exactly:
 
 ```
-propext,  Classical.choice,  Quot.sound,  <theorem>._native.native_decide.ax_1_1
+propext,  Classical.choice,  Quot.sound,  Lean.ofReduceBool,  Lean.trustCompiler
 ```
 
-— the three standard axioms plus **one** `native_decide` axiom (the kernel-checked certificate). No `sorryAx`.
+— the three standard axioms plus the two reflection axioms `Lean.ofReduceBool` /
+`Lean.trustCompiler` (the kernel-checked certificate; `csp_unsat_file` builds the
+`ofReduceBool` proof term directly rather than via the `native_decide` tactic, so the axiom
+is stable and nameable across all theorems — not a fresh per-theorem `._native.native_decide.ax`). No `sorryAx`. (SAT-witness lower bounds via `csp_sat_file` stay `native_decide`-free, depending only on `propext`/`Quot.sound`.)
 
 ### Supported constraint fragment
 

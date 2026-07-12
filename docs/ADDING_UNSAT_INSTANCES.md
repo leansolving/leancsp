@@ -126,9 +126,10 @@ echo 'import CSP.L2S.Backends.PB.Problems.MyProblem
 lake env lean /tmp/chk.lean
 ```
 
-Must print exactly `propext, Classical.choice, Quot.sound,
-<…>._native.native_decide.ax_1_1` — the three standard axioms plus one
-`native_decide` axiom. **No `sorryAx`.**
+Must print exactly `propext, Classical.choice, Quot.sound, Lean.ofReduceBool,
+Lean.trustCompiler` — the three standard axioms plus the two reflection axioms
+(`csp_unsat_file` builds the `ofReduceBool` proof term directly, so the axiom is stable and
+nameable, not a fresh per-theorem `._native.native_decide.ax`). **No `sorryAx`.**
 
 ## 6. Adding a new constraint family
 

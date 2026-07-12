@@ -3099,15 +3099,50 @@ theorem csp_unsat (csp : IntCSP)
   rw [List.toList_toArray] at hc
   exact hnc (hv c hc)
 
+open Lean Lean.Meta Lean.Elab Lean.Elab.Term in
+/-- The elaborator behind `csp_unsat_file`.  It discharges PBLean's reflection check with a
+    hand-built `Lean.ofReduceBool` proof term (PBLean's `veripb_reflect` style) — an
+    `addAndCompile`d `Bool` aux (`checkProofBool cs numVars cert`) plus `ofReduceBool` and
+    `checkProof_sound` — instead of the `native_decide` *tactic*, so every committed UNSAT
+    theorem carries the single stable `Lean.ofReduceBool` axiom rather than a fresh
+    per-theorem `._native.native_decide.ax`.  The auxiliary + cert declarations are named
+    after the enclosing theorem; the certificate string is spliced by `include_str`
+    (module-relative, compile time). -/
+elab "cspUnsatReflect " cspStx:term:max numVarsStx:term:max certStx:term:max : term => do
+  let certE ← instantiateMVars (← elabTerm certStx (some (Lean.mkConst ``String)))
+  let csE ← instantiateMVars (← elabTerm
+    (← `((((cspSig $cspStx).monotonicity ++ EncConstr.combine (encodeCSP $cspStx)).toArray.map
+          PBConstr.toNatConstr)))
+    (some (mkApp (Lean.mkConst ``Array [.zero]) (Lean.mkConst ``Sat.PB.Constr))))
+  let numE ← instantiateMVars (← elabTerm numVarsStx (some (Lean.mkConst ``Nat)))
+  let baseName ← match (← getDeclName?) with
+    | some n => pure n
+    | none => mkFreshUserName `_cspUnsat
+  let certName := baseName ++ `cert
+  let auxName := certName ++ `check
+  addAndCompile <| .defnDecl {
+    name := auxName, levelParams := [], type := Lean.mkConst ``Bool
+    value := mkApp3 (Lean.mkConst ``VeriPB.Reflect.checkProofBool) csE numE certE
+    hints := .abbrev, safety := .safe }
+  let auxConst := Lean.mkConst auxName
+  let hEqTrue := mkApp3 (Lean.mkConst ``Lean.ofReduceBool) auxConst (Lean.mkConst ``Bool.true)
+    (mkApp2 (Lean.mkConst ``Eq.refl [.succ .zero]) (Lean.mkConst ``Bool)
+      (mkApp (Lean.mkConst ``Lean.reduceBool) auxConst))
+  addDecl <| Declaration.thmDecl {
+    name := certName, levelParams := []
+    type := mkApp (Lean.mkConst ``VeriPB.Reflect.formulaUnsat) csE
+    value := mkApp4 (Lean.mkConst ``VeriPB.Reflect.checkProof_sound) csE numE certE hEqTrue }
+  elabTerm (← `(csp_unsat $cspStx $(mkIdent certName))) none
+
 /-- **File-based generic UNSAT.**  `csp_unsat_file csp numVars "certs/foo.pbp"` is
     `csp_unsat csp cert` with the VeriPB kernel proof loaded from a committed file at
-    compile time (`include_str`) and re-checked by PBLean via `native_decide`.  The
+    compile time (`include_str`) and re-checked by PBLean's reflection checker.  The
+    reflection step is discharged via a hand-built `Lean.ofReduceBool` term (see
+    `cspUnsatReflect`), so the theorem's only extra axiom is `Lean.ofReduceBool`.  The
     formula is inferred from `csp`; `numVars` is the OPB `#variable=` count
     (`Σ (cspSig csp).width + nBool + nAux` — the Big-M selectors count too; printed by
-    `scripts/gen_cert.sh`).  This keeps the (large) certificate out of the source and
-    makes regeneration a pure file overwrite. -/
+    `scripts/gen_cert.sh`). -/
 macro "csp_unsat_file " csp:term:max numVars:term:max path:str : term =>
-  `(csp_unsat $csp
-      (VeriPB.Reflect.checkProof_sound _ $numVars (include_str $path) (by native_decide)))
+  `(cspUnsatReflect $csp $numVars (include_str $path))
 
 end CSP.L2S.PB

@@ -18,7 +18,7 @@ Each is discharged by a **single** `csp_unsat` application over its committed
 kernel certificate — no per-problem signature, encoding, or bridge.  The generic
 encoder turns every `not_equal` edge into the aux-free order encoding and the
 bounds into the domain; `#print axioms` is `propext, Classical.choice, Quot.sound`
-plus the one `native_decide` axiom (no `sorryAx`).
+plus the two reflection axioms `Lean.ofReduceBool` / `Lean.trustCompiler` (no `sorryAx`).
 -/
 
 /-- **K₃ is not 2-colourable.** -/

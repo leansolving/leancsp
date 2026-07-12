@@ -1,6 +1,7 @@
 import CSP.L2S.Proofs.SchurSB
 import CSP.L2S.Proofs.SchurEquivalence
 import CSP.L2S.Witness
+import CSP.L2S.Backends.PB.Problems.SchurLexLeader
 import Mathlib.Data.Fin.Rev
 import Mathlib.Tactic.IntervalCases
 
@@ -140,5 +141,43 @@ theorem schur_nonstrict_reversal_leader_retains :
   refine ⟨![0, 1, 1, 0, 2, 2, 0, 2, 2, 0, 1, 1, 0], ?_, ?_⟩
   · decide
   · decide
+
+-- ============================================================================
+-- Obligation 2, framework level: the leader is not a variableSymmetryBreakingConstraint
+-- ============================================================================
+
+/-!
+The reformulation-level results above refute the reversal-symmetry-specific break. The
+framework's `variableSymmetryBreakingConstraint` predicate quantifies over *all* variable
+symmetries, so refuting it needs the full "every `n = 13` solution is a palindrome" fact —
+which we obtain, kernel-checked, from the verified PB pipeline: `base13` is SAT (an
+`S(3) = 13` witness) while `aug13 = base13 ⊕ strictLexRevLeader` is PB-UNSAT
+(`SchurLexLeader.aug13_unsat`). The two together break equisatisfiability, and the
+SBC⇒equisatisfiability theorem finishes it.
+-/
+
+open CSP.L2S.PB.SchurLexLeader in
+/-- `base13` is satisfiable — an `S(3) = 13` colouring, kernel-checked from the committed
+    witness (no `native_decide`; the witness is untrusted, re-checked by `decide`). -/
+theorem base13_sat : base13.isSatisfiableInt :=
+  csp_sat_file base13 "CSP/L2S/EndToEnd/sols/schur_c3_n13.sol"
+
+open CSP.L2S.PB.SchurLexLeader in
+/-- Adding the strict reversal leader breaks equisatisfiability: `base13` is SAT but the
+    augmented CSP is UNSAT. -/
+theorem base_aug_not_equisatisfiable :
+    ¬ equisatisfiable base13 (base13.addConstraint leader) :=
+  fun e => aug13_unsat (e.mp base13_sat)
+
+open CSP.L2S.PB.SchurLexLeader in
+/-- **The strict reversal leader is not a valid variable symmetry-breaking constraint** for
+    the 3-colour Schur CSP at `n = 13`.  Were it one, it would preserve satisfiability
+    (`variableSymmetryBreaking_equisatisfiability`); but it turns the SAT base CSP into the
+    UNSAT `aug13`.  This is the framework-level form of the paper's cautionary example, with
+    the false UNSAT certificate supplied by the verified PB backend. -/
+theorem schur_leader_not_variableSBC :
+    ¬ variableSymmetryBreakingConstraint base13 leader :=
+  mt (variableSymmetryBreaking_equisatisfiability base13 leader)
+    base_aug_not_equisatisfiable
 
 end Schur
