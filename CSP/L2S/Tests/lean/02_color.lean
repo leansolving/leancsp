@@ -69,7 +69,7 @@ The odd cycle `C_n` on vertices `0..n-1` (edges `(i, i+1)`, closing `(n-1, 0)`) 
 not 2-colourable for odd `n`.  These scale `k3_2col` (`C_3`, the triangle) and drive
 the verified PB UNSAT proofs `c5_2col_unsat` / `c7_2col_unsat` / `c9_2col_unsat`
 (`Backends/PB/OddCycle.lean`), the easy non-separation baseline of the scaling study
-(`docs/SCALING.md`): all 0/1 coefficients, so both the cutting-planes certificate
+(`experiments/README.md`): all 0/1 coefficients, so both the cutting-planes certificate
 and the resolution proof grow linearly. -/
 
 /-- The cycle `C_5` (a pentagon): edges `(0,1),(1,2),(2,3),(3,4),(4,0)`. -/

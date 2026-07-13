@@ -15,11 +15,12 @@ equisatisfiable in `CSP/L2S/Proofs/SchurValuePrecedence.lean`, so every measurem
 a CSP-level theorem about the original simple CSP `Schur.schur_sb n c`
 (`CSP/L2S/EndToEnd/SchurCertify.lean`).
 
-Reuses experiments/lib/{harness,lean_recheck}.py.  Writes results/schur_exact/timings.csv.
-One representative run per stage (no median-of-N) — startup noise dwarfs the cheap stages, and
-the S(4) solve is too costly to repeat.
+Reuses experiments/lib/{harness,lean_recheck}.py.  Writes experiments/schur_exact/results/timings.csv;
+certificates (incl. the ~98 MB S(4) kernel cert read by CSP/L2S/EndToEnd/Schur4Upper.lean) land in
+experiments/schur_exact/artifacts/ (gitignored, regenerable).  One representative run per stage
+(no median-of-N) — startup noise dwarfs the cheap stages, and the S(4) solve is too costly to repeat.
 
-Usage: python scripts/schur_exact/run_schur_exact.py
+Usage: python experiments/run_schur_exact.py
 """
 from __future__ import annotations
 
@@ -29,13 +30,13 @@ import sys
 import time
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "experiments" / "lib"))
 import harness          # noqa: E402
 import lean_recheck     # noqa: E402
 
-WORK = REPO / "results" / "schur_exact" / "_work"
-OUT_CSV = REPO / "results" / "schur_exact" / "timings.csv"
+WORK = REPO / "experiments" / "schur_exact" / "artifacts"
+OUT_CSV = REPO / "experiments" / "schur_exact" / "results" / "timings.csv"
 SOLDIR = "CSP/L2S/EndToEnd/sols"           # project-root-relative (csp_sat_file reads from CWD)
 CERTDIR = REPO / "CSP/L2S/Backends/PB/Problems/certs"
 VP_MODULE = "CSP.L2S.Proofs.SchurValuePrecedence"

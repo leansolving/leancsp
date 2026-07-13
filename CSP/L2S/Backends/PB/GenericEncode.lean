@@ -3141,7 +3141,7 @@ elab "cspUnsatReflect " cspStx:term:max numVarsStx:term:max certStx:term:max : t
     `cspUnsatReflect`), so the theorem's only extra axiom is `Lean.ofReduceBool`.  The
     formula is inferred from `csp`; `numVars` is the OPB `#variable=` count
     (`Σ (cspSig csp).width + nBool + nAux` — the Big-M selectors count too; printed by
-    `scripts/gen_cert.sh`). -/
+    `experiments/gen_cert.py`). -/
 macro "csp_unsat_file " csp:term:max numVars:term:max path:str : term =>
   `(cspUnsatReflect $csp $numVars (include_str $path))
 

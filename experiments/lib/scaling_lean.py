@@ -12,7 +12,7 @@ import lean_recheck          # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent.parent
 # The Lean-verified tier still emits gitignored bench modules under the source tree, because
-# `lake build` only kernel-checks modules that live under CSP/ (see docs/experiments README).
+# `lake build` only kernel-checks modules that live under CSP/ (see experiments/README.md).
 BENCH = REPO / "CSP" / "L2S" / "Backends" / "PB" / "Bench"
 CERTS = BENCH / "certs"
 WORK = REPO / "experiments" / "scaling" / "artifacts" / "_work_lean"

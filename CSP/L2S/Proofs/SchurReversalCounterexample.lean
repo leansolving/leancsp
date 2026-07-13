@@ -30,8 +30,8 @@ pipeline and **no** `¬ isSatisfiableInt`:
    palindrome solutions). See the `≤_lex` companion below for the strict-vs-non-strict
    contrast.
 
-Design note: unlike `docs/SCHUR_REVERSAL_COUNTEREXAMPLE.md`'s route, we deliberately do
-*not* target the framework predicate `¬ variableSymmetryBreakingConstraint`. That
+Design note: we deliberately do *not* target the framework predicate
+`¬ variableSymmetryBreakingConstraint`. That
 quantifies over *all* variable symmetries and would force "every `n = 13` solution is a
 palindrome", provable in this framework only through `¬ isSatisfiableInt` (the PB
 certificate pipeline). Refuting the reversal-symmetry-specific break — the operative,
@@ -47,8 +47,8 @@ namespace Schur
 -- ============================================================================
 
 /-- Per-size witness solutions of the 3-colour Schur CSP whose reversal is *not* a
-    solution (found by brute force; see `docs/SCHUR_REVERSAL_COUNTEREXAMPLE.md` §4).
-    Each reversal makes some triple monochromatic. Sizes outside `3..12` are unused
+    solution (found by brute force).  Each reversal makes some triple monochromatic.
+    Sizes outside `3..12` are unused
     (the statement is false there) and map to the zero assignment. -/
 def schurRevWitness : (n : ℕ) → IntAssignment n
   | 3  => ![0, 1, 1]

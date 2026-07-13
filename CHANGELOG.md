@@ -43,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `EncConstr` composition spine (`PB/Compose.lean`) with an automatic aux-index
   allocator, and the per-pattern `enc*` library (`PB/Library.lean`).
 - File-based certificates: `csp_unsat_file` macro (`include_str` + `native_decide`)
-  loading committed `Problems/certs/*.pbp`, and `scripts/gen_cert.sh` to regenerate
+  loading committed `Problems/certs/*.pbp`, and `experiments/gen_cert.py` to regenerate
   them against the canonical encoder (RoundingSat + veripb).
 
 ### Changed

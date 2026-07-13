@@ -44,7 +44,7 @@ theorem csp_unsat (csp : IntCSP)
 
 Everything is derived from the CSP automatically — the order-encoding signature `cspSig csp` from its `bound` constraints (aux-sized by `cspNAux`), the PB formula `encodeCSP csp` by dispatching each `IntConstraint` to its verified per-pattern encoder (threading a selector base for the Big-M families), and the in-domain / per-constraint preconditions from the constraint semantics (`patternHolds`).
 
-The `csp_unsat_file csp numVars "certs/foo.pbp"` form is `csp_unsat` with the certificate loaded from a committed `.pbp` file at compile time (`include_str`) and re-checked by PBLean's reflection checker. The reflection step is discharged by a hand-built `Lean.ofReduceBool` proof term (see `cspUnsatReflect` in `GenericEncode.lean`), *not* the `native_decide` tactic, so the theorem's only extra axioms are the stable, nameable `Lean.ofReduceBool` / `Lean.trustCompiler` — never a fresh per-theorem `._native.native_decide.ax`. (`numVars` is the OPB variable count — threshold bits plus Big-M selectors — printed by `scripts/gen_cert.sh`.)
+The `csp_unsat_file csp numVars "certs/foo.pbp"` form is `csp_unsat` with the certificate loaded from a committed `.pbp` file at compile time (`include_str`) and re-checked by PBLean's reflection checker. The reflection step is discharged by a hand-built `Lean.ofReduceBool` proof term (see `cspUnsatReflect` in `GenericEncode.lean`), *not* the `native_decide` tactic, so the theorem's only extra axioms are the stable, nameable `Lean.ofReduceBool` / `Lean.trustCompiler` — never a fresh per-theorem `._native.native_decide.ax`. (`numVars` is the OPB variable count — threshold bits plus Big-M selectors — printed by `experiments/gen_cert.py`.)
 
 **This replaces the old per-problem hand-written Lean proofs.** Previously each instance carried its own `CSPSig`, hand-rolled encoding, per-constraint soundness bridges, and a multi-step `csp_unsat_generic` assembly (tens to hundreds of lines). Now **every committed instance is one line plus a certificate file**; adding a new constraint family means adding one `encodePatternAt` case and one soundness case — never per-problem proof work.
 
@@ -75,7 +75,7 @@ formulaUnsat  ──[ csp_unsat soundness theorem ]──▶  ¬ csp.isSatisfiab
 Generating a certificate for a new instance is one script call:
 
 ```bash
-scripts/gen_cert.sh <Module> <cspExpr> <out>     # dumps OPB, runs RoundingSat + veripb,
+experiments/gen_cert.py <Module> <cspExpr> <out>     # dumps OPB, runs RoundingSat + veripb,
                                                  # commits Problems/certs/<out>.pbp, prints numVars
 ```
 
@@ -197,13 +197,13 @@ theorem my_unsat : ¬ myCSP.isSatisfiableInt :=
 end CSP.L2S.PB.MyProblem
 ```
 
-and `scripts/gen_cert.sh CSP.L2S.Tests.lean.«NN_my_problem» myCSP my` produces `numVars` and the committed `certs/my.pbp`. The full playbook is in **[`docs/ADDING_UNSAT_INSTANCES.md`](docs/ADDING_UNSAT_INSTANCES.md)**; the architecture and implemented-status summary are in **[`PLAN.md`](PLAN.md)**.
+and `experiments/gen_cert.py CSP.L2S.Tests.lean.«NN_my_problem» myCSP my` produces `numVars` and the committed `certs/my.pbp`. The architecture and implemented-status summary are in **[`PLAN.md`](PLAN.md)**.
 
 ### Next steps
 
 The generic-coverage goal is **done**: every committed problem is a one-line `csp_unsat_file`, and 45 of 49 constraint constructors are encoded with per-case soundness (see the fragment summary above for the four documented exceptions). What remains is orthogonal to the encoder:
 
-1. **Scaling** — larger corpus sizes (wider ripple-carry, larger Paley graphs — probe UNSAT with RoundingSat first) and a regeneration sweep (`scripts/gen_cert.sh` over all instances) whenever an encoder changes shape. The external scaling harness (`scripts/scaling/`, `docs/SCALING.md`) is ported to the generic pipeline (`validate.py` asserts byte-identity against `encodeCSP` at 9 committed sizes) — see `PLAN.md` §8.
+1. **Scaling** — larger corpus sizes (wider ripple-carry, larger Paley graphs — probe UNSAT with RoundingSat first) and a regeneration sweep (`experiments/gen_cert.py` over all instances) whenever an encoder changes shape. The scaling study lives in `experiments/` (see `experiments/README.md`); `experiments/lib/validate.py` asserts byte-identity against `encodeCSP` at 9 committed sizes.
 2. **Dead-code cleanup** — the bespoke-era modules (`BoolExprCompiler`/`BoolGates`, `CircuitGates`, the demo cluster, the legacy tactics) are inventoried with a staged removal plan in `PLAN.md` §7.
 
 ---
@@ -233,7 +233,7 @@ CSP/
     ├── Embedding.lean        # Embedding into the heterogeneous CSP
     └── Tests/lean/           # Example problems (also instance generators)
 
-scripts/gen_cert.sh           # regenerate a certificate against the canonical encodeCSP
+experiments/gen_cert.py           # regenerate a certificate against the canonical encodeCSP
 ```
 
 ## Requirements

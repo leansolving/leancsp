@@ -19,9 +19,8 @@ experiments/lib/.venv/
 # Smoke-test output (--smoke) never counts as a committed result.
 experiments/*/results/*.smoke.*
 
-# Legacy experiment output (superseded by experiments/; schur_exact still lives here).
-results/sbc/
-results/sbc_v2/
-results/sbc_v3/
-results/_work/
-results/_work_lean/
+# Local-only working directories (not part of the repo).
+# Anchored to the repo root so committed data under experiments/*/results/ is unaffected.
+/docs/
+/results/
+/scripts/

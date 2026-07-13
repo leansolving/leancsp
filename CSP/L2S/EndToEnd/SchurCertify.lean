@@ -24,7 +24,7 @@ proof; every theorem below is stated about the *plain* `schur_sb`:
 `S(2) = 4` and `S(3) = 13` are pinned exactly (both directions kernel-checked).  `S(4)`
 has its lower bound `≥ 44` kernel-checked here; its upper bound `< 45` is the hard case
 (the vp certificate is ~100 MB, far beyond the reach of the native reflection recheck) — see
-`docs/SCHUR_EXACT.md`.
+`experiments/schur_exact/README.md`.
 -/
 
 open CSP.L2S
@@ -68,9 +68,10 @@ theorem schur_3_ub : ¬ (Schur.schur_sb 14 3).isSatisfiableInt :=
   Schur.schur_unsat_of_value_precedence 14 3 (Schur.schurTriples 14)
     PB.SchurVP.schur_3_14_vp_unsat
 
--- `schur_4_ub : ¬ (Schur.schur_sb 45 4).isSatisfiableInt` is added once/if a
--- kernel-checkable vp certificate for n=45 is obtained (see scripts/schur_exact/shrink_s4.py
--- and docs/SCHUR_EXACT.md).  The instance solves (~46 s) but its certificate is ~100 MB.
+-- `schur_4_ub : ¬ (Schur.schur_sb 45 4).isSatisfiableInt` (and `schur_4_exact`) live in
+-- `CSP/L2S/EndToEnd/Schur4Upper.lean`: the n=45 vp certificate is ~98 MB, too large for
+-- `include_str`, so it is read from disk with `IO.FS.readFile` instead.  Regenerate the cert
+-- with the UNSAT pipeline via `experiments/run_schur_exact.py` (see experiments/schur_exact/README.md).
 
 -- ============================================================================
 -- Exact values (both directions)

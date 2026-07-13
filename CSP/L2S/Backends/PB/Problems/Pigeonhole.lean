@@ -14,7 +14,7 @@ are each proved `¬ isSatisfiableInt` by a **single** application of the generic
 `csp_unsat` theorem (`GenericEncode.lean`): no per-problem signature, scope,
 encoding, or soundness bridge.  The only per-problem datum is the committed
 VeriPB kernel certificate under `certs/`, regenerated against the canonical
-encoder by `scripts/gen_cert.sh` and loaded at compile time (`include_str`),
+encoder by `experiments/gen_cert.py` and loaded at compile time (`include_str`),
 kernel-checked through PBLean's reflection checker.
 
 `#print axioms` for each is `propext, Classical.choice, Quot.sound` + the two
