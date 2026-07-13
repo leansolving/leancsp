@@ -21,6 +21,53 @@ private def dumpNV : Nat := ((List.finRange (cspSig dumpCsp).nInt).map
 """
 
 
+_CONSTRS_TEMPLATE = """import CSP.L2S.Backends.PB.GenericEncode
+import CSP.L2S.Backends.PB.Serialize
+import {module}
+open CSP.L2S CSP.L2S.PB {extra_open}
+def dumpCsp : IntCSP := {csp_expr}
+def dumpCs : Array Sat.PB.Constr :=
+  ((cspSig dumpCsp).monotonicity ++ EncConstr.combine (encodeCSP dumpCsp)).toArray.map
+    PBConstr.toNatConstr
+def dumpNV : Nat := ((List.finRange (cspSig dumpCsp).nInt).map
+  (fun i => (cspSig dumpCsp).width i)).sum + (cspSig dumpCsp).nBool + (cspSig dumpCsp).nAux
+def serCs : String := Id.run do
+  let mut s := s!"{{dumpCs.size}}\\n"
+  for c in dumpCs do
+    s := s ++ s!"{{c.degree}} {{c.terms.length}}"
+    for t in c.terms do
+      match t.2 with
+      | .pos i => s := s ++ s!" {{t.1}} 0 {{i}}"
+      | .neg i => s := s ++ s!" {{t.1}} 1 {{i}}"
+    s := s ++ "\\n"
+  return s
+#eval IO.println dumpNV
+#eval IO.println (toOPBString dumpCs dumpNV)
+#eval IO.FS.writeFile "{constrs_path}" serCs
+"""
+
+
+def dump_with_constrs(module: str, csp_expr: str, constrs_path: str,
+                      extra_open: str = "", timeout: int = 1800):
+    """Like `dump`, but also serialize the constraint array to `constrs_path` (for the native
+    `checkbench` exe). Returns (num_vars, opb_text)."""
+    src = _CONSTRS_TEMPLATE.format(module=module, extra_open=extra_open,
+                                   csp_expr=csp_expr, constrs_path=constrs_path)
+    f = Path(tempfile.mktemp(suffix=".lean"))
+    f.write_text(src)
+    try:
+        proc = subprocess.run(["lake", "env", "lean", str(f)], cwd=REPO,
+                              capture_output=True, timeout=timeout)
+    finally:
+        f.unlink(missing_ok=True)
+    out = proc.stdout.decode(errors="replace")
+    if proc.returncode != 0 or not out.strip():
+        raise RuntimeError(
+            f"lean constrs dump failed for `{csp_expr}`:\n{proc.stderr.decode(errors='replace')[:2000]}")
+    lines = out.splitlines()
+    return int(lines[0]), "\n".join(lines[1:]) + "\n"
+
+
 def dump(module: str, csp_expr: str, extra_open: str = "", timeout: int = 900):
     """Return (num_vars, opb_text) for the canonical encodeCSP of csp_expr.
 

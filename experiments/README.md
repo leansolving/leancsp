@@ -66,11 +66,13 @@ generators and the generator-vs-Lean equality check), the sweep/aggregation/plot
   the 600 s timeout by design (`censored=1` in `sbc_table.csv`, speedups are lower bounds), and the
   `check_largest` step regenerates the largest certificate per family — a few of which are 100s of
   MB (Clique K15 w/o SBC ≈ 391 MB).
-- **Checking cost** (`check_largest.csv`) is PBLean's compiled `checkProofBool` runtime, measured
-  on the largest certificate each regime produces by reading the cert at runtime
-  (`IO.FS.readFile`) — so a 391 MB cert need not be compiled as a string literal. It is the exact
-  function `Lean.ofReduceBool` reduces. Without the SBC these certificates are far larger, so
-  checking them costs correspondingly more — the SBC shrinks the certificate as well as the search.
+- **Checking cost** (`check_largest.csv`) is PBLean's *compiled* `checkProofBool` runtime on the
+  largest certificate each regime produces — the exact function `Lean.ofReduceBool` reduces.
+  `check_largest.py` runs a native harness, the `checkbench` executable (`lakefile.lean` /
+  `lib/CheckBench.lean`, a Mathlib-free exe importing only veripb), and `lake build`s it on demand.
+  Measuring via a compiled exe (not `#eval`, which interprets and is ~10× slower) is essential:
+  natively even a 391 MB certificate checks in ~3 min, and the SBC shrinks the certificate — hence
+  its checking cost — as much as it shrinks the search.
 - The *scaling* Lean tier still emits gitignored `CSP/L2S/Backends/PB/Bench/Scaling*Bench.lean`
   modules, because `lake build` only kernel-checks modules under `CSP/`. The *SBC* study avoids
   any source-tree writes by timing the checker via `lake env lean` on throwaway `/tmp` files.

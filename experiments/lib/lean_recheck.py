@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import os
 import re
-import signal
 import statistics
 import subprocess
 import time
@@ -139,49 +137,3 @@ def runtime_split(module: str, csp_expr: str, num_vars: int, cert_abspath: str,
         return None, None, None, False
     return max(0.0, wall - base), int(m.group(1)), int(m.group(2)), True
 
-
-def check_file_runtime(module: str, csp_expr: str, num_vars: int, cert_abspath: str,
-                       extra_open: str = "", timeout: int = 600):
-    """Time ONE `checkProofBool` on a certificate read at RUNTIME via `IO.FS.readFile`.
-
-    Unlike `runtime_split` (which embeds the cert with `include_str`, so a 100s-of-MB cert would
-    have to be compiled as a string literal), this reads the cert at runtime — so arbitrarily large
-    certificates can be timed.  The encoder-built array `cs` and the file read are forced *before*
-    t0; `checkProofBool`'s result is forced (an executed `if` branch) *before* t1, so the measured
-    span is exactly the checker, not thunk creation.  Returns
-    (check_ns|None, ok, num_constraints|None, proof_chars|None); check_ns is None on timeout/OOM.
-
-    On timeout the whole process group is killed (a bare `subprocess` timeout kills only `lake`,
-    orphaning the `lean` grandchild)."""
-    body = (
-        "#eval show IO Unit from do\n"
-        f"  let csp : IntCSP := {csp_expr}\n"
-        "  let cs := (((cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp)).toArray.map"
-        " PBConstr.toNatConstr)\n"
-        "  let ncons := cs.size\n"                       # force the encoder
-        f'  let proof ← IO.FS.readFile "{cert_abspath}"\n'
-        "  let plen := proof.length\n"                    # force the whole cert into memory
-        "  let t0 ← IO.monoNanosNow\n"
-        f"  let ok := VeriPB.Reflect.checkProofBool cs {num_vars} proof\n"
-        # force `ok` inside the timed region: `throw` on the false branch is a side effect the
-        # compiler cannot eliminate (identical branches would be DCE'd, leaving `ok` unevaluated).
-        '  if ok then pure () else throw (IO.userError "CHECK-FALSE")\n'
-        "  let t1 ← IO.monoNanosNow\n"
-        '  IO.println s!"CHECKFILE {t1 - t0} OK {ok} NCONS {ncons} PLEN {plen}"\n')
-    f = Path("/tmp/_check_largest.lean")
-    f.write_text(_IMPORTS.format(module=module) + f"open CSP.L2S CSP.L2S.PB {extra_open}\n" + body)
-    proc = subprocess.Popen(["lake", "env", "lean", str(f)], cwd=REPO,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
-    try:
-        out, _ = proc.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        proc.communicate()
-        return None, False, None, None
-    m = re.search(r"CHECKFILE (\d+) OK (\w+) NCONS (\d+) PLEN (\d+)", out.decode(errors="replace"))
-    if proc.returncode != 0 or not m:
-        return None, False, None, None
-    return int(m.group(1)), (m.group(2) == "true"), int(m.group(3)), int(m.group(4))
