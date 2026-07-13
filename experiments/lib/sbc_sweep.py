@@ -1,25 +1,4 @@
 #!/usr/bin/env python3
-"""SBC scaling sweep — symmetry-matched SBCs, per instance measuring solver effort *and*
-our own pipeline's in-Lean checking cost.
-
-Per family (one warm Lean process for all OPB dumps):
-  1. batch-dump every (instance, regime) OPB in ONE `lake env lean`,
-  2. roundingsat (timeout 600 s) — record wall time (median-of-3), deterministic time, and
-     search-effort counters for ALL regimes; a regime auto-stops once it times out,
-  3. veripb --elaborate → kernel certificate (kept locally under artifacts/); record its size,
-  4. **pipeline cost**: for every cert that fits the in-Lean check cap, run PBLean's verified
-     checker on it inside Lean and record `check_us` (the compiled `checkProofBool` runtime —
-     exactly what `Lean.ofReduceBool` reduces, per docs/MIGRATION_ofReduceBool.md) and
-     `verify_wall_s` (the whole reflected-term elaborate+compile+check, minus import baseline).
-
-Unlike the old v3 driver this does **not** emit `V3*Bench.lean` modules or `lake build` them:
-the per-instance `check_us` is the real pipeline cost and needs no source-tree writes. All
-generated files (opb, pbp certs) stay under experiments/sbc/artifacts/ (gitignored); the
-per-instance CSV under experiments/sbc/results/ is committed. `aggregate.py` turns it into the
-geometric-mean paper table (`sbc_table.csv`); `plot.py` draws the supplementary figures.
-
-Usage: uv run python experiments/lib/sbc_sweep.py [family ...]   (or via experiments/run_sbc.py)
-"""
 from __future__ import annotations
 
 import csv
@@ -29,19 +8,17 @@ from pathlib import Path
 import families as F
 import harness as H
 import lean_dump
-import lean_recheck
 
 REPO = Path(__file__).resolve().parent.parent.parent
 RESULTS = REPO / "experiments" / "sbc" / "results"        # committed per-instance CSV
-WORK = REPO / "experiments" / "sbc" / "artifacts"         # opb scratch (git-excluded)
+WORK = REPO / "experiments" / "sbc" / "artifacts"         # opb / cert scratch (git-excluded)
 CERTS = WORK / "certs"                                    # kernel certs (git-excluded)
-LEAN_CAP = 500_000        # bytes; run the in-Lean check only for certs below this
 SBC_DESC = F.SBC_DESC
 
 # `size_param` is the family's natural scaling parameter, unique within each family.
 # `roundingsat_time_s` is median-of-3 wall; `rsat_det_time` is the machine-independent
-# deterministic effort (kept as a robustness cross-check).  `check_us` / `verify_wall_s` are
-# our pipeline's own PBLean checking cost (see module docstring).
+# deterministic effort.  The in-Lean checking cost is measured separately, on the largest
+# certificate per family, by check_largest.py — not per instance here.
 EXT_COLUMNS = [
     "family", "size_param", "regime", "sbc",
     "pb_vars", "pb_constraints", "opb_bytes",
@@ -49,7 +26,6 @@ EXT_COLUMNS = [
     "rsat_det_time", "rsat_conflicts", "rsat_decisions", "rsat_propagations", "rsat_cpu_s",
     "rsat_log_lines", "rsat_log_bytes",
     "veripb_proof_lines", "veripb_proof_bytes", "veripb_elaborate_time_s", "kernel_cert_chars",
-    "check_us", "verify_wall_s",
 ]
 
 
@@ -84,7 +60,6 @@ def sweep_family(fam, ext_w, ext_fh, limit=None):
     WORK.mkdir(parents=True, exist_ok=True)
     CERTS.mkdir(parents=True, exist_ok=True)
     stopped = {rg: False for rg in regimes}
-    base = None                     # per-family import-only baseline for verify_wall_s (lazy)
     for it in insts:                            # ascending hardness
         if all(stopped.values()):
             break
@@ -114,25 +89,11 @@ def sweep_family(fam, ext_w, ext_fh, limit=None):
                 if ext["roundingsat_status"] == "TIMEOUT":
                     stopped[regime] = True
                 continue
-            row, ok = H.run_veripb(opbp, pbp, kernel); ext.update(row); pbp.unlink(missing_ok=True)
-            fits = ok and kernel.exists() and kernel.stat().st_size <= LEAN_CAP
-            if ok and not fits:                 # cert too big for the in-Lean check pass
-                ext["verify_wall_s"] = "OVER-CAP"
-            if fits:
-                if base is None:                # ~5 import-only walls, paid once per family
-                    base = lean_recheck.baseline(module)
-                wall, _enc_us, chk_us, cok = lean_recheck.runtime_split(
-                    module, expr, nv, str(kernel.resolve()), base)
-                if cok:
-                    ext["check_us"] = chk_us
-                    ext["verify_wall_s"] = "" if wall is None else f"{wall:.2f}"
-                else:
-                    ext["verify_wall_s"] = "CHECK-FAIL"
+            row, ok = H.run_veripb(opbp, pbp, kernel); ext.update(row)
+            pbp.unlink(missing_ok=True); kernel.unlink(missing_ok=True)   # keep only the size
             ext_w.writerow(ext); ext_fh.flush()
             print(f"  [{tag}] vars={ext['pb_vars']} wall={ext['roundingsat_time_s']}s "
-                  f"det={ext['rsat_det_time']} cert={ext.get('kernel_cert_chars','-')}ch "
-                  f"check={ext.get('check_us','-')}us verify={ext.get('verify_wall_s','-')}s",
-                  flush=True)
+                  f"det={ext['rsat_det_time']} cert={ext.get('kernel_cert_chars','-')}ch", flush=True)
 
 
 def main():

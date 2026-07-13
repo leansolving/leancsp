@@ -1,18 +1,4 @@
 #!/usr/bin/env python3
-"""Generate the paper's scaling figures (one per problem) from scaling.csv.
-
-Reproduces \\cref{fig:scaling}: for each of the three families a log-scale plot of proof length
-(number of proof steps) versus instance size, with two series — the verified pseudo-Boolean
-pipeline (VeriPB, blue) and the SAT pipeline (DRAT, red). Proof steps are `veripb_proof_lines`
-for PB and `drat_lines` for DRAT (the DRAT line stops where the SAT solver / drat-trim timed out).
-
-Writes, into experiments/scaling/results/:
-  * scaling_<fam>.png    — one figure per problem (php, mutilated, oddcycle),
-  * scaling_all.png      — the combined 3-panel figure as it appears in the paper,
-  * scaling_<fam>.dat    — `size pb drat` table (the paper's pgfplots data format).
-
-Usage: uv run python experiments/lib/scaling_plot.py   (or via experiments/run_scaling.py)
-"""
 from __future__ import annotations
 
 import csv

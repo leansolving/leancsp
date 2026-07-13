@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Shared measurement helpers for the SBC scaling study (roundingsat + veripb)."""
 from __future__ import annotations
 
 import os

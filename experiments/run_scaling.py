@@ -1,20 +1,4 @@
 #!/usr/bin/env python3
-"""Entry point for the DRAT-vs-PB scaling experiment (one command runs the whole study).
-
-  [1] validate  — assert the standalone OPB generator is byte-identical to the in-Lean encoder,
-  [2] sweep     — external sweep: PB (roundingsat + veripb) vs DRAT (cadical + drat-trim),
-  [3] lean tier — kernel-check the PB certificates in Lean, timing encode vs check per instance,
-  [4] figures   — the paper's per-problem proof-length plots (VeriPB vs DRAT), scaling_<fam>.png.
-
-Committed data lands in experiments/scaling/results/; all generated scratch (opb/cnf/pbp/drat)
-stays local under experiments/scaling/artifacts/.
-
-Usage:
-  uv run python experiments/run_scaling.py                  # full study, all families
-  uv run python experiments/run_scaling.py php oddcycle     # a subset of families
-  uv run python experiments/run_scaling.py --no-lean        # skip the (slow) Lean tier
-  uv run python experiments/run_scaling.py --smoke          # 2 smallest sizes per family (quick)
-"""
 from __future__ import annotations
 
 import sys

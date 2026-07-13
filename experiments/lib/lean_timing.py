@@ -1,24 +1,4 @@
 #!/usr/bin/env python3
-"""Measure the in-Lean cost of the committed scaling checkpoints.
-
-Two numbers per instance:
-  * native_decide_time_s -- wall-time for `lake env lean` to re-elaborate the
-    certificate-soundness obligation of the instance's one-line `csp_unsat_file`
-    theorem (which runs PBLean's verified checker via native_decide on the
-    committed `certs/*.pbp` certificate), minus an import-only baseline for the
-    same module.  This is the "recheck the certificate from Lean alone" cost.
-    Under the generic pipeline this includes evaluating `encodeCSP <csp>` inside
-    native_decide — the real per-theorem cost — so the numbers are NOT comparable
-    to the pre-generic-pipeline scaling_lean.csv (which rechecked pre-encoded
-    constants).
-  * module_build_time_s   -- wall-time for `lake build <module>` after deleting
-    its olean (imports cached): the incremental module compile, which includes
-    the native_decide rechecks of every certificate in the module.
-
-All medians of 3.  Results -> results/scaling_lean.csv.  Run from repo root with lake
-available:  uv run python scripts/scaling/lean_timing.py
-"""
-
 from __future__ import annotations
 
 import csv

@@ -1,28 +1,4 @@
 #!/usr/bin/env python3
-"""Lean-verified tier for the PB scaling study — check the certificates *inside Lean*.
-
-The external sweep (scaling_sweep.py) produces a kernel certificate per instance and records its
-size, then deletes it.  This driver instead keeps the certificate and kernel-checks it in Lean:
-for each (family, size) whose certificate fits the in-Lean check cap, it
-
-  1. dumps the canonical OPB of the *parametric base CSP* straight from Lean (lean_dump) — so the
-     certificate is valid for the `csp_unsat_file` theorem by construction, independent of pbgen,
-  2. roundingsat -> .pbp  ->  veripb --elaborate -> kernel certificate (kept under Bench/certs/),
-  3. emits a one-line `csp_unsat_file <csp> <nv> "certs/..."` theorem (= `¬ csp.isSatisfiableInt`,
-     PBLean's verified checker run via an `Lean.ofReduceBool` reflection on the committed cert),
-  4. `lake build`s the generated module so the reflection kernel-checks every instance at once,
-  5. times each instance's compiled checkProofBool runtime individually (`runtime_split`).
-
-This extends scaling_lean.csv from the 9 hand-committed checkpoints to the whole generated ladder.
-Because these families are cutting-planes-easy their certs stay small, so the in-Lean check
-verifies far up the ladder (the cap only excludes the rare oversized cert).
-
-Outputs: experiments/scaling/results/scaling_lean.csv and
-CSP/L2S/Backends/PB/Bench/Scaling*Bench.lean (+ certs/); the Bench artifacts are gitignored
-(local-only), because `lake build` only kernel-checks modules under CSP/.
-
-Usage:  uv run python experiments/lib/scaling_lean.py [family ...]  (or via experiments/run_scaling.py)
-"""
 from __future__ import annotations
 
 import csv

@@ -1,16 +1,4 @@
 #!/usr/bin/env python3
-"""v3 family config: classical UNSAT families, each matched to the SBC that *bites*.
-
-v3 reframes the study around symmetry type (see docs/plan):
-  * VALUE-symmetric families (≥3 interchangeable colours) → `value_precedence` is non-trivial.
-  * BINARY value families (2 colours) → value precedence degenerates to `x0 = 0` (the staircase
-    `x_j ≤ j` is vacuous for j≥1); we run a single `x0(=vp)` regime, not two coincident lines.
-  * VARIABLE-symmetric families (geometric/permutation, binary) → a lex/reflection VARIABLE SBC.
-
-Each family declares the regimes that are *meaningful* for it (no redundant cells).  For UNSAT
-instances any added constraint preserves UNSAT, so the harness SBCs only need to be genuine,
-encodable symmetry breakers.
-"""
 from __future__ import annotations
 
 GC = "CSP.L2S.Proofs.GraphColoringSB"            # graph_coloring_csp

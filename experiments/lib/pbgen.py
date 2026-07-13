@@ -1,32 +1,4 @@
 #!/usr/bin/env python3
-"""Instance generators for the verified-PB scaling study.
-
-Each function returns the *exact text* of an instance file for one of three
-families, in two formats:
-
-  * OPB  -- the pseudo-Boolean order-encoding consumed by RoundingSat, byte-for-byte
-           identical to what the verified in-Lean *generic* encoder produces:
-           `(cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp)`
-           serialized by `toOPBString` (`GenericEncode.lean` + `Serialize.lean`;
-           the same dump `scripts/gen_cert.sh` feeds to RoundingSat).  Identity is
-           asserted by `validate.py`, which diffs these against ground-truth dumps
-           from the real Lean encoder at every committed size.
-  * CNF  -- the natural DIMACS clause encoding of the *same* instance, used for the
-           DRAT (resolution) contrast on the resolution-hard families.
-
-The OPB layout mirrors the Lean pipeline exactly:
-  - integer variable `i` with finite domain has `width = |domain|-1` threshold
-    bits `t_{i,0..width-1}`, where `t_{i,j}` denotes "value <= domain[j]";
-  - variables are numbered flat `[ thresholds, by variable ]` (no Booleans here),
-    so threshold `t_{i,j}` is 1-based OPB variable `offset(i)+j+1` with
-    `offset(i) = sum of widths of variables < i`;
-  - `monotonicity` (staircase) clauses `t_{i,j+1} + ~t_{i,j} >= 1`;
-  - linear/alldifferent constraints are order-encoded then `normalize`d to
-    non-negative coefficients (`a*L = |a|*~L + a` for `a<0`), dropping the
-    constant into the degree.
-See `docs/SCALING.md` and `docs/ADDING_UNSAT_INSTANCES.md` for the derivation.
-"""
-
 from __future__ import annotations
 
 # OPB header constants matching CSP/L2S/Backends/PB/Serialize.lean (toOPBString).

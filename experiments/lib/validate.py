@@ -1,20 +1,4 @@
 #!/usr/bin/env python3
-"""Assert that pbgen.py's OPB output is byte-for-byte identical to the verified
-in-Lean *generic* encoder, at every size that has a committed `_unsat` theorem.
-
-This is the guarantee that makes the external-sweep certificate-size numbers
-directly comparable to the in-Lean instances: the standalone Python generator
-and the Lean pipeline encode the *same formula*.
-
-For each case below, we ask Lean to serialize the canonical generic encoding
-`(cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp)` via
-`toOPBString` (the same dump `scripts/gen_cert.sh` feeds to RoundingSat, and
-the formula the one-line `csp_unsat_file` theorems kernel-check) and diff it
-against pbgen's output.
-
-Run:  uv run python validate.py        (needs `lake`, from the repo root)
-"""
-
 from __future__ import annotations
 
 import subprocess

@@ -33,11 +33,12 @@ experiments/
 ```
 
 `lib/` holds the machinery: `harness.py` (roundingsat + veripb runners, median-of-3 timing),
-`lean_dump.py` (dump the canonical OPB from Lean), `lean_recheck.py` (`runtime_split` — time the
-compiled `checkProofBool`, i.e. exactly what `Lean.ofReduceBool` reduces), `families.py` (SBC
-family/instance config), `pbgen.py`/`validate.py` (standalone OPB+CNF generators and the
-generator-vs-Lean equality check), and the sweep/aggregation/plot steps
-(`scaling_sweep.py`, `scaling_lean.py`, `sbc_sweep.py`, `aggregate.py`, `scaling_plot.py`).
+`lean_dump.py` (dump the canonical OPB from Lean), `lean_recheck.py` (`check_file_runtime` — time
+the compiled `checkProofBool` on a cert read at runtime, i.e. exactly what `Lean.ofReduceBool`
+reduces), `families.py` (SBC family/instance config), `pbgen.py`/`validate.py` (standalone OPB+CNF
+generators and the generator-vs-Lean equality check), the sweep/aggregation/plot steps
+(`scaling_sweep.py`, `scaling_lean.py`, `sbc_sweep.py`, `aggregate.py`, `scaling_plot.py`,
+`check_largest.py`), and `paper_table.py` (regenerates the paper's `tab:sbc` from the CSVs).
 
 ## Results vs artifacts
 
@@ -45,11 +46,12 @@ generator-vs-Lean equality check), and the sweep/aggregation/plot steps
   - Scaling: `scaling.csv` (+ per-family), `scaling_lean.csv` (in-Lean tier), and the paper's
     per-problem proof-length figures `scaling_<fam>.png` (+ combined `scaling_all.png`, and
     `scaling_<fam>.dat` for pgfplots).
-  - SBC: `sbc_scaling.csv` (per-instance) and **`sbc_table.csv`** (the paper table: wall and
-    deterministic speedup — geomean and at the largest instance — plus PBLean cost, both
-    regimes). The SBC experiment produces **no figures**.
-- **`artifacts/` is gitignored** — every file the run generates (`.opb`, `.cnf`, `.pbp` certs,
-  `.drat`) stays local. Re-running regenerates them.
+  - SBC: `sbc_scaling.csv` (per-instance solving), **`sbc_table.csv`** (wall and deterministic
+    speedup — geomean and at the largest solved instance), and `check_largest.csv` (PBLean's
+    checker runtime on the largest certificate per family/regime). The SBC experiment produces
+    **no figures**.
+- **`artifacts/` is gitignored** — every file the run generates (`.opb`, `.cnf`, `.pbp` certs
+  up to 100s of MB, `.drat`) stays local. Re-running regenerates them.
 
 ## Requirements
 
@@ -60,13 +62,15 @@ generator-vs-Lean equality check), and the sweep/aggregation/plot steps
 
 ## Notes
 
-- **Full SBC rerun** takes roughly an hour: a few w/o-SBC instances (schur `c4n45`, vdW
-  `W(4,3)`) hit the 600 s timeout by design — they are flagged `censored=1` in `sbc_table.csv`
-  so their speedups read as lower bounds.
-- **`check_us`** (compiled `checkProofBool` runtime) is the honest per-instance pipeline cost and
-  is sub-millisecond — the point being that the verified checking step is negligible next to the
-  solver. **`verify_wall_s`** additionally records the whole reflected-term
-  elaborate+compile+check for the "cost to admit a certified theorem" framing.
+- **Full SBC run** takes roughly 1–2 h: some w/o-SBC instances (schur `c4n45`, vdW `W(4,3)`) hit
+  the 600 s timeout by design (`censored=1` in `sbc_table.csv`, speedups are lower bounds), and the
+  `check_largest` step regenerates the largest certificate per family — a few of which are 100s of
+  MB (Clique K15 w/o SBC ≈ 391 MB).
+- **Checking cost** (`check_largest.csv`) is PBLean's compiled `checkProofBool` runtime, measured
+  on the largest certificate each regime produces by reading the cert at runtime
+  (`IO.FS.readFile`) — so a 391 MB cert need not be compiled as a string literal. It is the exact
+  function `Lean.ofReduceBool` reduces. Without the SBC these certificates are far larger, so
+  checking them costs correspondingly more — the SBC shrinks the certificate as well as the search.
 - The *scaling* Lean tier still emits gitignored `CSP/L2S/Backends/PB/Bench/Scaling*Bench.lean`
   modules, because `lake build` only kernel-checks modules under `CSP/`. The *SBC* study avoids
   any source-tree writes by timing the checker via `lake env lean` on throwaway `/tmp` files.

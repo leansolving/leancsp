@@ -1,34 +1,4 @@
 #!/usr/bin/env python3
-"""Driver for the verified-PB scaling study.
-
-Sweeps three families across size ranges, running two pipelines per instance:
-
-  PB  (cutting-planes, verified): OPB -> roundingsat -> .pbp proof log
-                                  -> veripb --elaborate -> kernel proof
-  DRAT (resolution, for contrast): DIMACS CNF -> cadical (DRAT) -> drat-trim
-
-The two resolution-hard families (pigeonhole, mutilated chessboard) make the
-resolution proof blow up; the odd-cycle family is the easy non-separation
-baseline where BOTH proofs stay small (it runs DRAT too, as the control).
-
-All wall-times are the median of up to 3 runs (a single run is used once a run
-exceeds `SLOW_THRESHOLD`, to keep the sweep near the exponential wall tractable).
-Each solver call has a hard `TIMEOUT`.  A pipeline auto-stops at the first size
-that times out.  Results are appended to results/scaling.csv as they complete.
-
-Usage:
-  uv run python run_scaling.py            # full sweep (all families)
-  uv run python run_scaling.py php        # one family
-  uv run python run_scaling.py php mutilated
-roundingsat is taken from $ROUNDINGSAT (falling back to the local-build default,
-then PATH).  Missing DRAT-side tools degrade gracefully: a missing SAT solver
-skips that leg with sat_status=TOOL-MISSING; a missing drat-trim still records
-the proof size and marks drat_trim_status=TOOL-MISSING.
-The OPB encoding is byte-for-byte identical to the verified in-Lean generic
-encoder, `(cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp)`
-(asserted by validate.py); see docs/SCALING.md.
-"""
-
 from __future__ import annotations
 
 import csv

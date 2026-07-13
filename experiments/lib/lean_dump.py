@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-"""Dump the canonical verified OPB encoding of a CSP expression.
-
-`dump(module, csp_expr)` writes a throwaway Lean file that imports `module`, defines
-`dumpCsp := <csp_expr>`, and `#eval`s the variable count and the OPB string of the *generic*
-encoder `(cspSig csp).monotonicity ++ EncConstr.combine (encodeCSP csp)` — byte-identical to what
-`scripts/gen_cert.sh` and the `csp_unsat_file` theorems use.  Returns `(num_vars, opb_text)`.
-"""
 from __future__ import annotations
 
 import subprocess

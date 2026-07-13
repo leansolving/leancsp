@@ -1,28 +1,4 @@
 #!/usr/bin/env python3
-"""Emit a complete `MutilatedChessboard<2k>.lean` instance module for the verified
-PB backend, for a 2k x 2k board minus its two opposite (same-colour) corners.
-
-This generalises the hand-written 4x4 `MutilatedChessboard.lean` to arbitrary k:
-the geometry (placements, per-cell exact-cover constraints) is the same as
-`pbgen._mutilated_geometry`, and `pbgen.mutilated_opb(k)` is byte-for-byte
-identical to the generic encoder's OPB dump (asserted by `validate.py`), so the
-certificate can be produced directly from pbgen's OPB — no Lean round-trip —
-breaking the chicken-and-egg between the module (whose one-line theorem
-`include_str`s the certificate) and the certificate (whose OPB the module's CSP
-defines).
-
-Default run regenerates `Problems/certs/mutilated<2k>.pbp` (RoundingSat +
-`veripb --elaborate`, both untrusted; set `ROUNDINGSAT` if non-default) and
-prints the module to stdout; `--module-only` skips the solvers and reuses the
-committed certificate (its char count appears in the module doc-comment).
-
-The emitted module must live in `CSP/L2S/Backends/PB/Problems/` — the
-`csp_unsat_file` macro's `include_str "certs/..."` resolves relative to the
-source file.
-
-Usage:  uv run python gen_mutilated_lean.py <k> [--module-only] > Module.lean
-"""
-
 from __future__ import annotations
 
 import os
