@@ -48,6 +48,17 @@ def _fmt(v, sig=3):
     return f"{v:.{sig}g}"
 
 
+def _p(v):
+    """Store a value with full precision (exact integer, else many sig figs) so the paper table
+    can display the true speedup rather than a rounded-looking one; display rounding is done in
+    paper_table.py."""
+    if v is None:
+        return ""
+    if v == int(v):
+        return str(int(v))
+    return f"{v:.12g}"
+
+
 def aggregate(rows):
     # group per family: solved rows keyed by (size, regime); the SBC regime is the non-"none" one
     fam_rows = defaultdict(list)
@@ -110,16 +121,16 @@ def aggregate(rows):
             "size_lo": sizes[0] if sizes else "", "size_hi": sizes[-1] if sizes else "",
             "wall_none_geo": _fmt(wall_none),
             "wall_sbc_geo": _fmt(wall_sbc),
-            "speedup_wall_geo": _fmt(wall_spd),
-            "wall_none_hi": _fmt(wall_none_hi),
-            "wall_sbc_hi": _fmt(wall_sbc_hi),
-            "speedup_wall_hi": _fmt(wall_spd_hi),
+            "speedup_wall_geo": _p(wall_spd),
+            "wall_none_hi": _p(wall_none_hi),
+            "wall_sbc_hi": _p(wall_sbc_hi),
+            "speedup_wall_hi": _p(wall_spd_hi),
             "det_none_geo": _fmt(det_none, sig=4),
             "det_sbc_geo": _fmt(det_sbc, sig=4),
-            "speedup_det_geo": _fmt(det_spd),
-            "det_none_hi": _fmt(det_none_hi, sig=4),
-            "det_sbc_hi": _fmt(det_sbc_hi, sig=4),
-            "speedup_det_hi": _fmt(det_spd_hi),
+            "speedup_det_geo": _p(det_spd),
+            "det_none_hi": _p(det_none_hi),
+            "det_sbc_hi": _p(det_sbc_hi),
+            "speedup_det_hi": _p(det_spd_hi),
             "n_pairs": n_pairs, "censored": censored,
         })
     return out
