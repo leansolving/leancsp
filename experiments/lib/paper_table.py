@@ -54,27 +54,21 @@ def spd(v):
     if v is None:
         return NA
     if v >= 1e4:
-        return sci(v)
-    if v >= 10:
-        return f"{v:.0f}"
-    if v >= 1:
-        return f"{v:.1f}"
-    return f"{v:.2g}"
+        s = sci(v)
+    elif v >= 10:
+        s = f"{v:.0f}"
+    elif v >= 1:
+        s = f"{v:.1f}"
+    else:
+        s = f"{v:.2g}"
+    return r"{\boldmath\bfseries " + s + "}" if v > 1 else s   # bold a speedup > 1 (SBC helps)
 
 
 def check_fmt(ns, status, cert_bytes):
-    # certificate too large to check in-Lean: show its size with a dagger instead of a time
-    if status in ("TOO-LARGE",) or (status or "").startswith("CHECK->"):
-        return f"{cert_bytes / 1e6:.0f}\\,MB$^\\dagger$" if cert_bytes else NA
+    # checker runtime in SECONDS (one unit for the whole column, matching the wall columns)
     if status != "OK" or ns is None:
         return NA
-    if ns < 1e6:
-        return f"{ns / 1e3:.0f}\\,$\\mu$s"
-    if ns >= 1e9:
-        return f"{ns / 1e9:.1f}\\,s"
-    if ns >= 1e7:
-        return f"{ns / 1e6:.0f}\\,ms"
-    return f"{ns / 1e6:.1f}\\,ms"
+    return f"{ns / 1e9:.3g}"
 
 
 def load_check():
@@ -97,7 +91,7 @@ def row(r, chk):
     cn = check_fmt(*c.get("none", (None, None, 0)))
     cs = check_fmt(*c.get("sbc", (None, None, 0)))
     cells = [
-        name, sbc, f"{int(r['size_lo'])}--{int(r['size_hi'])}",
+        name, sbc,
         det(g("det_none_hi")), sec(g("wall_none_hi")),
         det(g("det_sbc_hi")),  sec(g("wall_sbc_hi")),
         spd(g("speedup_det_hi")),  spd(g("speedup_wall_hi")),
@@ -115,16 +109,16 @@ def main():
 \centering
 \setlength{\tabcolsep}{4pt}
 \resizebox{\ifdim\width>\textwidth \textwidth\else\width\fi}{!}{%
-\begin{tabular}{l l l r r r r r r r r r r}
+\begin{tabular}{l l r r r r r r r r r r}
 \toprule
- &  &  & \multicolumn{2}{c}{w/o SBC} & \multicolumn{2}{c}{w/ SBC} & \multicolumn{2}{c}{Speedup (lg.)} & \multicolumn{2}{c}{Speedup (geo.)} & \multicolumn{2}{c}{Check} \\
-\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}\cmidrule(lr){10-11}\cmidrule(lr){12-13}
-Family & SBC & Sizes & det & wall & det & wall & det & wall & det & wall & w/o & w/ \\
+ &  & \multicolumn{2}{c}{w/o SBC (lg.)} & \multicolumn{2}{c}{w/ SBC (lg.)} & \multicolumn{2}{c}{Speedup (lg.)} & \multicolumn{2}{c}{Speedup (geo.)} & \multicolumn{2}{c}{Check (lg., s)} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}\cmidrule(lr){9-10}\cmidrule(lr){11-12}
+Family & SBC & det & wall\,(s) & det & wall\,(s) & det & wall & det & wall & w/o & w/ \\
 \midrule""")
     print(body)
     print(r"""\bottomrule
 \end{tabular}}
-\caption{Effect of a verified symmetry-breaking constraint (SBC) per family. SBCs: \emph{vp} value precedence, \emph{transp.}\ transposition, \emph{rev.}\ reversal, \emph{refl.}\ reflection. ``Sizes'' is the size-parameter range ($K_n$ for Clique/Match./Ramsey, $M_j$ for Myciel., $C_n$ for Odd cyc., board side $2k$ for Mutil., $n$ otherwise). For each of RoundingSat's \emph{deterministic} time (a machine-independent operation count) and \emph{wall}-clock time (s), we give the solving cost without / with the constraint at the \emph{largest} instance solved (a size that times out in both regimes is dropped), and the speedup both there (``lg.'') and as the geometric mean over the range (``geo.''). ``Check'' is PBLean's \emph{compiled} checker runtime (the function \texttt{Lean.ofReduceBool} reduces) on the largest certificate produced in each regime, measured with a native harness reading the certificate at runtime. Checking is feasible everywhere ($\mu$s to a few minutes) and scales with certificate size; the SBC's effect on that size mirrors its effect on search: value precedence shrinks the color-symmetric families' certificates by orders of magnitude (Clique $K_{15}$: 391\,MB / 187\,s without $\to$ 10\,KB / 6\,ms with), while the variable SBCs leave both regimes' certificates large. \emph{t/o} marks a 600\,s solver timeout (its speedup, ``---'', is a lower bound): Schur $c{=}4$, $n{=}45$ is unsolved without the SBC but solved in 42.5\,s with it (its $w/$ certificate is then the 102\,MB one, checked in 49\,s).}
+\caption{Effect of a verified symmetry-breaking constraint (SBC) per family. SBCs: \emph{vp} value precedence, \emph{transp.}\ transposition, \emph{rev.}\ reversal, \emph{refl.}\ reflection. All quantities are at the \emph{largest} instance solved (``lg.''; a size that times out in both regimes is dropped), except the ``geo.'' speedup, a geometric mean over the whole range. We give RoundingSat's \emph{deterministic} time (a machine-independent operation count) and \emph{wall}-clock time (in seconds) without / with the SBC, and the resulting speedups; a speedup ${>}1$ (the SBC helps) is shown in \textbf{bold}. The largest instance per family is: Clique $K_{15}$; Mycielskian $M_4$; Schur at colour count $c{=}4$, its critical $n{=}S(4){+}1{=}45$ (the range spans $c{=}2,3,4$ at criticality $n{=}S(c){+}1$, i.e.\ $n\in\{5,6,7,14,15,45\}$); Odd cycle $C_{51}$; Ramsey $R(3,3)$ on $K_{10}$; van der Waerden $W(3,3)$ at $n{=}28$; perfect Matching on $K_{19}$; Langford $L(2,10)$; the $12{\times}12$ Mutilated board; and Pigeonhole $n{=}12$. ``Check'' is PBLean's \emph{compiled} checker runtime (in seconds; the function \texttt{Lean.ofReduceBool} reduces) on the largest certificate produced in each regime, timed with a native harness reading the certificate at runtime. Checking is feasible everywhere and scales with certificate size, so value precedence — which shrinks the color-symmetric families' certificates by orders of magnitude (Clique $K_{15}$: 391\,MB / 187\,s without $\to$ 10\,KB / 0.006\,s with) — cuts checking cost as it cuts search, while the variable SBCs leave both regimes' certificates large. \emph{t/o} marks a 600\,s solver timeout (its speedup, ``---'', is a lower bound): Schur $c{=}4$, $n{=}45$ is unsolved without the SBC but solved in 42.5\,s with it (its w/-SBC certificate is the 102\,MB one, checked in 49\,s).}
 \label{tab:sbc}
 \end{table*}""")
 
