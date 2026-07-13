@@ -3,7 +3,8 @@
 
   [1] validate  — assert the standalone OPB generator is byte-identical to the in-Lean encoder,
   [2] sweep     — external sweep: PB (roundingsat + veripb) vs DRAT (cadical + drat-trim),
-  [3] lean tier — kernel-check the PB certificates in Lean, timing encode vs check per instance.
+  [3] lean tier — kernel-check the PB certificates in Lean, timing encode vs check per instance,
+  [4] figures   — the paper's per-problem proof-length plots (VeriPB vs DRAT), scaling_<fam>.png.
 
 Committed data lands in experiments/scaling/results/; all generated scratch (opb/cnf/pbp/drat)
 stays local under experiments/scaling/artifacts/.
@@ -12,6 +13,7 @@ Usage:
   uv run python experiments/run_scaling.py                  # full study, all families
   uv run python experiments/run_scaling.py php oddcycle     # a subset of families
   uv run python experiments/run_scaling.py --no-lean        # skip the (slow) Lean tier
+  uv run python experiments/run_scaling.py --smoke          # 2 smallest sizes per family (quick)
 """
 from __future__ import annotations
 
@@ -31,22 +33,28 @@ def main():
     smoke = "--smoke" in flags          # only the 2 smallest sizes per family (quick check)
     smoke_arg = ["--smoke"] if smoke else []
 
-    print("== [1/3] validate: OPB generator == in-Lean encoder ==", flush=True)
+    print("== [1/4] validate: OPB generator == in-Lean encoder ==", flush=True)
     if validate.main() != 0:
         sys.exit("validation failed — aborting")
 
-    print("\n== [2/3] external DRAT-vs-PB sweep ==", flush=True)
+    print("\n== [2/4] external DRAT-vs-PB sweep ==", flush=True)
     sys.argv = ["scaling_sweep", *fams, *smoke_arg]
     scaling_sweep.main()
 
     if "--no-lean" not in flags:
         lean_fams = [f for f in fams if f in scaling_lean.FAMILIES]
         if lean_fams:
-            print("\n== [3/3] Lean-verified tier (kernel-check certs) ==", flush=True)
+            print("\n== [3/4] Lean-verified tier (kernel-check certs) ==", flush=True)
             sys.argv = ["scaling_lean", *lean_fams, *smoke_arg]
             scaling_lean.main()
 
-    tag = " (smoke → *.smoke.csv)" if smoke else ""
+    if "--no-plot" not in flags:
+        print("\n== [4/4] paper figures (proof length: VeriPB vs DRAT) ==", flush=True)
+        import scaling_plot          # matplotlib only needed here
+        sys.argv = ["scaling_plot", *smoke_arg]
+        scaling_plot.main()
+
+    tag = " (smoke → *.smoke.*)" if smoke else ""
     print(f"\nDone{tag}. Results in experiments/scaling/results/.", flush=True)
 
 

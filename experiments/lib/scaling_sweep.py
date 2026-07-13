@@ -64,7 +64,6 @@ REPO = HERE.parent.parent                         # repo root
 RESULTS = REPO / "experiments" / "scaling" / "results"           # committed CSVs
 WORK = REPO / "experiments" / "scaling" / "artifacts" / "_work"  # scratch (git-excluded)
 CSV_PATH = RESULTS / "scaling.csv"
-ENV_PATH = RESULTS / "scaling_env.txt"
 
 # Size ranges.  PB sweeps wider (polynomial); DRAT auto-stops at the wall.
 # Odd cycle is the easy baseline: both pipelines stay small, so it sweeps far and
@@ -262,54 +261,6 @@ def sweep_family(family, writer, fh, limit=None):
         fh.flush()
 
 
-def write_env(suffix=""):
-    def cap(cmd):
-        try:
-            return subprocess.run(cmd, capture_output=True, timeout=20
-                                  ).stdout.decode(errors="replace").strip()
-        except Exception:
-            return "(unavailable)"
-
-    def version(tool, *flags):
-        if not have(tool):
-            return "(not installed)"
-        out = cap([tool, *flags])
-        return out.splitlines()[-1] if out else "(unavailable)"
-
-    if sys.platform == "darwin":
-        cpu = (f"{cap(['sysctl', '-n', 'machdep.cpu.brand_string'])}, "
-               f"{cap(['sysctl', '-n', 'hw.ncpu'])} cores")
-    else:
-        model = "(unknown cpu)"
-        for line in Path("/proc/cpuinfo").read_text().splitlines():
-            if line.startswith("model name"):
-                model = line.split(":", 1)[1].strip()
-                break
-        cpu = f"{model}, {os.cpu_count()} cores"
-    # roundingsat is a local build: report its path and, if the checkout has git
-    # history, its revision (build/ layout -> checkout is two levels up).
-    rsat_rev = subprocess.run(
-        ["git", "-C", str(Path(RSAT).parent.parent), "rev-parse", "--short", "HEAD"],
-        capture_output=True).stdout.decode().strip() or "(unknown rev)"
-    lines = [
-        "Scaling-study environment",
-        "=========================",
-        f"machine            : {cap(['uname', '-mnsr'])}",
-        f"cpu                : {cpu}",
-        f"lean-toolchain     : {(REPO / 'lean-toolchain').read_text().strip()}",
-        f"roundingsat        : git {rsat_rev} ({RSAT})",
-        f"veripb             : {version('veripb', '--version')}",
-        f"cadical            : {version('cadical', '--version')}",
-        f"kissat             : {version('kissat', '--version')}",
-        f"drat-trim          : {shutil.which('drat-trim') or '(not installed)'}"
-        " (no version flag)",
-        f"timeout            : {TIMEOUT}s per call; median of up to {REPEATS} runs",
-        "mathlib cache       : lake exe cache get (unpacked oleans)",
-    ]
-    (RESULTS / f"scaling_env{suffix}.txt").write_text("\n".join(lines) + "\n")
-    print("\n".join(lines))
-
-
 def merge_csvs(families=("php", "mutilated", "oddcycle"), suffix=""):
     """Combine the per-family scaling_<family>.csv into scaling.csv (both under RESULTS)."""
     rows = []
@@ -340,7 +291,6 @@ def main():
     if WORK.exists():
         shutil.rmtree(WORK)
     WORK.mkdir(parents=True)
-    write_env(suffix)
     for fam in families:
         print(f"\n===== {fam} =====", flush=True)
         out = RESULTS / f"scaling_{fam}{suffix}.csv"

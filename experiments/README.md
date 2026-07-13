@@ -37,14 +37,17 @@ experiments/
 compiled `checkProofBool`, i.e. exactly what `Lean.ofReduceBool` reduces), `families.py` (SBC
 family/instance config), `pbgen.py`/`validate.py` (standalone OPB+CNF generators and the
 generator-vs-Lean equality check), and the sweep/aggregation/plot steps
-(`scaling_sweep.py`, `scaling_lean.py`, `sbc_sweep.py`, `aggregate.py`, `plot.py`).
+(`scaling_sweep.py`, `scaling_lean.py`, `sbc_sweep.py`, `aggregate.py`, `scaling_plot.py`).
 
 ## Results vs artifacts
 
 - **`results/` is committed** — the CSVs and figures that feed the paper.
-  - Scaling: `scaling.csv` (+ per-family), `scaling_lean.csv` (in-Lean tier), `scaling_env.txt`.
-  - SBC: `sbc_scaling.csv` (per-instance), **`sbc_table.csv`** (the geometric-mean paper table:
-    wall speedup + PBLean cost, both regimes), and `sbc_*.png` figures.
+  - Scaling: `scaling.csv` (+ per-family), `scaling_lean.csv` (in-Lean tier), and the paper's
+    per-problem proof-length figures `scaling_<fam>.png` (+ combined `scaling_all.png`, and
+    `scaling_<fam>.dat` for pgfplots).
+  - SBC: `sbc_scaling.csv` (per-instance) and **`sbc_table.csv`** (the paper table: wall and
+    deterministic speedup — geomean and at the largest instance — plus PBLean cost, both
+    regimes). The SBC experiment produces **no figures**.
 - **`artifacts/` is gitignored** — every file the run generates (`.opb`, `.cnf`, `.pbp` certs,
   `.drat`) stays local. Re-running regenerates them.
 
