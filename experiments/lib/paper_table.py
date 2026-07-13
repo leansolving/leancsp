@@ -41,9 +41,8 @@ def sci(v):
 
 
 def det(v):
-    if v is None:
-        return TO
-    return sci(v) if v >= 1e4 else f"{int(round(v))}"
+    # absolute deterministic op-counts: always scientific, so the column is uniform
+    return TO if v is None else sci(v)
 
 
 def sec(v):
