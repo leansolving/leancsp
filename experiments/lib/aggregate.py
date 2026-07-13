@@ -40,8 +40,10 @@ COLUMNS = [
     "wall_none_hi", "wall_sbc_hi", "speedup_wall_hi",           # wall-clock at the largest instance
     "det_none_geo", "det_sbc_geo", "speedup_det_geo",           # roundingsat deterministic effort
     "det_none_hi", "det_sbc_hi", "speedup_det_hi",              # deterministic at the largest instance
-    "check_none_geo_us", "check_sbc_geo_us",                    # PBLean checkProofBool cost (µs)
-    "verify_none_geo_s", "verify_sbc_geo_s",                    # full reflected-term verify (s)
+    "check_none_geo_us", "check_sbc_geo_us",                    # PBLean checkProofBool cost (µs), per regime
+    "verify_none_geo_s", "verify_sbc_geo_s",                    # full reflected-term verify (s), per regime
+    "check_geo_us", "check_max_us",                            # checkProofBool cost pooled: geomean, max
+    "verify_geo_s", "verify_max_s",                            # full (incl. Lean compilation) pooled: geomean, max
     "n_pairs", "censored",
 ]
 
@@ -125,6 +127,16 @@ def aggregate(rows):
             return geomean([_f(r.get(col)) for r in rs
                             if r["regime"] == regime and r["roundingsat_status"] == "UNSAT"])
 
+        # pooled pipeline cost (checking is essentially regime-independent): geomean and max over
+        # every checked instance of the family, for the checker itself and the full reflected term.
+        def pooled(col):
+            xs = [_f(r.get(col)) for r in rs if r["roundingsat_status"] == "UNSAT"]
+            xs = [x for x in xs if x is not None]
+            return geomean(xs), (max(xs) if xs else None)
+
+        check_geo, check_max = pooled("check_us")
+        verify_geo, verify_max = pooled("verify_wall_s")
+
         censored = 1 if any(r["regime"] == "none" and r["roundingsat_status"] == "TIMEOUT"
                             for r in rs) else 0
 
@@ -147,6 +159,10 @@ def aggregate(rows):
             "check_sbc_geo_us": _fmt(cost(sbc_regime, "check_us"), sig=4),
             "verify_none_geo_s": _fmt(cost("none", "verify_wall_s")),
             "verify_sbc_geo_s": _fmt(cost(sbc_regime, "verify_wall_s")),
+            "check_geo_us": _fmt(check_geo, sig=4),
+            "check_max_us": _fmt(check_max, sig=4),
+            "verify_geo_s": _fmt(verify_geo),
+            "verify_max_s": _fmt(verify_max),
             "n_pairs": n_pairs, "censored": censored,
         })
     return out
