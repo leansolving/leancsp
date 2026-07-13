@@ -52,15 +52,15 @@ def sec(v):
 def spd(v):
     if v is None:
         return NA
-    if v >= 1e4:
-        s = sci(v)
+    if v >= 1000:
+        s = f"{int(round(v)):,}"      # plain, thousands separators (never scientific)
     elif v >= 10:
         s = f"{v:.0f}"
     elif v >= 1:
         s = f"{v:.1f}"
     else:
         s = f"{v:.2g}"
-    return r"{\boldmath\bfseries " + s + "}" if v > 1 else s   # bold a speedup > 1 (SBC helps)
+    return r"\textbf{" + s + "}" if v > 1 else s   # bold a speedup > 1 (SBC helps)
 
 
 def check_fmt(ns, status, cert_bytes):
@@ -115,10 +115,10 @@ def main():
 Family & SBC & det & wall\,(s) & det & wall\,(s) & det & wall & det & wall & w/o & w/ \\
 \midrule""")
     print(body)
+    # ends at \end{tabular}} — the \caption, \label and \end{table*} live outside the
+    # auto-generated markers in the paper, so re-splicing never overwrites the caption.
     print(r"""\bottomrule
-\end{tabular}}
-\label{tab:sbc}
-\end{table*}""")
+\end{tabular}}""")
 
 
 if __name__ == "__main__":
