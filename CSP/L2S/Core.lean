@@ -408,6 +408,11 @@ theorem hbound_of_range_prefix {n : ℕ} (lo hi : ℕ → ℤ) (rest : List (Int
   rw [extractVariableBounds_of_range_prefix]
   exact List.mem_append_left _ (List.mem_map_of_mem (List.mem_range.mpr i.isLt))
 
+/-- `c` is not a `bound` constraint.  Only the head constructor is inspected, so `trivial` settles
+    it for any concrete constraint without touching its payload. -/
+def NotBound {n : ℕ} (c : IntConstraint n) : Prop :=
+  match c with | IntConstraint.bound _ _ _ => False | _ => True
+
 /-- Same, for a generator ending `bounds ++ r₁ ++ r₂`. `++` is `infixl`, so that parses as
     `(bounds ++ r₁) ++ r₂`, whose head is an append rather than the `map`. -/
 theorem hbound_of_range_prefix₂ {n : ℕ} (lo hi : ℕ → ℤ) (r₁ r₂ : List (IntConstraint n)) :
@@ -422,6 +427,57 @@ theorem hbound_of_range_prefix₂ {n : ℕ} (lo hi : ℕ → ℤ) (r₁ r₂ : L
             ++ r₁ ++ r₂)).constraints := by
   rw [List.append_assoc]
   exact hbound_of_range_prefix lo hi (r₁ ++ r₂)
+
+/-- `addConstraint` prepends, so a symmetry-broken CSP reads `c :: (bounds ++ rest)`: the bounds are
+    no longer the prefix.  A non-`bound` `c` is skipped by the scan, so the bounds still read back. -/
+theorem extractVariableBounds_of_cons_range_prefix {n : ℕ} (c : IntConstraint n) (hc : NotBound c)
+    (lo hi : ℕ → ℤ) (rest : List (IntConstraint n)) (i : Fin n) :
+    (IntCSP.mk n (c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+        ++ rest))).extractVariableBounds i = (lo i.val, hi i.val) := by
+  show (match ((c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+          ++ rest)).filterMap _) with
+        | [] => ((-1000 : ℤ), (1000 : ℤ)) | (lb, ub) :: _ => (lb, ub)) = _
+  -- `List.filterMap_cons` is stated for an arbitrary `f`, so it applies to the goal's own matcher;
+  -- rewriting with a locally-stated copy would not, as that elaborates to a *different* matcher.
+  rw [List.filterMap_cons]
+  cases c <;> first
+    | exact hc.elim
+    | (dsimp only
+       rw [List.filterMap_append, List.filterMap_map, Function.comp_def,
+           filterMap_range_single n i.val i.isLt (fun x => (lo x, hi x))]
+       rfl)
+
+/-- `hbound` for a symmetry-broken `bound`-prefixed CSP (`addConstraint` applied once). -/
+theorem hbound_of_cons_range_prefix {n : ℕ} (c : IntConstraint n) (hc : NotBound c)
+    (lo hi : ℕ → ℤ) (rest : List (IntConstraint n)) :
+    ∀ i : Fin (IntCSP.mk n (c :: ((List.range n).map
+        (fun x => IntConstraint.bound x (lo x) (hi x)) ++ rest))).num_vars,
+      IntConstraint.bound i.val
+          ((IntCSP.mk n (c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ rest))).extractVariableBounds i).1
+          ((IntCSP.mk n (c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ rest))).extractVariableBounds i).2
+        ∈ (IntCSP.mk n (c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+            ++ rest))).constraints := by
+  intro i
+  rw [extractVariableBounds_of_cons_range_prefix c hc lo hi rest i]
+  exact List.mem_cons_of_mem c
+    (List.mem_append_left _ (List.mem_map_of_mem (List.mem_range.mpr i.isLt)))
+
+/-- Same, for a symmetry-broken generator ending `bounds ++ r₁ ++ r₂`. -/
+theorem hbound_of_cons_range_prefix₂ {n : ℕ} (c : IntConstraint n) (hc : NotBound c)
+    (lo hi : ℕ → ℤ) (r₁ r₂ : List (IntConstraint n)) :
+    ∀ i : Fin (IntCSP.mk n (c :: ((List.range n).map
+        (fun x => IntConstraint.bound x (lo x) (hi x)) ++ r₁ ++ r₂))).num_vars,
+      IntConstraint.bound i.val
+          ((IntCSP.mk n (c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ r₁ ++ r₂))).extractVariableBounds i).1
+          ((IntCSP.mk n (c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ r₁ ++ r₂))).extractVariableBounds i).2
+        ∈ (IntCSP.mk n (c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+            ++ r₁ ++ r₂))).constraints := by
+  rw [List.append_assoc]
+  exact hbound_of_cons_range_prefix c hc lo hi (r₁ ++ r₂)
 
 -- ============================================================================
 -- CSP Construction

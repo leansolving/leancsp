@@ -3097,6 +3097,8 @@ theorem csp_unsat (csp : IntCSP)
       first
         | exact IntCSP.hbound_of_range_prefix _ _ _
         | exact IntCSP.hbound_of_range_prefix₂ _ _ _ _
+        | exact IntCSP.hbound_of_cons_range_prefix _ (by trivial) _ _ _
+        | exact IntCSP.hbound_of_cons_range_prefix₂ _ (by trivial) _ _ _ _
         | decide) :
     ¬ csp.isSatisfiableInt := by
   intro hsat
