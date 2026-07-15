@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # 4-Bit Ripple Carry Adder
@@ -66,6 +64,3 @@ def ripple_carry_adder_4bit : IntCSP :=
     [s2_sum, s2_ab, s2_ac, s2_bc, s2_cout] ++
     [s3_sum, s3_ab, s3_ac, s3_bc, s3_cout] ++
     [violation]⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed ripple_carry_adder_4bit

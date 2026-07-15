@@ -24,3 +24,6 @@ experiments/*/results/*.smoke.*
 /docs/
 /results/
 /scripts/
+
+# Python virtualenv for the experiments (see experiments/README.md).
+/.venv/

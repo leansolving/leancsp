@@ -7,7 +7,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 import sbc_sweep       # noqa: E402
 import aggregate       # noqa: E402
-import check_largest   # noqa: E402
 
 
 def main():
@@ -17,21 +16,18 @@ def main():
     smoke = "--smoke" in flags
     smoke_arg = ["--smoke"] if smoke else []
 
-    print("== [1/3] SBC sweep (dump OPB -> roundingsat -> veripb) ==", flush=True)
+    # The sweep measures EVERYTHING per instance / per regime: roundingsat solve, native
+    # checkProofBool runtime, and the full in-Lean `lake build` pipeline cost.
+    print("== [1/2] SBC sweep (roundingsat + native check + in-Lean pipeline, per instance) ==", flush=True)
     sys.argv = ["sbc_sweep", *fams, *smoke_arg]
     sbc_sweep.main()
 
-    print("\n== [2/3] aggregate -> sbc_table.csv (wall + deterministic speedup) ==", flush=True)
+    print("\n== [2/2] aggregate -> sbc_table.csv (speedups + checking cost at largest instance) ==", flush=True)
     sys.argv = ["aggregate", *smoke_arg]
     aggregate.main()
 
-    if not smoke:
-        print("\n== [3/3] checker runtime on the largest certificate per family ==", flush=True)
-        sys.argv = ["check_largest", *fams]
-        check_largest.main()
-
     tag = " (smoke -> *.smoke.csv)" if smoke else ""
-    print(f"\nDone{tag}. Results in experiments/sbc/results/.", flush=True)
+    print(f"\nDone{tag}. Results in experiments/sbc/results/; regenerate the table with paper_table.py.", flush=True)
 
 
 if __name__ == "__main__":

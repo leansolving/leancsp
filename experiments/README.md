@@ -1,78 +1,92 @@
 # Experiments
 
-Two reproducible studies backing the paper's experimental section. Each has **one entry-point
-script**, a `results/` folder (committed data) and an `artifacts/` folder (generated files,
-kept local — gitignored).
+How to reproduce the paper's experimental results.
 
-| Experiment | One-line command | What it shows |
+## 1. Requirements
+
+**Lean** — build the project first:
+
+```bash
+lake build
+```
+
+This also pins PBLean v0.3.1+, whose checker is **precompiled** (`VeriPBReflect`). The SBC study's
+checking numbers assume it; `preflight` warns if its `.so` is missing. See
+`docs/PRECOMPILE_AND_TRUST.md`.
+
+**External solvers** — on `PATH` (roundingsat may instead be given as `$ROUNDINGSAT`):
+
+| tool | used by | required? |
 |---|---|---|
-| **Scaling** (PB vs DRAT) | `uv run python experiments/run_scaling.py` | verified cutting-planes (PB) certificates stay small where the resolution (DRAT) proof blows up (pigeonhole, mutilated chessboard); odd-cycle is the both-linear control |
-| **SBC** (cost vs benefit) | `uv run python experiments/run_sbc.py` | per family, the wall-clock speedup from a *verified* symmetry-breaking constraint, plus our pipeline's own in-Lean PBLean checking cost |
+| `roundingsat` | both studies (PB solving) | yes |
+| `veripb` | both studies (cert elaboration) | yes |
+| `cadical`, `drat-trim` | scaling (DRAT side) | optional — else `TOOL-MISSING` |
+| `minizinc` | schur (SAT witnesses) | optional |
 
-Run a subset of families by naming them, e.g. `uv run python experiments/run_sbc.py php oddcycle`.
+**Python** — 3.9+, invoked as `python3`. Only `matplotlib` is needed, and only for the scaling
+figures; without it every CSV is still written and the figure step is skipped.
 
-**Smoke test** — add `--smoke` to run only the **2 smallest instances per family**, to check the
-whole pipeline works before committing to a full run:
-
-```
-uv run python experiments/run_sbc.py --smoke        # a few minutes
-uv run python experiments/run_scaling.py --smoke
-```
-
-Smoke output is written to separate `*.smoke.*` files (gitignored) so it never pollutes the
-committed results.
-
-## Layout
-
-```
-experiments/
-  run_scaling.py   run_sbc.py      # entry points
-  lib/                             # shared + per-experiment helpers
-  scaling/{results,artifacts}/
-  sbc/{results,artifacts}/
+```bash
+python3 -m venv .venv && source .venv/bin/activate && pip install matplotlib
 ```
 
-`lib/` holds the machinery: `harness.py` (roundingsat + veripb runners, median-of-3 timing),
-`lean_dump.py` (dump the canonical OPB from Lean), `lean_recheck.py` (`check_file_runtime` — time
-the compiled `checkProofBool` on a cert read at runtime, i.e. exactly what `Lean.ofReduceBool`
-reduces), `families.py` (SBC family/instance config), `pbgen.py`/`validate.py` (standalone OPB+CNF
-generators and the generator-vs-Lean equality check), the sweep/aggregation/plot steps
-(`scaling_sweep.py`, `scaling_lean.py`, `sbc_sweep.py`, `aggregate.py`, `scaling_plot.py`,
-`check_largest.py`), and `paper_table.py` (regenerates the paper's `tab:sbc` from the CSVs).
+## 2. Run
 
-## Results vs artifacts
+One entry point; each subcommand preflights first (tool check, builds `checkbench` + PBLean):
 
-- **`results/` is committed** — the CSVs and figures that feed the paper.
-  - Scaling: `scaling.csv` (+ per-family), `scaling_lean.csv` (in-Lean tier), and the paper's
-    per-problem proof-length figures `scaling_<fam>.png` (+ combined `scaling_all.png`, and
-    `scaling_<fam>.dat` for pgfplots).
-  - SBC: `sbc_scaling.csv` (per-instance solving), **`sbc_table.csv`** (wall and deterministic
-    speedup — geomean and at the largest solved instance), and `check_largest.csv` (PBLean's
-    checker runtime on the largest certificate per family/regime). The SBC experiment produces
-    **no figures**.
-- **`artifacts/` is gitignored** — every file the run generates (`.opb`, `.cnf`, `.pbp` certs
-  up to 100s of MB, `.drat`) stays local. Re-running regenerates them.
+```bash
+export ROUNDINGSAT=/path/to/roundingsat        # if not on PATH
 
-## Requirements
+python3 experiments/run.py preflight            # check tools only
+python3 experiments/run.py scaling              # fig:scaling
+python3 experiments/run.py sbc                  # tab:sbc
+python3 experiments/run.py schur                # S(2)/S(3)/S(4)
+python3 experiments/run.py all
+```
 
-- `lake` (Lean toolchain per `lean-toolchain`); build the project first (`lake build`).
-- `roundingsat` (from `$ROUNDINGSAT`, else PATH) and `veripb` for the PB pipeline.
-- `cadical` + `drat-trim` for the DRAT side of the scaling study (missing tools degrade
-  gracefully to `TOOL-MISSING`).
+Add `--smoke` for a quick check (2 smallest instances per family, into gitignored `*.smoke.*`).
+Restrict families with e.g. `python3 experiments/run.py sbc php oddcycle`.
 
-## Notes
+**Expect the full SBC run to take ~1–2 h.** Some no-SBC instances (schur `c4n45`, vdW `W(4,3)`) hit
+the 600 s timeout by design — they appear as `censored=1`, and those speedups are lower bounds.
+Certificates can reach 100s of MB (clique K15 without its SBC is ≈391 MB).
 
-- **Full SBC run** takes roughly 1–2 h: some w/o-SBC instances (schur `c4n45`, vdW `W(4,3)`) hit
-  the 600 s timeout by design (`censored=1` in `sbc_table.csv`, speedups are lower bounds), and the
-  `check_largest` step regenerates the largest certificate per family — a few of which are 100s of
-  MB (Clique K15 w/o SBC ≈ 391 MB).
-- **Checking cost** (`check_largest.csv`) is PBLean's *compiled* `checkProofBool` runtime on the
-  largest certificate each regime produces — the exact function `Lean.ofReduceBool` reduces.
-  `check_largest.py` runs a native harness, the `checkbench` executable (`lakefile.lean` /
-  `lib/CheckBench.lean`, a Mathlib-free exe importing only veripb), and `lake build`s it on demand.
-  Measuring via a compiled exe (not `#eval`, which interprets and is ~10× slower) is essential:
-  natively even a 391 MB certificate checks in ~3 min, and the SBC shrinks the certificate — hence
-  its checking cost — as much as it shrinks the search.
-- The *scaling* Lean tier still emits gitignored `CSP/L2S/Backends/PB/Bench/Scaling*Bench.lean`
-  modules, because `lake build` only kernel-checks modules under `CSP/`. The *SBC* study avoids
-  any source-tree writes by timing the checker via `lake env lean` on throwaway `/tmp` files.
+## 3. What it produces, and where it lands in the paper
+
+`results/` is committed; `artifacts/` (`.opb`, `.cnf`, `.pbp`, `.drat`) is gitignored and
+regenerated by each run.
+
+**Scaling** → `scaling/results/scaling.csv` (+ per-family), `scaling_<fam>.png`,
+`scaling_all.png`, `scaling_<fam>.dat`.
+
+Measures **proof length in proof steps**, VeriPB vs DRAT — which is all `fig:scaling` reports.
+Entirely external (roundingsat/veripb vs cadical/drat-trim); it never checks anything in Lean.
+
+**SBC** → `sbc/results/sbc_scaling.csv` (per instance) → `sbc_table.csv` (aggregated). Then:
+
+```bash
+python3 experiments/lib/paper_table.py            # prints tab:sbc LaTeX to stdout
+```
+
+Paste that between the auto-generated markers in `paper.tex`; the caption lives outside them and is
+never overwritten. This study produces no figures.
+
+Per instance it records RoundingSat's deterministic and wall time (with and without the SBC) plus
+**two independent checking costs**:
+
+- **`check_ns`** — PBLean's compiled `checkProofBool` on that certificate, via the `checkbench` exe
+  (`lib/CheckBench.lean`). `check_status` is `OK` / `TIMEOUT` / `FALSE`; **`FALSE` means the
+  certificate was rejected**, so its timing is never reported as a checking cost.
+- **`pipeline_net_s`** — a real `lake build` of one `csp_unsat_file` reflection theorem, net of an
+  imports-only baseline: the whole in-Lean certification (cert read, compile, `ofReduceBool` native
+  eval, kernel accept). Roughly the checker plus the cost of compiling the reflected term.
+
+**Schur** → `schur_exact/results/timings.csv`: `S(2)`/`S(3)`/`S(4)` bracketed by a MiniZinc witness
+and a PB certificate, both re-checked in the kernel.
+
+## 4. Note on the Lean-side writes
+
+The SBC study writes throwaway modules under `CSP/L2S/Backends/PB/Bench/` (gitignored except
+`Generators.lean`) and deletes them afterwards, because `lake build` only kernel-checks modules
+under `CSP/`. An interrupted run can leave a `ChkTmp.lean` and a large `certs/ChkTmp.pbp` behind —
+delete them, or a later bare `lake build` will try to kernel-check that stale certificate.

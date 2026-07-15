@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # All-Interval Series Problem
@@ -147,6 +145,3 @@ def all_interval_csp (n num_vars : ℕ) : IntCSP :=
 -- n = 10 series elements, n-1 = 9 differences, num_vars = 10 + 9 = 19
 def all_interval_10 : IntCSP :=
   all_interval_csp 10 19
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed all_interval_10

@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Ancient China Map Coloring
@@ -91,6 +89,3 @@ def c9Edges : List (Fin 9 × Fin 9) :=
 
 /-- Colour the odd cycle `C_9` with two colours: unsatisfiable. -/
 def c9_2col : IntCSP := graph_coloring_csp 9 c9Edges 2
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed graph

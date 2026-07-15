@@ -9,8 +9,14 @@ require "mathlib" from git
 
 -- PB (pseudo-Boolean) verified backend dependency: PBLean (Mathlib-free), on the
 -- shared Lean 4.30.0 toolchain. Provides VeriPB.Reflect.checkProofBool / checkProof_sound.
+--
+-- v0.3.1 ships the `VeriPBReflect` lib (`precompileModules`), publishing the checker's kernel
+-- closure (PseudoBoolean → FromVeriPB → Reflect) as native code, so `ofReduceBool` reduces
+-- `checkProofBool` compiled (~70 s for the 98 MB S(4) cert) instead of interpreted (~21 min).
+-- Do not pin below v0.3.1: the experiments' in-Lean checking-time tier assumes the native path
+-- (`experiments/run.py` preflights for the `VeriPBReflect` .so).  See `docs/PRECOMPILE_AND_TRUST.md`.
 require veripb from git
-  "https://github.com/leansolving/pblean" @ "v0.3.0"
+  "https://github.com/leansolving/pblean" @ "v0.3.1"
 
 @[default_target]
 lean_lib "CSP" where

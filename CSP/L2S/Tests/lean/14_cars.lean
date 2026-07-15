@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Car Sequencing (CSPLib #001)
@@ -123,6 +121,3 @@ def cars1_data : CarSeqData := {
 }
 
 def cars_csp := car_sequencing_csp cars1_data
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed cars_csp

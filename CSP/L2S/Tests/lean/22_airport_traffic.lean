@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Airport Traffic Control
@@ -89,6 +87,3 @@ def airport_traffic : IntCSP :=
 
   ⟨nvars, bounds_list ++ initial_state ++ movement_constraints ++
           collision_avoidance ++ goal_constraints⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed airport_traffic

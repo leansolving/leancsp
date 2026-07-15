@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Army Counting Problem with Modulo Constraints
@@ -43,6 +41,3 @@ def army_problem : IntCSP :=
      modulo ⟨0, by decide⟩ 7 2,           -- army mod 7 = 2
      modulo ⟨0, by decide⟩ 12 1           -- army mod 12 = 1
    ]⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed army_problem

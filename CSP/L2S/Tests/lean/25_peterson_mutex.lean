@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Mutual Exclusion Verification
@@ -64,6 +62,3 @@ def peterson_mutex_k (k : ℕ) (h_k : k ≥ 2) : IntCSP :=
 -- Instantiate with k=3 time steps
 def peterson_mutex : IntCSP :=
   peterson_mutex_k 3 (by decide)
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed peterson_mutex

@@ -8,6 +8,7 @@ from pathlib import Path
 import families as F
 import harness as H
 import lean_dump
+import lean_recheck as LR
 
 REPO = Path(__file__).resolve().parent.parent.parent
 RESULTS = REPO / "experiments" / "sbc" / "results"        # committed per-instance CSV
@@ -15,10 +16,11 @@ WORK = REPO / "experiments" / "sbc" / "artifacts"         # opb / cert scratch (
 CERTS = WORK / "certs"                                    # kernel certs (git-excluded)
 SBC_DESC = F.SBC_DESC
 
-# `size_param` is the family's natural scaling parameter, unique within each family.
-# `roundingsat_time_s` is median-of-3 wall; `rsat_det_time` is the machine-independent
-# deterministic effort.  The in-Lean checking cost is measured separately, on the largest
-# certificate per family, by check_largest.py — not per instance here.
+# Everything is measured PER INSTANCE, for BOTH regimes (w/o SBC = "none", w/ SBC):
+# `roundingsat_time_s` is median-of-3 wall; `rsat_det_time` the machine-independent deterministic
+# effort. `check_ns` is the native compiled `checkProofBool` runtime (cert pre-loaded). `pipeline_*`
+# is the full in-Lean `lake build` cost of one `csp_unsat_file` reflection theorem with a PRECOMPILED
+# checker (net of the fixed per-build overhead) — the honest cost the committed artifact pays.
 EXT_COLUMNS = [
     "family", "size_param", "regime", "sbc",
     "pb_vars", "pb_constraints", "opb_bytes",
@@ -26,74 +28,69 @@ EXT_COLUMNS = [
     "rsat_det_time", "rsat_conflicts", "rsat_decisions", "rsat_propagations", "rsat_cpu_s",
     "rsat_log_lines", "rsat_log_bytes",
     "veripb_proof_lines", "veripb_proof_bytes", "veripb_elaborate_time_s", "kernel_cert_chars",
+    "check_ns", "check_status", "pipeline_gross_s", "pipeline_net_s", "pipeline_status",
 ]
 
 
-def safe_dumps(module, items, batch_to=900, per_to=240):
-    """Batch-dump in one process; on failure fall back to per-instance dumps so one slow
-    `encodeCSP` (e.g. a huge instance) skips itself instead of killing the whole family."""
-    try:
-        return lean_dump.dump_batch(module, items, timeout=batch_to)
-    except Exception:
-        print("  batch dump failed — per-instance fallback (slow instances will be skipped)", flush=True)
-        out = {}
-        for tag, expr in items:
-            try:
-                out[tag] = lean_dump.dump(module, expr, timeout=per_to)
-            except Exception:
-                print(f"    DUMP-SKIP {tag}", flush=True)
-        return out
+def _cleanup(*paths):
+    for p in paths:
+        Path(p).unlink(missing_ok=True)
 
 
-def sweep_family(fam, ext_w, ext_fh, limit=None):
+def sweep_family(fam, ext_w, ext_fh, baseline_cache, limit=None):
     cfg = F.FAMILIES[fam]
     regimes = cfg["regimes"]
     module = cfg["module"]          # the Lean module that defines this family's CSP terms
     # instances are listed in ascending hardness; `limit` keeps only the smallest few (smoke test)
     insts = cfg["instances"] if limit is None else cfg["instances"][:limit]
     print(f"\n===== {fam} ({cfg['note']}) =====", flush=True)
-    items = [(f"{i['label']}_{rg}", F.regime_expr(cfg, i, rg))
-             for i in insts for rg in regimes]
-    print(f"  batch-dumping {len(items)} instances in one Lean process ...", flush=True)
-    dumps = safe_dumps(module, items)
-
     WORK.mkdir(parents=True, exist_ok=True)
     CERTS.mkdir(parents=True, exist_ok=True)
     stopped = {rg: False for rg in regimes}
     for it in insts:                            # ascending hardness
         if all(stopped.values()):
             break
-        for regime in regimes:
+        for regime in regimes:                  # both w/o SBC ("none") and w/ SBC
             if stopped[regime]:
                 continue
             expr = F.regime_expr(cfg, it, regime)
             tag = f"{it['label']}_{regime}"
             ext = {c: "" for c in EXT_COLUMNS}
             ext.update(family=fam, size_param=it["nat"], regime=regime, sbc=SBC_DESC[regime])
-            if tag not in dumps:                # dump skipped (too big to encode)
-                ext["roundingsat_status"] = "DUMP-FAIL"
-                ext_w.writerow(ext); ext_fh.flush()
-                print(f"  [{tag}] DUMP-FAIL (encode too slow) — skip", flush=True)
-                continue
-            nv, opb = dumps[tag]
+            opbp = WORK / f"{fam}_{tag}.opb"; pbp = WORK / f"{fam}_{tag}.pbp"
+            constrs = WORK / f"{fam}_{tag}.cs"; kernel = CERTS / f"sbc_{fam}_{tag}.pbp"
+            try:                                # OPB + serialized constraints (for checkbench) in one dump
+                nv, opb = lean_dump.dump_with_constrs(module, expr, str(constrs.resolve()))
+            except Exception as e:              # timeout, elaboration error, OOM — report which
+                ext["roundingsat_status"] = "DUMP-FAIL"; ext_w.writerow(ext); ext_fh.flush()
+                print(f"  [{tag}] DUMP-FAIL — skip: {type(e).__name__}: {e}", flush=True); continue
             ext["pb_vars"], ext["pb_constraints"] = H.opb_header(opb)
-            ext["opb_bytes"] = len(opb.encode())
-            opbp = WORK / f"{fam}_{tag}.opb"; opbp.write_text(opb)
-            pbp = WORK / f"{fam}_{tag}.pbp"
-            cert = f"sbc_{fam}_{tag}.pbp"; kernel = CERTS / cert
+            ext["opb_bytes"] = len(opb.encode()); opbp.write_text(opb)
 
-            row, ok = H.run_roundingsat(opbp, pbp); ext.update(row)
+            row, ok = H.run_roundingsat(opbp, pbp); ext.update(row)      # solve
             if not ok:
-                ext_w.writerow(ext); ext_fh.flush()
-                print(f"  [{tag}] roundingsat {ext['roundingsat_status']}", flush=True)
                 if ext["roundingsat_status"] == "TIMEOUT":
                     stopped[regime] = True
-                continue
-            row, ok = H.run_veripb(opbp, pbp, kernel); ext.update(row)
-            pbp.unlink(missing_ok=True); kernel.unlink(missing_ok=True)   # keep only the size
+                _cleanup(opbp, pbp, constrs)
+                ext_w.writerow(ext); ext_fh.flush()
+                print(f"  [{tag}] roundingsat {ext['roundingsat_status']}", flush=True); continue
+            row, ok = H.run_veripb(opbp, pbp, kernel); ext.update(row); pbp.unlink(missing_ok=True)  # cert
+            if ok and kernel.exists():
+                ns, cok = LR.native_check_time(str(constrs.resolve()), nv, str(kernel.resolve()))  # native
+                ext["check_ns"] = "" if ns is None else ns
+                ext["check_status"] = "OK" if cok else ("TIMEOUT" if ns is None else "FALSE")
+                net, gross, pstat = LR.pipeline_build_time(                                         # in-Lean
+                    module, expr, nv, str(kernel.resolve()), baseline_cache)
+                ext["pipeline_gross_s"] = "" if gross is None else gross
+                ext["pipeline_net_s"] = "" if net is None else net
+                ext["pipeline_status"] = pstat
+            else:                               # veripb produced no cert: nothing to check or reflect
+                ext["check_status"] = ext["pipeline_status"] = "NO-CERT"
+            _cleanup(opbp, constrs, kernel)
             ext_w.writerow(ext); ext_fh.flush()
-            print(f"  [{tag}] vars={ext['pb_vars']} wall={ext['roundingsat_time_s']}s "
-                  f"det={ext['rsat_det_time']} cert={ext.get('kernel_cert_chars','-')}ch", flush=True)
+            print(f"  [{tag}] vars={ext['pb_vars']} rsat={ext['roundingsat_time_s']}s "
+                  f"cert={ext.get('kernel_cert_chars','-')}ch check={ext.get('check_ns','-')}ns "
+                  f"pipe={ext.get('pipeline_net_s','-')}s({ext.get('pipeline_status','-')})", flush=True)
 
 
 def main():
@@ -108,12 +105,13 @@ def main():
     ext_path = RESULTS / ("sbc_scaling.smoke.csv" if smoke else "sbc_scaling.csv")
     # Smoke and full-sweep (no family args) start clean; a named subset appends.
     mode = "a" if (argv_fams and not smoke and ext_path.exists()) else "w"
+    baseline_cache = {}                              # per-import empty-module build baseline (in-Lean tier)
     with open(ext_path, mode, newline="") as ext_fh:
         ext_w = csv.DictWriter(ext_fh, fieldnames=EXT_COLUMNS)
         if mode == "w":
             ext_w.writeheader()
         for fam in fams:
-            sweep_family(fam, ext_w, ext_fh, limit)
+            sweep_family(fam, ext_w, ext_fh, baseline_cache, limit)
     print(f"\nwrote {ext_path}")
 
 

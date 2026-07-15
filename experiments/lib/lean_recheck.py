@@ -1,13 +1,107 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
 import re
+import shutil
+import signal
 import statistics
 import subprocess
 import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
+BENCH = REPO / "CSP" / "L2S" / "Backends" / "PB" / "Bench"   # temp reflection modules (under CSP/ so lake checks them)
+BENCH_CERTS = BENCH / "certs"                                # csp_unsat_file reads certs module-relative
+CHECKBENCH = REPO / ".lake" / "build" / "bin" / "checkbench"  # native compiled checker exe
+_TMP = "ChkTmp"       # one-theorem reflection module
+_EMPTY = "ChkEmpty"   # imports-only baseline module (nets out fixed per-build overhead)
+
+
+def ensure_checkbench():
+    if not CHECKBENCH.exists():
+        subprocess.run(["lake", "build", "checkbench"], cwd=REPO, capture_output=True)
+
+
+def native_check_time(constrs_path: str, nv: int, cert_path: str, timeout: float = 1800) -> tuple:
+    """Native `checkProofBool` runtime via the compiled `checkbench` exe (cert pre-loaded from disk).
+    The pure checker-algorithm cost. Returns (check_ns|None, ok)."""
+    ensure_checkbench()
+    proc = subprocess.Popen([str(CHECKBENCH), str(constrs_path), str(nv), str(cert_path)],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    try:
+        out, _ = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.communicate()
+        return None, False
+    m = re.search(rb"NATIVE (\d+) OK (\w+) NCONS (\d+)", out)
+    if proc.returncode != 0 or not m:
+        return None, False
+    return int(m.group(1)), (m.group(2) == b"true")
+
+
+def _write_reflection_module(name: str, fam_module: str, expr: str, nv: int, cert_rel: str):
+    BENCH.mkdir(parents=True, exist_ok=True)
+    (BENCH / f"{name}.lean").write_text(
+        "import CSP.L2S.Backends.PB.GenericEncode\n"
+        f"import {fam_module}\n"
+        "open CSP.L2S CSP.L2S.PB IntCSP\n"
+        f"namespace CSP.L2S.PB.Bench.{name}\n"
+        "set_option maxRecDepth 100000 in\n"
+        # No heartbeat limit: the wall-clock timeout in module_build_time is the real guard, so a
+        # valid cert never spuriously BUILD-FAILs. The default 200k now suffices for every family
+        # (csp_unsat's `hbound` is settled by the range-prefix theorems in CSP/L2S/Core.lean rather
+        # than re-decided per instance), but large certs are elaborated via `include_str`, which this
+        # keeps out of the budget too.
+        "set_option maxHeartbeats 0 in\n"
+        f"theorem chk : ¬ ({expr}).isSatisfiableInt :=\n"
+        f'  csp_unsat_file ({expr}) {nv} "certs/{cert_rel}"\n'
+        f"end CSP.L2S.PB.Bench.{name}\n")
+
+
+def _empty_build_baseline(fam_module: str, cache: dict) -> float | None:
+    """`lake build` wall of an imports-only module — the fixed per-module overhead (Mathlib import
+    load + olean write) to net out of the theorem build. Cached per import set."""
+    if fam_module in cache:
+        return cache[fam_module]
+    BENCH.mkdir(parents=True, exist_ok=True)
+    (BENCH / f"{_EMPTY}.lean").write_text(
+        f"import CSP.L2S.Backends.PB.GenericEncode\nimport {fam_module}\n")
+    bt, ok = module_build_time(f"CSP.L2S.Backends.PB.Bench.{_EMPTY}", timeout=600)
+    (BENCH / f"{_EMPTY}.lean").unlink(missing_ok=True)
+    cache[fam_module] = bt if ok else None
+    return cache[fam_module]
+
+
+def pipeline_build_time(fam_module: str, expr: str, nv: int, cert_abspath: str,
+                        baseline_cache: dict, timeout: float = 1800) -> tuple:
+    """The real in-Lean pipeline cost: emit ONE `csp_unsat_file` reflection theorem and time its
+    `lake build` (cert read + addAndCompile + ofReduceBool native eval + kernel accept — native
+    when PBLean is precompiled). Returns (net_s|None, gross_s|None, status)."""
+    module = f"CSP.L2S.Backends.PB.Bench.{_TMP}"
+    base = _empty_build_baseline(fam_module, baseline_cache)
+    BENCH_CERTS.mkdir(parents=True, exist_ok=True)
+    cert_rel = f"{_TMP}.pbp"
+    shutil.copyfile(cert_abspath, BENCH_CERTS / cert_rel)
+    _write_reflection_module(_TMP, fam_module, expr, nv, cert_rel)
+    try:
+        gross, ok = module_build_time(module, timeout=timeout)
+    finally:
+        (BENCH / f"{_TMP}.lean").unlink(missing_ok=True)
+        (BENCH_CERTS / cert_rel).unlink(missing_ok=True)
+    if gross is None:
+        return None, None, "TIMEOUT"
+    if not ok:
+        return None, round(gross, 3), "BUILD-FAIL"
+    if base is None:
+        # The imports-only baseline failed to build, so there is nothing to net against. `gross` is
+        # still sound; say so rather than reporting a blank `net` under an "OK" status.
+        return None, round(gross, 3), "NO-BASELINE"
+    return round(max(0.0, gross - base), 3), round(gross, 3), "OK"
 
 
 def recheck_expr(csp: str, num_vars: int, cert_abspath: str) -> str:
@@ -26,13 +120,25 @@ def _rmartifacts(module: str):
     (REPO / f".lake/build/ir/CSP/{rel}.c.hash").unlink(missing_ok=True)
 
 
-def module_build_time(module: str) -> float:
+def module_build_time(module: str, timeout: float | None = None) -> tuple[float | None, bool]:
     """Time `lake build <module>` after deleting its olean — one warm Lean process that
-    ofReduceBool-reflection kernel-checks EVERY theorem in the module (per-family build cost)."""
+    ofReduceBool-reflection kernel-checks EVERY theorem in the module (per-module build cost).
+    Returns (wall_s, ok): (wall_s, True) on success, (wall_s, False) if the build errored,
+    (None, False) on timeout (the process group is killed)."""
     _rmartifacts(module)
     t0 = time.monotonic()
-    subprocess.run(["lake", "build", module], cwd=REPO, capture_output=True)
-    return time.monotonic() - t0
+    proc = subprocess.Popen(["lake", "build", module], cwd=REPO,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    try:
+        proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.communicate()
+        return None, False
+    return time.monotonic() - t0, proc.returncode == 0
 
 
 def _wall(cmd, repeats=1):

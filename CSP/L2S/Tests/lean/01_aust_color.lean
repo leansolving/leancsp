@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Australia Map Coloring
@@ -39,6 +37,3 @@ def australia : IntCSP :=
   ]
   let colors := 4
   graph_coloring_csp nodes edges colors
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed australia

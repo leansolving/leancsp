@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Langford's Problem L(m,n)
@@ -86,6 +84,3 @@ def langford_2_6 : IntCSP := langford_2n_csp 6
 
 -- L(2,9): UNSAT (9 ≡ 1 mod 4). veripb benchmark `langford9`.
 def langford_2_9 : IntCSP := langford_2n_csp 9
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed langford_2_3

@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # 0-1 Knapsack Problem
@@ -66,6 +64,3 @@ def knapsack_10_50_80 : IntCSP :=
   let weights := [10, 20, 30, 15, 25, 12, 8, 18, 22, 16]
   let values  := [20, 30, 45, 25, 40, 22, 15, 35, 42, 28]
   knapsack_csp 10 weights values 50 80 rfl rfl
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed knapsack_10_50_80

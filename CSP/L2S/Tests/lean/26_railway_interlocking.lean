@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Railway Interlocking
@@ -76,6 +74,3 @@ def railway_interlocking : IntCSP :=
 
   ⟨nvars, bounds ++ route_mutex ++ route_a_segments ++ route_b_segments ++
           point_constraints ++ operational⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed railway_interlocking

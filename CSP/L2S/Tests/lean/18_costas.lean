@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Costas Array Problem
@@ -138,6 +136,3 @@ def costas_csp (n num_vars : ℕ) : IntCSP :=
 -- n = 8, num_diffs = 8*7/2 = 28, num_vars = 8 + 28 = 36
 def costas_8 : IntCSP :=
   costas_csp 8 36
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed costas_8

@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # 2-Bit × 2-Bit Multiplier Verification (Specification-Level)
@@ -74,6 +72,3 @@ def multiplier_2bit : IntCSP :=
     ha1_sum, ha1_carry, ha2_sum, ha2_carry,
     sum_a_def, sum_b_def, product_def, violation
   ]⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed multiplier_2bit

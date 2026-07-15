@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Job-Shop Scheduling
@@ -106,6 +104,3 @@ def jobshop_mutex : IntCSP :=
   ]
 
   ⟨nvars, bounds_list ++ precedence ++ machine_mutex ++ makespan_constraints⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed jobshop_mutex

@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Alphabet Music Puzzle
@@ -81,6 +79,3 @@ def alpha_puzzle : IntCSP :=
     simp at hi
     repeat (cases hi <;> try omega)
   )
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed alpha_puzzle

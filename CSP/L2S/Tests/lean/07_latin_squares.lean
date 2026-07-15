@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Latin Squares with Binary Encoding
@@ -163,6 +161,3 @@ def latin_square_csp (n : ℕ) : IntCSP :=
 -- Specific instance
 def latin_square_inst : IntCSP :=
   latin_square_csp 8
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed latin_square_inst

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -10,8 +11,7 @@ import pbgen
 
 REPO = Path(__file__).resolve().parent.parent.parent
 CERT_DIR = REPO / "CSP" / "L2S" / "Backends" / "PB" / "Problems" / "certs"
-ROUNDINGSAT = os.environ.get("ROUNDINGSAT",
-                             "/home/pablo/projects/roundingsat/build/roundingsat")
+ROUNDINGSAT = os.environ.get("ROUNDINGSAT") or shutil.which("roundingsat")  # $ROUNDINGSAT or PATH
 
 
 def gen_cert(k: int) -> str:

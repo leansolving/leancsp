@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # N-Queens
@@ -33,6 +31,3 @@ def nqueens_csp (n : ℕ) : IntCSP :=
 -- Specific instance:
 def queens_inst : IntCSP :=
   nqueens_csp 30
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed queens_inst

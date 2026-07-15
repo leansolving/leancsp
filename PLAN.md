@@ -67,7 +67,7 @@ that *one* soundness theorem discharges every instance:
 
 | Milestone (from `PLAN_old.md`) | State |
 |---|---|
-| **M0** Project setup, external toolchain validated | Done. Dependency on PBLean (`veripb` Lake pkg, pinned `v0.3.0`); RoundingSat + veripb 3.0.1 validated end-to-end. |
+| **M0** Project setup, external toolchain validated | Done. Dependency on PBLean (`veripb` Lake pkg, pinned `v0.3.1` — first tag shipping the precompiled `VeriPBReflect` lib); RoundingSat + veripb 3.0.1 validated end-to-end. |
 | **M1** Core types (`CSPSig`, `PBVar`, `mkLeLit`, `intValue`, monotonicity) | Done; `intValue_mem_values` proved. |
 | **M2** Substitution theorem (`linear_le_of_threshold_sum`) | Done. |
 | **M3** Linear encoding + smallest end-to-end demo | Done (`Demo.lean`, `DemoGeneric.lean`, `DemoHomogeneous.lean`). |

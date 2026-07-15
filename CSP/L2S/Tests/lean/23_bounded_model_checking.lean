@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Bounded Model Checking
@@ -47,6 +45,3 @@ def bounded_model_checking_k (k : ℕ) (h_k : k ≥ 3) : IntCSP :=
 -- Instantiate with k=5 time steps
 def bounded_model_checking : IntCSP :=
   bounded_model_checking_k 5 (by decide)
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed bounded_model_checking

@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Rods Puzzle (04_rods)
@@ -78,6 +76,3 @@ def rods_problem : IntCSP :=
    rods_bounds ++
    rods_element_constraints ++
    [rods_sum_constraint, rods_linear_constraint, rods_alldifferent_constraint]⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed rods_problem

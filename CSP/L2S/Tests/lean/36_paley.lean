@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 open CSP.L2S.IntCSP   -- for `listToFinVector`
 
 /-!
@@ -60,6 +58,3 @@ def paley_csp (p target : ℕ) : IntCSP :=
 
 -- Paley(13): independence number is 3, so a size-4 independent set is UNSAT.
 def paley_13_4 : IntCSP := paley_csp 13 4
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed paley_13_4

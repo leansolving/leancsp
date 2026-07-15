@@ -1,10 +1,8 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 import Mathlib.Tactic.Linarith
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 open CSP.L2S.IntCSP
 
 
@@ -173,10 +171,3 @@ def majority3_circuit : Circuit := {
     ⟨[3, 4, 5], GateType.OR, 6⟩    -- CARRY = G1 OR G2 OR G3
   ]
 }
-
--- ============================================================================
--- CSP translation to MiniZinc
--- ============================================================================
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed (at_least_k_satisfies_circuit_csp majority3_circuit 2)

@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 open CSP.L2S.IntCSP
 
 /-!
@@ -186,11 +184,3 @@ Expected: UNSATISFIABLE (circuits are equivalent)
 -/
 def xor_equivalence : IntCSP :=
   circuits_equivalence_csp xor_direct xor_decomposed [2] [7]
-
--- ============================================================================
--- Main: Generate MiniZinc for Equivalence Check
--- ============================================================================
-
-/-- Generate MiniZinc and SMT-LIB code for XOR equivalence checking -/
-def main : IO Unit := do
-  saveAllBackendsAutoTimed xor_equivalence

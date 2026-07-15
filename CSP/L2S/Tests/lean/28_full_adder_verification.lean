@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Full Adder Circuit Verification (Pure Logic)
@@ -42,6 +40,3 @@ def full_adder_verification : IntCSP :=
     0
 
   ⟨nvars, bounds ++ [sum_def, ab, ac, bc, cout_def, neg_prop]⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed full_adder_verification

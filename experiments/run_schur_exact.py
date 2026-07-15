@@ -16,7 +16,7 @@ a CSP-level theorem about the original simple CSP `Schur.schur_sb n c`
 (`CSP/L2S/EndToEnd/SchurCertify.lean`).
 
 Reuses experiments/lib/{harness,lean_recheck}.py.  Writes experiments/schur_exact/results/timings.csv;
-certificates (incl. the ~98 MB S(4) kernel cert read by CSP/L2S/EndToEnd/Schur4Upper.lean) land in
+certificates (incl. the ~98 MB S(4) kernel cert read by CSP/L2S/EndToEnd/SchurCertify.lean (commented S(4) block)) land in
 experiments/schur_exact/artifacts/ (gitignored, regenerable).  One representative run per stage
 (no median-of-N) — startup noise dwarfs the cheap stages, and the S(4) solve is too costly to repeat.
 
@@ -140,6 +140,14 @@ def main() -> None:
             vrow, vok = harness.run_veripb(opb, pbp, kernel)
             if vok:
                 cert_bytes = vrow.get("veripb_proof_bytes", "")
+                # Two ways to measure the SAME committed in-Lean check, chosen by cert size:
+                #  * small certs (<= cap): native_decide over an `include_str` of the cert — the
+                #    reflective checker absorbs the cert as a term literal (lean_check_kind=native_decide);
+                #  * big certs (S(4): ~102 MB, > cap): include_str-as-a-literal is impractical, so we
+                #    measure the OTHER committed path — csp_unsat_file + a module `lake build` that
+                #    reads the cert from disk and ofReduceBool-reflects it with the precompiled checker
+                #    (lean_check_kind=ofReduceBool). pipeline_build_time nets out the fixed per-build
+                #    import overhead and returns (net_s, gross_s, status); `nv` is the same dump_opb nv.
                 if int(cert_bytes) <= NATIVE_DECIDE_CAP:
                     cabs = str(CERTDIR / f"schur_{'2_5' if (c,m)==(2,5) else '3_14'}_vp.pbp") \
                         if (c, m) in [(2, 5), (3, 14)] else str(kernel)
@@ -148,7 +156,11 @@ def main() -> None:
                     lean_chk = harness.fmt(t_chk)
                     ustatus = "UNSAT/CHECKED" if cok else "UNSAT/CHECK-FAIL"
                 else:
-                    lean_chk, ustatus = "", "UNSAT/EXTERNAL(cert too large)"
+                    net_s, _gross_s, pstat = lean_recheck.pipeline_build_time(
+                        VP_MODULE, vp_expr(m, c), nv, str(kernel), {}, timeout=2000)
+                    lean_chk = harness.fmt(net_s)
+                    kind = "ofReduceBool"
+                    ustatus = "UNSAT/CHECKED" if pstat == "OK" else "UNSAT/CHECK-FAIL"
             else:
                 ustatus = "VERIPB-FAIL"
         rows.append({"c": c, "n": m, "bound": "upper",

@@ -6,12 +6,12 @@ the *original simple* CSP `Schur.schur_sb n c` (bounds + sum-free triples, no sy
 * **lower bound** `S(c) ≥ n` — a MiniZinc value-precedence colouring witness, re-checked in the
   Lean kernel by `decide` (`csp_sat_file`);
 * **upper bound** `S(c) < n+1` — a pseudo-Boolean UNSAT certificate (roundingsat → veripb),
-  reflected in the kernel via `Lean.ofReduceBool` (`csp_reflect_unsat_csp` / `csp_unsat_file`).
+  reflected in the kernel via `Lean.ofReduceBool` (`csp_unsat_file`).
 
 Both legs run through the same symmetry-breaking constraint (Law–Lee `value_precedence c`, proved
 equisatisfiable in `CSP/L2S/Proofs/SchurValuePrecedence.lean`), so every theorem is about the plain
 `schur_sb`. The certified theorems live in `CSP/L2S/EndToEnd/SchurCertify.lean` (S(2), S(3)) and
-`CSP/L2S/EndToEnd/Schur4Upper.lean` (S(4)).
+the commented `S(4)` block in `CSP/L2S/EndToEnd/SchurCertify.lean` (S(4)).
 
 ## Layout
 
@@ -22,7 +22,7 @@ experiments/schur_exact/
 ```
 
 The S(4) upper-bound certificate is **~98 MB** — too large to commit — so it is **not** in git; it
-is regenerated on demand into `artifacts/` (see below). `CSP/L2S/EndToEnd/Schur4Upper.lean` reads it
+is regenerated on demand into `artifacts/` (see below). the commented `S(4)` block in `CSP/L2S/EndToEnd/SchurCertify.lean` reads it
 from `experiments/schur_exact/artifacts/schur_4_45_vp_kernel.pbp`, so that module only builds after
 the cert has been generated locally.
 
@@ -52,7 +52,7 @@ driven from `run_schur_exact.py`):
    schur_c{c}n{m}.opb schur_{c}_{m}_vp.pbp` → `s VERIFIED UNSATISFIABLE`, producing
    `artifacts/schur_{c}_{m}_vp_kernel.pbp` (S(4): ~98 MB).
 
-That final `schur_4_45_vp_kernel.pbp` is what `Schur4Upper.lean` loads and re-checks in the Lean
+That final `schur_4_45_vp_kernel.pbp` is what the `S(4)` block in `SchurCertify.lean` loads and re-checks in the Lean
 kernel (via `checkProofBool` + `ofReduceBool`). A wrong cert makes `checkProofBool` return `false`
 against the Lean-side formula, so the theorem fails to elaborate rather than becoming unsound —
 roundingsat, veripb, and the `.opb`/`.pbp` files all stay **outside** the trust base.
@@ -64,12 +64,10 @@ and the S(4) UNSAT leg (~46 s solve + veripb elaboration) writes the cert to `ar
 
 ```sh
 lake build CSP.L2S.EndToEnd.SchurCertify    # S(2)=4, S(3)=13 (committed small certs)
-lake build CSP.L2S.EndToEnd.Schur4Upper     # S(4)=44 (needs artifacts/schur_4_45_vp_kernel.pbp)
+ uncomment the S(4) block in SchurCertify.lean, then: lake build CSP.L2S.EndToEnd.SchurCertify # S(4)=44 (needs artifacts/schur_4_45_vp_kernel.pbp)
 ```
 
-`Schur4Upper.lean` reflects the 98 MB cert without `include_str` (which OOMs the parser at that
-size): the command `csp_reflect_unsat_csp` reads it with `IO.FS.readFile` at elaboration. The
-kernel check runs the compiled `checkProofBool` **interpreted** here (~21 min); the same check runs
-in ~49 s as a native executable (`experiments/lib/CheckBench.lean`, measured in
-`experiments/sbc/results/check_largest.csv`). Making the in-Lean check native needs a precompiled
-PBLean kernel library (a veripb packaging change), tracked separately.
+the `S(4)` block in `SchurCertify.lean` loads the cert with `csp_unsat_file` (reads it at elaboration via
+`IO.FS.readFile`, so the 98 MB never hits the parser). The kernel check runs `checkProofBool` as
+native code (~70 s) because PBLean ≥ v0.3.1 ships its kernel closure precompiled
+(`precompileModules`); interpreted, the same check takes ~21 min — see `docs/PRECOMPILE_AND_TRUST.md`.

@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Magic Sequence Problem (09_magicseq)
@@ -40,6 +38,3 @@ def magic_sequence_csp (n : ℕ) : IntCSP :=
 
 -- Specific instance: n=10
 def magicseq10 : IntCSP := magic_sequence_csp 10
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed magicseq10

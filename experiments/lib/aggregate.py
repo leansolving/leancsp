@@ -18,10 +18,14 @@ COLUMNS = [
     "wall_none_hi", "wall_sbc_hi", "speedup_wall_hi",           # wall-clock at the largest instance
     "det_none_geo", "det_sbc_geo", "speedup_det_geo",           # roundingsat deterministic effort
     "det_none_hi", "det_sbc_hi", "speedup_det_hi",              # deterministic at the largest instance
+    "check_none_hi", "check_sbc_hi",                            # native checkProofBool runtime (ns) at largest
+    "check_none_status", "check_sbc_status",                    # OK / TIMEOUT / FALSE (cert REJECTED) of the check
+    "pipe_none_hi", "pipe_sbc_hi",                              # in-Lean pipeline cost (s) at largest
+    "pipe_none_status", "pipe_sbc_status",                      # OK / TIMEOUT / BUILD-FAIL of the in-Lean build
     "n_pairs", "censored",
 ]
-# Checking cost is measured separately on the largest certificate per family (check_largest.py /
-# check_largest.csv), not per-instance during the sweep.
+# Checking costs are measured per instance during the sweep (sbc_sweep.py); here we surface the
+# value at the LARGEST instance per family, matching the solver columns.
 
 
 def _f(x):
@@ -104,6 +108,13 @@ def aggregate(rows):
                     return _f(r.get(col))
             return None
 
+        def at_hi_val(regime, col):          # raw cell (not parsed) at the largest instance
+            for r in rs:
+                if (r["regime"] == regime and r["roundingsat_status"] == "UNSAT"
+                        and r.get("size_param") and int(r["size_param"]) == hi):
+                    return r.get(col, "")
+            return ""
+
         def hi_stats(col, floor=0.0):
             n, s = at_hi("none", col), at_hi(sbc_regime, col)
             spd = (max(n, floor) / max(s, floor)) if (n and s) else None
@@ -131,6 +142,14 @@ def aggregate(rows):
             "det_none_hi": _p(det_none_hi),
             "det_sbc_hi": _p(det_sbc_hi),
             "speedup_det_hi": _p(det_spd_hi),
+            "check_none_hi": at_hi_val("none", "check_ns"),
+            "check_sbc_hi": at_hi_val(sbc_regime, "check_ns"),
+            "check_none_status": at_hi_val("none", "check_status"),
+            "check_sbc_status": at_hi_val(sbc_regime, "check_status"),
+            "pipe_none_hi": at_hi_val("none", "pipeline_net_s"),
+            "pipe_sbc_hi": at_hi_val(sbc_regime, "pipeline_net_s"),
+            "pipe_none_status": at_hi_val("none", "pipeline_status"),
+            "pipe_sbc_status": at_hi_val(sbc_regime, "pipeline_status"),
             "n_pairs": n_pairs, "censored": censored,
         })
     return out

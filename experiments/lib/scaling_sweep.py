@@ -17,13 +17,10 @@ TIMEOUT = 600           # seconds, hard per-solver-call limit
 REPEATS = 3             # median-of-N for wall-times
 SLOW_THRESHOLD = 90     # once a run exceeds this, stop repeating (use 1 sample)
 
-# roundingsat is typically a local build, not on PATH (same default as gen_cert.sh)
-_RSAT_DEFAULT = "/home/pablo/projects/roundingsat/build/roundingsat"
-RSAT = os.environ.get("ROUNDINGSAT", _RSAT_DEFAULT)
-if not Path(RSAT).exists():
-    RSAT = shutil.which("roundingsat") or sys.exit(
-        f"ERROR: roundingsat not found at {_RSAT_DEFAULT} or on PATH "
-        "(set ROUNDINGSAT)")
+# roundingsat is found via $ROUNDINGSAT (a path to the binary) or on PATH — no hardcoded location.
+RSAT = os.environ.get("ROUNDINGSAT") or shutil.which("roundingsat")
+if not RSAT or not Path(RSAT).exists():
+    sys.exit("ERROR: roundingsat not found — set $ROUNDINGSAT to its path or put it on PATH")
 
 
 def have(tool: str) -> bool:
@@ -52,7 +49,6 @@ COLUMNS = [
     "rsat_log_lines", "rsat_log_bytes",
     "veripb_proof_lines", "veripb_proof_bytes", "veripb_elaborate_time_s",
     "kernel_cert_chars",
-    "native_decide_time_s", "module_build_time_s",   # in-Lean checkpoints only
     "cnf_clauses", "sat_solver", "sat_time_s", "sat_status",
     "drat_lines", "drat_bytes", "drat_trim_time_s", "drat_trim_status",
 ]
@@ -125,7 +121,9 @@ def run_pb(family, size, row):
     t, status, out = timed(["veripb", "--elaborate", str(ker), str(opb), str(pbp)])
     row["veripb_elaborate_time_s"] = fmt(t)
     if status == "TIMEOUT" or "s VERIFIED UNSATISFIABLE" not in out:
-        row["veripb_proof_lines"] = status
+        # `status` reports the run, not the verdict: it is "ok" on a non-timeout failure, which
+        # verbatim put "ok" in a proof-length column. Mark it as harness.run_veripb does.
+        row["veripb_proof_lines"] = status if status == "TIMEOUT" else "FAIL"
         pbp.unlink(missing_ok=True)
         return False
     kl, kb = file_lines_bytes(ker)

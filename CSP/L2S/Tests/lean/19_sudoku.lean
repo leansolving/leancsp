@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Sudoku Puzzle
@@ -93,6 +91,3 @@ def sudoku_9 : IntCSP :=
 
 def sudoku_4 : IntCSP :=
   sudoku_csp 4 2
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed sudoku_9

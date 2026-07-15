@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # SEND + MORE = MONEY
@@ -26,6 +24,3 @@ def send_more_money : IntCSP :=
   let coeffs : _root_.Vector ℤ 8 := ⟨#[1000, 91, -90, 1, -9000, -900, 10, -1], rfl⟩
   let equation := linear_eq allVars8 coeffs 0
   ⟨8, bounds_list ++ [alldiff, s_nonzero, m_nonzero, equation]⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed send_more_money

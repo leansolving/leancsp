@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Schur Number Problem
@@ -94,6 +92,3 @@ def schur_2_5 : IntCSP := schur_csp 5 2
 
 -- S(3) = 13: {1,…,14} cannot be 3-coloured sum-free (UNSAT). veripb benchmark `schur14_3`.
 def schur_3_14 : IntCSP := schur_csp 14 3
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed schur_3_13

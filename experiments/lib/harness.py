@@ -16,11 +16,10 @@ TIMEOUT = 600          # hard per-solver-call limit (s)
 REPEATS = 3            # median-of-N wall-times
 SLOW_THRESHOLD = 60    # once a run exceeds this, stop repeating
 
-_RSAT_DEFAULT = "/home/pablo/projects/roundingsat/build/roundingsat"
-RSAT = os.environ.get("ROUNDINGSAT", _RSAT_DEFAULT)
-if not Path(RSAT).exists():
-    RSAT = shutil.which("roundingsat") or sys.exit(
-        f"ERROR: roundingsat not found at {_RSAT_DEFAULT} or on PATH (set ROUNDINGSAT)")
+# roundingsat is found via $ROUNDINGSAT (a path to the binary) or on PATH — no hardcoded location.
+RSAT = os.environ.get("ROUNDINGSAT") or shutil.which("roundingsat")
+if not RSAT or not Path(RSAT).exists():
+    sys.exit("ERROR: roundingsat not found — set $ROUNDINGSAT to its path or put it on PATH")
 
 
 def have(tool: str) -> bool:

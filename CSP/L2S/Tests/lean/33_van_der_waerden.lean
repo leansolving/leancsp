@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Van der Waerden Numbers W(2,3)
@@ -64,6 +62,3 @@ def vdw_2_3_8 : IntCSP := vdw_csp 8
 
 -- W(2,3) = 9: {1,…,9} forces a monochromatic 3-AP (UNSAT).
 def vdw_2_3_9 : IntCSP := vdw_csp 9
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed vdw_2_3_9

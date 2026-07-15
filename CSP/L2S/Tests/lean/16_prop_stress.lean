@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Propagation Stress Test
@@ -74,6 +72,3 @@ def prop_stress_csp (n : ℕ) (c : ℤ) : IntCSP :=
 -- Specific instance: N=100, C=10
 def prop_stress_100_10 : IntCSP :=
   prop_stress_csp 100 10
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed prop_stress_100_10

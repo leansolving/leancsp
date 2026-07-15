@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Solving 20 Linear Equations (06_eq20)
@@ -73,6 +71,3 @@ def eq20_equations : List (List ℤ × ℤ) := [
 def eq20_problem : IntCSP :=
   let n := 7
   linear_equations_csp n 0 10 eq20_equations
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed eq20_problem

@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Strange Graph Numbering Problem
@@ -99,6 +97,3 @@ def graph_numbering : IntCSP :=
    graph_bounds n ++
    [graph_alldifferent n] ++
    make_graph_constraints n graph_edges min_diff⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed graph_numbering

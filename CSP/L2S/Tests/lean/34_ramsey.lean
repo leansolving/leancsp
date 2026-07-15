@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Ramsey Number R(3,3)
@@ -70,6 +68,3 @@ def ramsey_3_3_K5 : IntCSP := ramsey_r33_csp 5
 
 -- R(3,3) = 6: K₆ forces a monochromatic triangle (UNSAT).
 def ramsey_3_3_K6 : IntCSP := ramsey_r33_csp 6
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed ramsey_3_3_K6

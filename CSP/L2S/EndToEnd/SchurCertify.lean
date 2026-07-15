@@ -68,10 +68,8 @@ theorem schur_3_ub : ¬ (Schur.schur_sb 14 3).isSatisfiableInt :=
   Schur.schur_unsat_of_value_precedence 14 3 (Schur.schurTriples 14)
     PB.SchurVP.schur_3_14_vp_unsat
 
--- `schur_4_ub : ¬ (Schur.schur_sb 45 4).isSatisfiableInt` (and `schur_4_exact`) live in
--- `CSP/L2S/EndToEnd/Schur4Upper.lean`: the n=45 vp certificate is ~98 MB, too large for
--- `include_str`, so it is read from disk with `IO.FS.readFile` instead.  Regenerate the cert
--- with the UNSAT pipeline via `experiments/run_schur_exact.py` (see experiments/schur_exact/README.md).
+-- `S(4) = 44` (`schur_4_ub`, `schur_4_exact`) is at the end of this file, commented out — its
+-- certificate is ~98 MB, too large to commit; enable it after generating the cert (see below).
 
 -- ============================================================================
 -- Exact values (both directions)
@@ -86,5 +84,30 @@ theorem schur_2_exact :
 theorem schur_3_exact :
     (Schur.schur_sb 13 3).isSatisfiableInt ∧ ¬ (Schur.schur_sb 14 3).isSatisfiableInt :=
   ⟨schur_3_lb, schur_3_ub⟩
+
+-- ============================================================================
+-- S(4) = 44 (disabled). The value-precedence certificate for n=45 is ~98 MB, too large to
+-- commit. Generate it with `python experiments/run_schur_exact.py` (writes
+-- `experiments/schur_exact/artifacts/schur_4_45_vp_kernel.pbp`), then remove the `/-` and `-/`
+-- around the block below to enable `schur_4_ub` / `schur_4_exact`.
+-- ============================================================================
+
+/-
+def schur_4_45_vp : IntCSP := (Schur.schur_sb 45 4).addConstraint (value_precedence 4)
+
+set_option maxRecDepth 100000 in
+theorem schur_4_45_vp_unsat : ¬ schur_4_45_vp.isSatisfiableInt :=
+  csp_unsat_file schur_4_45_vp 135
+    "../../../experiments/schur_exact/artifacts/schur_4_45_vp_kernel.pbp"
+
+/-- **`S(4) < 45`.** -/
+theorem schur_4_ub : ¬ (Schur.schur_sb 45 4).isSatisfiableInt :=
+  Schur.schur_unsat_of_value_precedence 45 4 (Schur.schurTriples 45) schur_4_45_vp_unsat
+
+/-- **`S(4) = 44`** — both directions. -/
+theorem schur_4_exact :
+    (Schur.schur_sb 44 4).isSatisfiableInt ∧ ¬ (Schur.schur_sb 45 4).isSatisfiableInt :=
+  ⟨schur_4_lb, schur_4_ub⟩
+-/
 
 end CSP.L2S.EndToEnd.SchurCertify

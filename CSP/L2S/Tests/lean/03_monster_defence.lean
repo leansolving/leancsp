@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Monster Defence Puzzle
@@ -26,6 +24,3 @@ def alldifferent_heterogeneous_csp (domains : List (ℤ × ℤ)) : IntCSP :=
 def monster_defence : IntCSP :=
   let domains := [(1, 3), (2, 3), (2, 3), (1, 5), (3, 6)]
   alldifferent_heterogeneous_csp domains
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed monster_defence

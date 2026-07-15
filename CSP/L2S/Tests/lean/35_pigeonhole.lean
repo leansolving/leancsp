@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Pigeonhole Principle PHP(p,h)
@@ -54,6 +52,3 @@ def php_7_6 : IntCSP := php_csp 7 6
 
 -- 9 pigeons into 8 holes (UNSAT).
 def php_9_8 : IntCSP := php_csp 9 8
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed php_3_2
