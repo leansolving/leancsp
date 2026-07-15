@@ -11,8 +11,10 @@ apart, encoded with one position variable per `(digit, copy)`.  Its only non-tri
 the **sequence reversal** `p ↦ 2n+1-p`, which on the variables is the *composite* of a value
 reflection and the copy-swap (the reversed first copy is the old second copy).  It is therefore
 neither a pure domain nor a pure variable symmetry, so we prove **equisatisfiability directly**:
-`langRev` maps every solution to a solution, and the lex break `x₀ ≤ n-1` is satisfied by a solution
-or its reversal.  `langford_unsat_of_rev` bridges UNSAT of the extended CSP to UNSAT of the base.
+`langRev` maps every solution to a solution, and the break `x₀ ≥ n` (the upper-half representative)
+is satisfied by a solution or its reversal.  `langford_unsat_of_rev` bridges UNSAT of the extended
+CSP to UNSAT of the base.  The equivalent lower-half break `x₀ ≤ n-1` (the mirror image, `langford_sb'`)
+is proved by the primed lemmas (`langford_sbc_break'`, `langford_equisat'`, `langford_unsat_of_rev'`).
 Parametric in `n`.
 -/
 
@@ -147,13 +149,13 @@ theorem langRev_sol (hsol : isSolutionInt (Bench.gen_langford n) a) :
       apply List.ext_getElem (by simp); intro i h1 h2; simp
     exact heq ▸ List.nodup_ofFn.mpr hinj
 
-/-! ### The lex break is satisfied by a solution or its reversal -/
+/-! ### The upper-half break `x₀ ≥ n` is satisfied by a solution or its reversal -/
 
 theorem langford_sbc_break (hn : 1 ≤ n) (hsol : isSolutionInt (Bench.gen_langford n) a) :
     satisfiesConstraintInt (Bench.langford_sb n) a ∨
     satisfiesConstraintInt (Bench.langford_sb n) (langRev n a) := by
   simp only [Bench.langford_sb, satisfiesConstraintInt, patternHolds]
-  by_cases h : valAt a 0 ≤ (n : ℤ) - 1
+  by_cases h : valAt a 0 ≥ (n : ℤ)
   · exact Or.inl h
   · refine Or.inr ?_
     have hsp0 := sol_spacing hsol 0 hn
@@ -178,5 +180,37 @@ theorem langford_unsat_of_rev (hn : 1 ≤ n)
     (h_unsat : ¬ isSatisfiableInt ((Bench.gen_langford n).addConstraint (Bench.langford_sb n))) :
     ¬ isSatisfiableInt (Bench.gen_langford n) :=
   fun hb => h_unsat ((langford_equisat hn).mp hb)
+
+/-! ### Lower-half break `x₀ ≤ n-1` (`langford_sb'`) — the mirror image, equally sound -/
+
+theorem langford_sbc_break' (hn : 1 ≤ n) (hsol : isSolutionInt (Bench.gen_langford n) a) :
+    satisfiesConstraintInt (Bench.langford_sb' n) a ∨
+    satisfiesConstraintInt (Bench.langford_sb' n) (langRev n a) := by
+  simp only [Bench.langford_sb', satisfiesConstraintInt, patternHolds]
+  by_cases h : valAt a 0 ≤ (n : ℤ) - 1
+  · exact Or.inl h
+  · refine Or.inr ?_
+    have hsp0 := sol_spacing hsol 0 hn
+    rw [valAt_langRev a 0 (by omega), show swapNat 0 = 1 by unfold swapNat; rfl]
+    simp only [Nat.zero_mul, Nat.zero_add] at hsp0
+    push_cast at h ⊢
+    omega
+
+theorem langford_equisat' (hn : 1 ≤ n) :
+    equisatisfiable (Bench.gen_langford n)
+      ((Bench.gen_langford n).addConstraint (Bench.langford_sb' n)) := by
+  constructor
+  · rintro ⟨a, hsol⟩
+    rcases langford_sbc_break' hn hsol with hsb | hsb
+    · exact ⟨a, fun c hc => by rcases List.mem_cons.mp hc with rfl | hm; exacts [hsb, hsol c hm]⟩
+    · exact ⟨langRev n a, fun c hc => by
+        rcases List.mem_cons.mp hc with rfl | hm; exacts [hsb, langRev_sol hsol c hm]⟩
+  · rintro ⟨a, hsol⟩
+    exact ⟨a, fun c hc => hsol c (List.mem_cons.mpr (Or.inr hc))⟩
+
+theorem langford_unsat_of_rev' (hn : 1 ≤ n)
+    (h_unsat : ¬ isSatisfiableInt ((Bench.gen_langford n).addConstraint (Bench.langford_sb' n))) :
+    ¬ isSatisfiableInt (Bench.gen_langford n) :=
+  fun hb => h_unsat ((langford_equisat' hn).mp hb)
 
 end CSP.L2S.PB.LangfordSB

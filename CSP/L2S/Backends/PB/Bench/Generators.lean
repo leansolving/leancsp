@@ -187,7 +187,7 @@ def mutilated_sb (k : ℕ) : IntConstraint (2 * (2 * k) * (2 * k - 1)) :=
 -- ============================================================================
 -- Langford L(2,n):  place 1,1,2,2,…,n,n so the two copies of d are d+1 apart.
 -- Mirrors `Tests/lean/10_langford_simple.lean langford_2n_csp`.  UNSAT iff
--- n ≡ 1,2 (mod 4).  Reversal (order-2) variable symmetry; SBC = `lt 0 (2n-1)`.
+-- n ≡ 1,2 (mod 4).  Reversal (order-2) variable symmetry; SBC = `x₀ ≥ n` (see `langford_sb`).
 -- ============================================================================
 
 /-- `L(2,n)` CSP: `2n` position variables (domain `1..2n`), `alldifferent`, and a
@@ -208,9 +208,17 @@ def gen_langford (n : ℕ) : IntCSP :=
   let alldiff : IntConstraint nv := alldifferent (_root_.Vector.ofFn id)
   ⟨nv, bounds ++ spacing ++ [alldiff]⟩
 
-/-- Variable SBC for Langford: digit-0's first copy lies in the first half (`x₀ ≤ n-1`), broken by
-    the sequence reversal `p ↦ 2n+1-p`.  Sound for all `n` (non-trivial for `n ≥ 1`). -/
+/-- Variable SBC for Langford: digit-0's first copy lies in the **second** half (`x₀ ≥ n`), the
+    upper-half representative of the sequence reversal `p ↦ 2n+1-p`.  Sound for all `n` (non-trivial
+    for `n ≥ 1`); verified in `Proofs/LangfordSB.lean`.  The equivalent lower-half form `x₀ ≤ n-1`
+    (its mirror image under the reversal) is kept as `langford_sb'`. -/
 def langford_sb (n : ℕ) : IntConstraint (n * 2) :=
+  IntConstraint.ge_const 0 (n : ℤ)
+
+/-- Lower-half variant of `langford_sb`: digit-0's first copy lies in the first half (`x₀ ≤ n-1`).
+    The mirror image of `langford_sb` under the reversal `p ↦ 2n+1-p`; equally sound (verified in
+    `Proofs/LangfordSB.lean`). -/
+def langford_sb' (n : ℕ) : IntConstraint (n * 2) :=
   IntConstraint.le_const 0 ((n : ℤ) - 1)
 
 -- ============================================================================
