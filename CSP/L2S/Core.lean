@@ -353,6 +353,77 @@ def extractAllBounds (csp : IntCSP) :
   fun var => extractVariableBounds csp var
 
 -- ============================================================================
+-- The `bound`-prefix shape
+-- ============================================================================
+
+/-!
+A CSP shaped `⟨n, (List.range n).map (fun x => bound x (lo x) (hi x)) ++ rest⟩` — one `bound` per
+variable, in order, then the problem constraints — reads its own bounds back, and so satisfies the
+`hbound` side-goal of `CSP.L2S.PB.csp_unsat` for every `n` at once.
+
+Pass `hbound_of_range_prefix` rather than letting `csp_unsat`'s `by decide` default re-derive it per
+instance: deciding it makes the elaborator reduce the generator symbolically, which costs minutes
+and gigabytes on large instances. CSPs given as literal data decide cheaply and need neither.
+-/
+
+/-- `List.range n` hits `i < n` exactly once, so a single-point `filterMap` over it is a singleton. -/
+theorem filterMap_range_single {α : Type} (n i : ℕ) (hi : i < n) (g : ℕ → α) :
+    (List.range n).filterMap (fun x => if x = i then some (g x) else none) = [g i] := by
+  induction n with
+  | zero => omega
+  | succ m ih =>
+    rw [List.range_succ, List.filterMap_append]
+    rcases Nat.lt_succ_iff_lt_or_eq.mp hi with h | h
+    · rw [ih h]; simp [Nat.ne_of_gt h]
+    · subst h
+      have : ∀ x ∈ List.range i, (if x = i then some (g x) else none) = none := by
+        intro x hx; simp [Nat.ne_of_lt (List.mem_range.mp hx)]
+      rw [List.filterMap_eq_nil_iff.mpr this]; simp
+
+/-- A `bound`-prefixed CSP reads its own bounds back: the prefix supplies the first (hence chosen)
+    match for every variable, whatever `rest` contains. -/
+theorem extractVariableBounds_of_range_prefix {n : ℕ} (lo hi : ℕ → ℤ)
+    (rest : List (IntConstraint n)) (i : Fin n) :
+    (IntCSP.mk n ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+        ++ rest)).extractVariableBounds i = (lo i.val, hi i.val) := by
+  show (match ((((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+          ++ rest)).filterMap _) with
+        | [] => ((-1000 : ℤ), (1000 : ℤ)) | (lb, ub) :: _ => (lb, ub)) = _
+  rw [List.filterMap_append, List.filterMap_map, Function.comp_def]
+  rw [filterMap_range_single n i.val i.isLt (fun x => (lo x, hi x))]
+  rfl
+
+/-- `csp_unsat`'s `hbound`, once and for all `n`, for any `bound`-prefixed CSP. -/
+theorem hbound_of_range_prefix {n : ℕ} (lo hi : ℕ → ℤ) (rest : List (IntConstraint n)) :
+    ∀ i : Fin (IntCSP.mk n ((List.range n).map
+        (fun x => IntConstraint.bound x (lo x) (hi x)) ++ rest)).num_vars,
+      IntConstraint.bound i.val
+          ((IntCSP.mk n ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ rest)).extractVariableBounds i).1
+          ((IntCSP.mk n ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ rest)).extractVariableBounds i).2
+        ∈ (IntCSP.mk n ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+            ++ rest)).constraints := by
+  intro i
+  rw [extractVariableBounds_of_range_prefix]
+  exact List.mem_append_left _ (List.mem_map_of_mem (List.mem_range.mpr i.isLt))
+
+/-- Same, for a generator ending `bounds ++ r₁ ++ r₂`. `++` is `infixl`, so that parses as
+    `(bounds ++ r₁) ++ r₂`, whose head is an append rather than the `map`. -/
+theorem hbound_of_range_prefix₂ {n : ℕ} (lo hi : ℕ → ℤ) (r₁ r₂ : List (IntConstraint n)) :
+    ∀ i : Fin (IntCSP.mk n ((List.range n).map
+        (fun x => IntConstraint.bound x (lo x) (hi x)) ++ r₁ ++ r₂)).num_vars,
+      IntConstraint.bound i.val
+          ((IntCSP.mk n ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ r₁ ++ r₂)).extractVariableBounds i).1
+          ((IntCSP.mk n ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ r₁ ++ r₂)).extractVariableBounds i).2
+        ∈ (IntCSP.mk n ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+            ++ r₁ ++ r₂)).constraints := by
+  rw [List.append_assoc]
+  exact hbound_of_range_prefix lo hi (r₁ ++ r₂)
+
+-- ============================================================================
 -- CSP Construction
 -- ============================================================================
 

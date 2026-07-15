@@ -3090,7 +3090,14 @@ theorem csp_unsat (csp : IntCSP)
         PBConstr.toNatConstr))
     (hbound : ∀ i : Fin csp.num_vars,
         bound i (csp.extractVariableBounds i).1 (csp.extractVariableBounds i).2
-          ∈ csp.constraints := by decide) :
+          ∈ csp.constraints := by
+      -- `decide` re-derives this per instance, which makes the elaborator reduce the CSP
+      -- symbolically: free on literal data, but minutes and GBs on generator-defined families.
+      -- The `range`-prefix theorems settle those in one step; `decide` still covers the rest.
+      first
+        | exact IntCSP.hbound_of_range_prefix _ _ _
+        | exact IntCSP.hbound_of_range_prefix₂ _ _ _ _
+        | decide) :
     ¬ csp.isSatisfiableInt := by
   intro hsat
   obtain ⟨v, hv⟩ := csp_sat_pb_sat csp hbound hsat
