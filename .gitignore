@@ -20,8 +20,8 @@ experiments/lib/.venv/
 experiments/*/results/*.smoke.*
 
 # Local-only working directories (not part of the repo).
-# Anchored to the repo root so committed data under experiments/*/results/ is unaffected.
-/docs/
+/docs/*
+!/docs/PRECOMPILE_AND_TRUST.md
 /results/
 /scripts/
 
