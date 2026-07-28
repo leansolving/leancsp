@@ -12,7 +12,7 @@ For each Schur number S(c) it times, end to end:
 
 Both directions use the SAME symmetry-breaking constraint (Law–Lee value precedence), proved
 equisatisfiable in `CSP/L2S/Proofs/SchurValuePrecedence.lean`, so every measurement maps onto
-a CSP-level theorem about the original simple CSP `Schur.schur_sb n c`
+a CSP-level theorem about the original simple CSP `Schur.schur_csp n c`
 (`CSP/L2S/EndToEnd/SchurCertify.lean`).
 
 Reuses experiments/lib/{harness,lean_recheck}.py.  Writes experiments/schur_exact/results/timings.csv;
@@ -54,7 +54,7 @@ COLUMNS = ["c", "n", "bound", "instance", "solve_tool", "solve_wall_s",
 
 
 def vp_expr(n: int, c: int) -> str:
-    return f"(Schur.schur_sb {n} {c}).addConstraint (value_precedence {c})"
+    return f"(Schur.schur_csp {n} {c}).addConstraint (value_precedence {c})"
 
 
 def mzn_model(n: int, c: int) -> str:

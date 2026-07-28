@@ -15,13 +15,13 @@ open CSP.L2S CSP.L2S.PB CSP.L2S.PB.NQueensSBC
 /-- **End-to-end: 2-Queens is unsolvable.** -/
 theorem nqueens_2_unsat : ¬ (nqueens_csp 2).isSatisfiableInt :=
   unsat_of_sbc _ _
-    (sb_constraint_is_symmetry_breaking 2 (by decide))
-    extended_nqueens_2_unsat
+    (nqueens_sbc_is_symmetry_breaking 2 (by decide))
+    sb_nqueens_2_unsat
 
 /-- **End-to-end: 3-Queens is unsolvable.** -/
 theorem nqueens_3_unsat : ¬ (nqueens_csp 3).isSatisfiableInt :=
   unsat_of_sbc _ _
-    (sb_constraint_is_symmetry_breaking 3 (by decide))
-    extended_nqueens_3_unsat
+    (nqueens_sbc_is_symmetry_breaking 3 (by decide))
+    sb_nqueens_3_unsat
 
 end CSP.L2S.EndToEnd.NQueens

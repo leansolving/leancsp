@@ -71,7 +71,7 @@ def schurRevWitness : (n : ℕ) → IntAssignment n
     vacuous). -/
 theorem reversal_not_schur_symmetry_range
     (n : ℕ) (h3 : 3 ≤ n) (h12 : n ≤ 12) :
-    ¬ VariableSymmetry (schur_csp_sb n 3 (schurTriples n)) Fin.revPerm := by
+    ¬ VariableSymmetry (schur_csp_triples n 3 (schurTriples n)) Fin.revPerm := by
   intro hsym
   interval_cases n <;>
     exact absurd (hsym (schurRevWitness _) (by decide)) (by decide)
@@ -80,7 +80,7 @@ theorem reversal_not_schur_symmetry_range
     theorem).** Witness `[0,1,1]` is a solution whose reversal `[1,1,0]` is monochromatic
     on the triple `1 + 1 = 2`. Named to match the `lstlisting` in `sec:cautionary`. -/
 theorem reversal_not_schur_symmetry :
-    ¬ VariableSymmetry (schur_csp_sb 3 3 (schurTriples 3)) Fin.revPerm :=
+    ¬ VariableSymmetry (schur_csp_triples 3 3 (schurTriples 3)) Fin.revPerm :=
   reversal_not_schur_symmetry_range 3 (by decide) (by decide)
 
 -- ============================================================================
@@ -112,7 +112,7 @@ instance instDecStrictLexRevLt {n : ℕ} (a : IntAssignment n) :
     reversal symmetry is `CSP.L2S.PB.LangfordSB.langford_sbc_break`. -/
 theorem schur_strict_reversal_leader_unsound :
     ∃ a : IntAssignment 13,
-      IntCSP.isSolutionInt (schur_csp_sb 13 3 (schurTriples 13)) a ∧
+      IntCSP.isSolutionInt (schur_csp_triples 13 3 (schurTriples 13)) a ∧
       ¬ (strictLexRevLt a ∨ strictLexRevLt (a ∘ Fin.revPerm)) := by
   refine ⟨![0, 1, 1, 0, 2, 2, 0, 2, 2, 0, 1, 1, 0], ?_, ?_⟩
   · decide
@@ -137,7 +137,7 @@ instance instDecLeLexRev {n : ℕ} (a : IntAssignment n) :
     of the unsoundness, and mirroring Langford's sound non-strict leader. -/
 theorem schur_nonstrict_reversal_leader_retains :
     ∃ a : IntAssignment 13,
-      IntCSP.isSolutionInt (schur_csp_sb 13 3 (schurTriples 13)) a ∧ leLexRev a := by
+      IntCSP.isSolutionInt (schur_csp_triples 13 3 (schurTriples 13)) a ∧ leLexRev a := by
   refine ⟨![0, 1, 1, 0, 2, 2, 0, 2, 2, 0, 1, 1, 0], ?_, ?_⟩
   · decide
   · decide

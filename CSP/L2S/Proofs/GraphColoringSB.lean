@@ -40,12 +40,12 @@ def graph_coloring_csp (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) (co
 -- ============================================================================
 
 /- Our candidate to symmetry breaking constraint (fix the color of node 0 to 0)-/
-def sb_constraint (nodes : ℕ) (h_nodes : 0 < nodes) : IntConstraint nodes :=
+def graph_coloring_sbc (nodes : ℕ) (h_nodes : 0 < nodes) : IntConstraint nodes :=
   equals_const ⟨0, h_nodes⟩ 0
 
 /- Extended CSP (including the SBC) -/
-def extended_graph_coloring_csp (nodes : ℕ) (h_nodes : 0 < nodes) (edges : List (Fin nodes × Fin nodes)) (colors : ℕ) : IntCSP :=
-  (graph_coloring_csp nodes edges colors).addConstraint (sb_constraint nodes h_nodes)
+def graph_coloring_sb (nodes : ℕ) (h_nodes : 0 < nodes) (edges : List (Fin nodes × Fin nodes)) (colors : ℕ) : IntCSP :=
+  (graph_coloring_csp nodes edges colors).addConstraint (graph_coloring_sbc nodes h_nodes)
 
 
 -- ============================================================================
@@ -131,12 +131,12 @@ theorem color_swap_is_symmetry (nodes colors : ℕ)
     exact not_equal_preserved_by_swap (color_swap c) u v
 
 /-- Result 2: The symmetry breaking constraint is a domain symmetry breaking constraint -/
-theorem sb_constraint_is_domain_symmetry_breaking (nodes colors : ℕ)
+theorem graph_coloring_sbc_is_domain_symmetry_breaking (nodes colors : ℕ)
     (h_nodes : 0 < nodes) (h_colors : 0 < colors)
     (edges : List (Fin nodes × Fin nodes)) :
     domainSymmetryBreakingConstraint
       (graph_coloring_csp nodes edges colors)
-      (sb_constraint nodes h_nodes) := by
+      (graph_coloring_sbc nodes h_nodes) := by
   intro assignment h_sol
   by_cases h : assignment ⟨0, h_nodes⟩ = 0
   · use DomainSymmetry.identity
@@ -146,7 +146,7 @@ theorem sb_constraint_is_domain_symmetry_breaking (nodes colors : ℕ)
       simp only [IntCSP.addConstraint] at h_tc_mem
       obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
       · rw [h_sbc]
-        simp only [IntCSP.satisfiesConstraintInt, sb_constraint, equals_const, patternHolds,
+        simp only [IntCSP.satisfiesConstraintInt, graph_coloring_sbc, equals_const, patternHolds,
           valAt, IntCSP.addConstraint, graph_coloring_csp, h_nodes, dif_pos,
           Function.comp_apply, DomainSymmetry.identity, Equiv.refl_apply]
         exact h
@@ -174,7 +174,7 @@ theorem sb_constraint_is_domain_symmetry_breaking (nodes colors : ℕ)
       simp only [IntCSP.addConstraint] at h_tc_mem
       obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
       · rw [h_sbc]
-        simp only [IntCSP.satisfiesConstraintInt, sb_constraint, equals_const, patternHolds,
+        simp only [IntCSP.satisfiesConstraintInt, graph_coloring_sbc, equals_const, patternHolds,
           valAt, IntCSP.addConstraint, graph_coloring_csp, h_nodes, dif_pos,
           Function.comp_apply]
         show (color_swap c) (assignment ⟨0, h_nodes⟩) = 0
@@ -186,14 +186,14 @@ theorem sb_constraint_is_domain_symmetry_breaking (nodes colors : ℕ)
         exact h_sol_orig tc h_orig
 
 /-- Result 3: The symmetry breaking constraint is a general symmetry breaking constraint -/
-theorem sb_constraint_is_symmetry_breaking (nodes colors : ℕ)
+theorem graph_coloring_sbc_is_symmetry_breaking (nodes colors : ℕ)
     (h_nodes : 0 < nodes) (h_colors : 0 < colors)
     (edges : List (Fin nodes × Fin nodes)) :
     symmetryBreakingConstraint
       (graph_coloring_csp nodes edges colors)
-      (sb_constraint nodes h_nodes) := by
+      (graph_coloring_sbc nodes h_nodes) := by
   left  -- Choose domain symmetry breaking
-  exact sb_constraint_is_domain_symmetry_breaking nodes colors h_nodes h_colors edges
+  exact graph_coloring_sbc_is_domain_symmetry_breaking nodes colors h_nodes h_colors edges
 
 /-- Result 4: Equisatisfiability - The extended CSP is equisatisfiable with the original -/
 theorem graph_coloring_equisatisfiability (nodes colors : ℕ)
@@ -201,9 +201,9 @@ theorem graph_coloring_equisatisfiability (nodes colors : ℕ)
     (edges : List (Fin nodes × Fin nodes)) :
     equisatisfiable
       (graph_coloring_csp nodes edges colors)
-      (extended_graph_coloring_csp nodes h_nodes edges colors) := by
+      (graph_coloring_sb nodes h_nodes edges colors) := by
   apply domainSymmetryBreaking_equisatisfiability
-  exact sb_constraint_is_domain_symmetry_breaking nodes colors h_nodes h_colors edges
+  exact graph_coloring_sbc_is_domain_symmetry_breaking nodes colors h_nodes h_colors edges
 
 -- ============================================================================
 -- Solver conversion
@@ -270,7 +270,7 @@ def main : IO Unit := do
       IO.println s!"Generating k-colorable G({n}, k={k}, p=0.8)..."
 
       let base_csp := graph_coloring_csp n edges k
-      let sbc_csp := extended_graph_coloring_csp n h_n edges k
+      let sbc_csp := graph_coloring_sb n h_n edges k
 
       -- Generate to new kcolorable/ directory
       saveToAuto base_csp s!"CSP/L2S/Proofs/mzn/graphcoloring/kcolorable/base_{n}" BackendType.MiniZinc

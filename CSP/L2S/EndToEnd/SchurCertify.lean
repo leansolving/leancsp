@@ -6,17 +6,17 @@ import CSP.L2S.Backends.PB.Problems.SchurVP
 # Certifying Schur numbers up to S(4) — at the CSP level, both directions
 
 Each Schur number is pinned by two CSP-level facts about the **original simple** CSP
-`Schur.schur_sb n c` (bounds + sum-free triples, *no* symmetry breaking):
+`Schur.schur_csp n c` (bounds + sum-free triples, *no* symmetry breaking):
 
-* a **lower bound** `S(c) ≥ n` = `(schur_sb n c).isSatisfiableInt`, from an external
+* a **lower bound** `S(c) ≥ n` = `(schur_csp n c).isSatisfiableInt`, from an external
   MiniZinc colouring witness re-checked in the Lean kernel by `decide` (`csp_sat_file`);
-* an **upper bound** `S(c) < n+1` = `¬ (schur_sb (n+1) c).isSatisfiableInt`, from a verified
+* an **upper bound** `S(c) < n+1` = `¬ (schur_csp (n+1) c).isSatisfiableInt`, from a verified
   pseudo-Boolean UNSAT certificate (`csp_unsat_file`).
 
 Both legs run through the **same** symmetry-breaking constraint — Law–Lee
 `value_precedence c` — proved equisatisfiable for the Schur CSP in
 `Proofs/SchurValuePrecedence.lean`.  The SBC-extended instance appears only inside each
-proof; every theorem below is stated about the *plain* `schur_sb`:
+proof; every theorem below is stated about the *plain* `schur_csp`:
 
 * lower bounds lift the witness via `Schur.schur_vp_equisatisfiability'` (`.mpr`);
 * upper bounds lift the certificate via `Schur.schur_unsat_of_value_precedence`.
@@ -36,22 +36,22 @@ namespace CSP.L2S.EndToEnd.SchurCertify
 -- ============================================================================
 
 /-- **`S(2) ≥ 4`.** -/
-theorem schur_2_lb : (Schur.schur_sb 4 2).isSatisfiableInt :=
+theorem schur_2_lb : (Schur.schur_csp 4 2).isSatisfiableInt :=
   (Schur.schur_vp_equisatisfiability' 4 2).mpr
-    (csp_sat_file ((Schur.schur_sb 4 2).addConstraint (value_precedence 2))
+    (csp_sat_file ((Schur.schur_csp 4 2).addConstraint (value_precedence 2))
       "CSP/L2S/EndToEnd/sols/schur_c2_n4.sol")
 
 /-- **`S(3) ≥ 13`.** -/
-theorem schur_3_lb : (Schur.schur_sb 13 3).isSatisfiableInt :=
+theorem schur_3_lb : (Schur.schur_csp 13 3).isSatisfiableInt :=
   (Schur.schur_vp_equisatisfiability' 13 3).mpr
-    (csp_sat_file ((Schur.schur_sb 13 3).addConstraint (value_precedence 3))
+    (csp_sat_file ((Schur.schur_csp 13 3).addConstraint (value_precedence 3))
       "CSP/L2S/EndToEnd/sols/schur_c3_n13.sol")
 
 set_option maxRecDepth 10000 in
 /-- **`S(4) ≥ 44`.** -/
-theorem schur_4_lb : (Schur.schur_sb 44 4).isSatisfiableInt :=
+theorem schur_4_lb : (Schur.schur_csp 44 4).isSatisfiableInt :=
   (Schur.schur_vp_equisatisfiability' 44 4).mpr
-    (csp_sat_file ((Schur.schur_sb 44 4).addConstraint (value_precedence 4))
+    (csp_sat_file ((Schur.schur_csp 44 4).addConstraint (value_precedence 4))
       "CSP/L2S/EndToEnd/sols/schur_c4_n44.sol")
 
 -- ============================================================================
@@ -59,12 +59,12 @@ theorem schur_4_lb : (Schur.schur_sb 44 4).isSatisfiableInt :=
 -- ============================================================================
 
 /-- **`S(2) < 5`.** -/
-theorem schur_2_ub : ¬ (Schur.schur_sb 5 2).isSatisfiableInt :=
+theorem schur_2_ub : ¬ (Schur.schur_csp 5 2).isSatisfiableInt :=
   Schur.schur_unsat_of_value_precedence 5 2 (Schur.schurTriples 5)
     PB.SchurVP.schur_2_5_vp_unsat
 
 /-- **`S(3) < 14`.** -/
-theorem schur_3_ub : ¬ (Schur.schur_sb 14 3).isSatisfiableInt :=
+theorem schur_3_ub : ¬ (Schur.schur_csp 14 3).isSatisfiableInt :=
   Schur.schur_unsat_of_value_precedence 14 3 (Schur.schurTriples 14)
     PB.SchurVP.schur_3_14_vp_unsat
 
@@ -77,12 +77,12 @@ theorem schur_3_ub : ¬ (Schur.schur_sb 14 3).isSatisfiableInt :=
 
 /-- **`S(2) = 4`.** -/
 theorem schur_2_exact :
-    (Schur.schur_sb 4 2).isSatisfiableInt ∧ ¬ (Schur.schur_sb 5 2).isSatisfiableInt :=
+    (Schur.schur_csp 4 2).isSatisfiableInt ∧ ¬ (Schur.schur_csp 5 2).isSatisfiableInt :=
   ⟨schur_2_lb, schur_2_ub⟩
 
 /-- **`S(3) = 13`.** -/
 theorem schur_3_exact :
-    (Schur.schur_sb 13 3).isSatisfiableInt ∧ ¬ (Schur.schur_sb 14 3).isSatisfiableInt :=
+    (Schur.schur_csp 13 3).isSatisfiableInt ∧ ¬ (Schur.schur_csp 14 3).isSatisfiableInt :=
   ⟨schur_3_lb, schur_3_ub⟩
 
 -- ============================================================================
@@ -93,7 +93,7 @@ theorem schur_3_exact :
 -- ============================================================================
 
 /-
-def schur_4_45_vp : IntCSP := (Schur.schur_sb 45 4).addConstraint (value_precedence 4)
+def schur_4_45_vp : IntCSP := (Schur.schur_csp 45 4).addConstraint (value_precedence 4)
 
 set_option maxRecDepth 100000 in
 theorem schur_4_45_vp_unsat : ¬ schur_4_45_vp.isSatisfiableInt :=
@@ -101,12 +101,12 @@ theorem schur_4_45_vp_unsat : ¬ schur_4_45_vp.isSatisfiableInt :=
     "../../../experiments/schur_exact/artifacts/schur_4_45_vp_kernel.pbp"
 
 /-- **`S(4) < 45`.** -/
-theorem schur_4_ub : ¬ (Schur.schur_sb 45 4).isSatisfiableInt :=
+theorem schur_4_ub : ¬ (Schur.schur_csp 45 4).isSatisfiableInt :=
   Schur.schur_unsat_of_value_precedence 45 4 (Schur.schurTriples 45) schur_4_45_vp_unsat
 
 /-- **`S(4) = 44`** — both directions. -/
 theorem schur_4_exact :
-    (Schur.schur_sb 44 4).isSatisfiableInt ∧ ¬ (Schur.schur_sb 45 4).isSatisfiableInt :=
+    (Schur.schur_csp 44 4).isSatisfiableInt ∧ ¬ (Schur.schur_csp 45 4).isSatisfiableInt :=
   ⟨schur_4_lb, schur_4_ub⟩
 -/
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate an (untrusted) value-precedence colouring witness for the Schur CSP
-`(Schur.schur_sb n c).addConstraint (value_precedence c)`, and commit it under
+`(Schur.schur_csp n c).addConstraint (value_precedence c)`, and commit it under
 CSP/L2S/EndToEnd/sols/<out>.sol as a space-separated list of n colours.
 
 SAT-direction analog of experiments/gen_cert.py (Python port of scripts/gen_sol.sh).  The

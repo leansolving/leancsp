@@ -36,14 +36,14 @@ namespace CSP.L2S.EndToEnd.SchurExact
 theorem S2_ge_4 : _root_.Schur.SchurColorable 4 2 :=
   (_root_.Schur.schur_csp_iff_colorable 4 2).mp
     ((_root_.Schur.schur_sb_equisatisfiability' 4 2 (by decide) (by decide)).mpr
-      (csp_sat_file (_root_.Schur.extended_schur 4 (by decide) 2)
+      (csp_sat_file (_root_.Schur.schur_sb 4 (by decide) 2)
         "CSP/L2S/EndToEnd/sols/schur_c2_n4.sol"))
 
 /-- **`S(3) ≥ 13`.** `{1,…,13}` is 3-colourable sum-free. -/
 theorem S3_ge_13 : _root_.Schur.SchurColorable 13 3 :=
   (_root_.Schur.schur_csp_iff_colorable 13 3).mp
     ((_root_.Schur.schur_sb_equisatisfiability' 13 3 (by decide) (by decide)).mpr
-      (csp_sat_file (_root_.Schur.extended_schur 13 (by decide) 3)
+      (csp_sat_file (_root_.Schur.schur_sb 13 (by decide) 3)
         "CSP/L2S/EndToEnd/sols/schur_c3_n13.sol"))
 
 set_option maxRecDepth 10000 in
@@ -51,7 +51,7 @@ set_option maxRecDepth 10000 in
 theorem S4_ge_44 : _root_.Schur.SchurColorable 44 4 :=
   (_root_.Schur.schur_csp_iff_colorable 44 4).mp
     ((_root_.Schur.schur_sb_equisatisfiability' 44 4 (by decide) (by decide)).mpr
-      (csp_sat_file (_root_.Schur.extended_schur 44 (by decide) 4)
+      (csp_sat_file (_root_.Schur.schur_sb 44 (by decide) 4)
         "CSP/L2S/EndToEnd/sols/schur_c4_n44.sol"))
 
 -- ============================================================================

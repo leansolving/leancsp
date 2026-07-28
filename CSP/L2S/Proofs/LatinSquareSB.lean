@@ -252,12 +252,12 @@ def sorting_permutation (n : ℕ) (first_row : Fin n → ℤ) : Equiv.Perm (Fin 
 
 /- Symmetry breaking constraint: first row must be in non-decreasing order.
    Uses the new `increasing` constraint. -/
-def sb_constraint (n : ℕ) (h_n : 0 < n) : IntConstraint (n*n) :=
+def latin_square_sbc (n : ℕ) (h_n : 0 < n) : IntConstraint (n*n) :=
   increasing (row_variables ⟨0, h_n⟩)
 
 /- Extended CSP (including the SBC) -/
-def extended_latin_square_csp (n : ℕ) (h_n : 0 < n) : IntCSP :=
-  (latin_square_csp n).addConstraint (sb_constraint n h_n)
+def latin_square_sb (n : ℕ) (h_n : 0 < n) : IntCSP :=
+  (latin_square_csp n).addConstraint (latin_square_sbc n h_n)
 
 -- ============================================================================
 -- Symmetry-Breaking Correctness
@@ -393,10 +393,10 @@ theorem column_permutation_is_variable_symmetry (n : ℕ) (h_n : 0 < n) (σ : Eq
     exact (alldifferent_get_holds_iff _ _).mp this
 
 /-- Result 2: The symmetry breaking constraint is a variable symmetry breaking constraint -/
-theorem sb_constraint_is_variable_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
+theorem latin_square_sbc_is_variable_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
     variableSymmetryBreakingConstraint
       (latin_square_csp n)
-      (sb_constraint n h_n) := by
+      (latin_square_sbc n h_n) := by
   unfold variableSymmetryBreakingConstraint
   intro assignment h_sol
 
@@ -412,7 +412,7 @@ theorem sb_constraint_is_variable_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
     simp only [IntCSP.addConstraint] at h_tc_mem
     obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
     · rw [h_sbc]
-      unfold sb_constraint
+      unfold latin_square_sbc
       refine (increasing_get_holds_iff (row_variables ⟨0, h_n⟩) _).mpr ?_
 
       have h_mono : Monotone (first_row ∘ σ) := by
@@ -450,21 +450,21 @@ theorem sb_constraint_is_variable_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
       exact h_sol_orig tc h_orig
 
 /-- Result 3: General symmetry breaking constraint -/
-theorem sb_constraint_is_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
+theorem latin_square_sbc_is_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
     symmetryBreakingConstraint
       (latin_square_csp n)
-      (sb_constraint n h_n) := by
+      (latin_square_sbc n h_n) := by
   unfold symmetryBreakingConstraint
   right  -- Choose variable symmetry breaking
-  exact sb_constraint_is_variable_symmetry_breaking n h_n
+  exact latin_square_sbc_is_variable_symmetry_breaking n h_n
 
 /-- Result 4: Equisatisfiability -/
 theorem latin_square_equisatisfiability (n : ℕ) (h_n : 0 < n) :
     equisatisfiable
       (latin_square_csp n)
-      (extended_latin_square_csp n h_n) := by
+      (latin_square_sb n h_n) := by
   apply variableSymmetryBreaking_equisatisfiability
-  exact sb_constraint_is_variable_symmetry_breaking n h_n
+  exact latin_square_sbc_is_variable_symmetry_breaking n h_n
 
 -- ============================================================================
 -- Solver translation
@@ -484,7 +484,7 @@ def main : IO Unit := do
       IO.println s!"  Generating n={n}..."
 
       let base_csp := latin_square_csp n
-      let sbc_csp := extended_latin_square_csp n h_n
+      let sbc_csp := latin_square_sb n h_n
 
       -- Generate base instances
       saveToAuto base_csp s!"CSP/L2S/Proofs/mzn/latin_square/base_{n}" BackendType.MiniZinc

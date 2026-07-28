@@ -12,7 +12,7 @@ involution `i*n+j ↦ σi*n+σj` with `σ` swapping `0,1`.
 
 This file proves, **parametrically in `m`**, that `matchSwap` is an involutive in-range permutation
 of the variables, that it is a `VariableSymmetry` of `gen_matching m`, and hence that
-`matching_sb m` is a sound `variableSymmetryBreakingConstraint`, giving `matching_unsat_of_var`.
+`matching_sbc m` is a sound `variableSymmetryBreakingConstraint`, giving `matching_unsat_of_var`.
 -/
 
 namespace CSP.L2S.PB.MatchingSB
@@ -241,8 +241,8 @@ theorem match_is_variable_symmetry (m : ℕ) (hm : 1 ≤ m) :
 
 /-! ### The symmetry-breaking constraint is sound -/
 
-theorem matching_sb_is_variable_symmetry_breaking (m : ℕ) (hm : 1 ≤ m) :
-    variableSymmetryBreakingConstraint (gen_matching m) (matching_sb m) := by
+theorem matching_sbc_is_variable_symmetry_breaking (m : ℕ) (hm : 1 ≤ m) :
+    variableSymmetryBreakingConstraint (gen_matching m) (matching_sbc m) := by
   have h2 : (2 : ℕ) < (2 * m + 1) * (2 * m + 1) := by nlinarith [hm]
   have hs2 : matchSwap m 2 < (2 * m + 1) * (2 * m + 1) := matchSwap_lt m 2 hm h2
   intro a hsol
@@ -250,15 +250,15 @@ theorem matching_sb_is_variable_symmetry_breaking (m : ℕ) (hm : 1 ≤ m) :
   · refine ⟨Equiv.refl _, VariableSymmetry.identity_is_symmetry _, ?_⟩
     intro c hc
     rcases List.mem_cons.mp hc with rfl | hmem
-    · show satisfiesConstraintInt (matching_sb m) (a ∘ Equiv.refl _)
-      simp only [matching_sb, satisfiesConstraintInt, patternHolds, Equiv.coe_refl]
+    · show satisfiesConstraintInt (matching_sbc m) (a ∘ Equiv.refl _)
+      simp only [matching_sbc, satisfiesConstraintInt, patternHolds, Equiv.coe_refl]
       exact hle
     · exact hsol c hmem
   · refine ⟨matchPerm m hm, match_is_variable_symmetry m hm, ?_⟩
     intro c hc
     rcases List.mem_cons.mp hc with rfl | hmem
-    · show satisfiesConstraintInt (matching_sb m) (a ∘ matchPerm m hm)
-      simp only [matching_sb, satisfiesConstraintInt, patternHolds]
+    · show satisfiesConstraintInt (matching_sbc m) (a ∘ matchPerm m hm)
+      simp only [matching_sbc, satisfiesConstraintInt, patternHolds]
       rw [show valAt (a ∘ matchPerm m hm) 2 = valAt a (matchSwap m 2) from valAt_swap m hm a 2 h2,
           show valAt (a ∘ matchPerm m hm) (matchSwap m 2)
             = valAt a (matchSwap m (matchSwap m 2)) from valAt_swap m hm a (matchSwap m 2) hs2,
@@ -267,9 +267,9 @@ theorem matching_sb_is_variable_symmetry_breaking (m : ℕ) (hm : 1 ≤ m) :
     · exact match_is_variable_symmetry m hm a hsol c hmem
 
 theorem matching_unsat_of_var (m : ℕ) (hm : 1 ≤ m)
-    (h_unsat : ¬ isSatisfiableInt ((gen_matching m).addConstraint (matching_sb m))) :
+    (h_unsat : ¬ isSatisfiableInt ((gen_matching m).addConstraint (matching_sbc m))) :
     ¬ isSatisfiableInt (gen_matching m) :=
-  unsat_of_variable_sbc (gen_matching m) (matching_sb m)
-    (matching_sb_is_variable_symmetry_breaking m hm) h_unsat
+  unsat_of_variable_sbc (gen_matching m) (matching_sbc m)
+    (matching_sbc_is_variable_symmetry_breaking m hm) h_unsat
 
 end CSP.L2S.PB.MatchingSB

@@ -53,12 +53,12 @@ def nqueens_csp (n : ℕ) : IntCSP :=
 
 /- Our candidate to symmetry breaking constraint: first queen must be placed
 on the first half of the first column -/
-def sb_constraint (n : ℕ) (h_n : 0 < n) : IntConstraint n :=
+def nqueens_sbc (n : ℕ) (h_n : 0 < n) : IntConstraint n :=
   less_than_const ⟨0, h_n⟩ ((n + 1) / 2)
 
 /- Extended CSP -/
-def extended_nqueens_csp (n : ℕ) (h_n : 0 < n) : IntCSP :=
-  (nqueens_csp n).addConstraint (sb_constraint n h_n)
+def nqueens_sb (n : ℕ) (h_n : 0 < n) : IntCSP :=
+  (nqueens_csp n).addConstraint (nqueens_sbc n h_n)
 
 -- ============================================================================
 -- Symmetry Function
@@ -247,8 +247,8 @@ theorem horizontal_reflection_is_symmetry (n : ℕ) :
   · cases h7
 
 /-- Result 2: The symmetry breaking constraint is a domain symmetry breaking constraint -/
-theorem sb_constraint_is_domain_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
-    domainSymmetryBreakingConstraint (nqueens_csp n) (sb_constraint n h_n) := by
+theorem nqueens_sbc_is_domain_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
+    domainSymmetryBreakingConstraint (nqueens_csp n) (nqueens_sbc n h_n) := by
   intro assignment h_sol
   by_cases h : assignment ⟨0, h_n⟩ < ((↑n + 1) / 2 : ℤ)
   · use DomainSymmetry.identity
@@ -258,7 +258,7 @@ theorem sb_constraint_is_domain_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
       simp only [IntCSP.addConstraint] at h_tc_mem
       obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
       · rw [h_sbc]
-        simp only [IntCSP.satisfiesConstraintInt, sb_constraint, less_than_const, patternHolds,
+        simp only [IntCSP.satisfiesConstraintInt, nqueens_sbc, less_than_const, patternHolds,
           valAt, IntCSP.addConstraint, nqueens_csp, h_n, dif_pos, Function.comp_apply,
           DomainSymmetry.identity, Equiv.refl_apply]
         exact h
@@ -272,7 +272,7 @@ theorem sb_constraint_is_domain_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
       simp only [IntCSP.addConstraint] at h_tc_mem
       obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
       · rw [h_sbc]
-        simp only [IntCSP.satisfiesConstraintInt, sb_constraint, less_than_const, patternHolds,
+        simp only [IntCSP.satisfiesConstraintInt, nqueens_sbc, less_than_const, patternHolds,
           valAt, IntCSP.addConstraint, nqueens_csp, h_n, dif_pos, Function.comp_apply]
         show (horizontal_reflection n) (assignment ⟨0, h_n⟩) < ((↑n + 1) / 2 : ℤ)
         unfold horizontal_reflection
@@ -333,17 +333,17 @@ theorem sb_constraint_is_domain_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
         exact h_sol_reflected tc h_orig
 
 /-- Result 3: General symmetry breaking constraint -/
-theorem sb_constraint_is_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
-    symmetryBreakingConstraint (nqueens_csp n) (sb_constraint n h_n) := by
+theorem nqueens_sbc_is_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
+    symmetryBreakingConstraint (nqueens_csp n) (nqueens_sbc n h_n) := by
   unfold symmetryBreakingConstraint
   left
-  exact sb_constraint_is_domain_symmetry_breaking n h_n
+  exact nqueens_sbc_is_domain_symmetry_breaking n h_n
 
 /-- Result 4: Equisatisfiability -/
 theorem nqueens_equisatisfiability (n : ℕ) (h_n : 0 < n) :
-    equisatisfiable (nqueens_csp n) (extended_nqueens_csp n h_n) := by
+    equisatisfiable (nqueens_csp n) (nqueens_sb n h_n) := by
   apply domainSymmetryBreaking_equisatisfiability
-  exact sb_constraint_is_domain_symmetry_breaking n h_n
+  exact nqueens_sbc_is_domain_symmetry_breaking n h_n
 
 -- ============================================================================
 -- Solver translation
@@ -364,7 +364,7 @@ def main : IO Unit := do
       IO.println s!"  Generating n={n}..."
 
       let base_csp := nqueens_csp n
-      let sbc_csp := extended_nqueens_csp n h_n
+      let sbc_csp := nqueens_sb n h_n
 
       -- Generate base instances
       saveToAuto base_csp s!"CSP/L2S/Proofs/mzn/nqueens/base_{n}" BackendType.MiniZinc

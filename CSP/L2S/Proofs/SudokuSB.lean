@@ -68,12 +68,12 @@ private lemma gs_sq_pos : 0 < gridSize b * gridSize b :=
   Nat.mul_pos (gs_pos h_b) (gs_pos h_b)
 
 /-- SBC: fix cell (0,0) to value 0 -/
-def sudoku_sb_constraint : IntConstraint (gridSize b * gridSize b) :=
+def sudoku_sbc : IntConstraint (gridSize b * gridSize b) :=
   equals_const ⟨0, gs_sq_pos h_b⟩ 0
 
 /-- Extended Sudoku CSP -/
-def extended_sudoku_csp : IntCSP :=
-  (sudoku_csp b).addConstraint (sudoku_sb_constraint h_b)
+def sudoku_sb : IntCSP :=
+  (sudoku_csp b).addConstraint (sudoku_sbc h_b)
 
 -- ============================================================================
 -- Auxiliary: Interval Preservation
@@ -155,7 +155,7 @@ theorem sudoku_value_swap_is_symmetry (v₀ : ℤ)
 theorem sudoku_sb_is_domain_symmetry_breaking :
     domainSymmetryBreakingConstraint
       (sudoku_csp b)
-      (sudoku_sb_constraint h_b) := by
+      (sudoku_sbc h_b) := by
   intro assignment h_sol
   by_cases h : assignment ⟨0, gs_sq_pos h_b⟩ = 0
   · -- Already satisfies SBC: use identity
@@ -166,7 +166,7 @@ theorem sudoku_sb_is_domain_symmetry_breaking :
       simp only [IntCSP.addConstraint] at h_tc_mem
       obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
       · rw [h_sbc]
-        simp only [IntCSP.satisfiesConstraintInt, sudoku_sb_constraint, equals_const, patternHolds,
+        simp only [IntCSP.satisfiesConstraintInt, sudoku_sbc, equals_const, patternHolds,
           valAt, IntCSP.addConstraint, sudoku_csp, gs_sq_pos h_b, dif_pos, Function.comp_apply,
           DomainSymmetry.identity, Equiv.refl_apply]
         exact h
@@ -182,7 +182,7 @@ theorem sudoku_sb_is_domain_symmetry_breaking :
       simp only [IntCSP.addConstraint] at h_tc_mem
       obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
       · rw [h_sbc]
-        simp only [IntCSP.satisfiesConstraintInt, sudoku_sb_constraint, equals_const, patternHolds,
+        simp only [IntCSP.satisfiesConstraintInt, sudoku_sbc, equals_const, patternHolds,
           valAt, IntCSP.addConstraint, sudoku_csp, gs_sq_pos h_b, dif_pos, Function.comp_apply]
         show (sudoku_value_swap v₀) v₀ = 0
         unfold sudoku_value_swap
@@ -199,7 +199,7 @@ theorem sudoku_sb_is_domain_symmetry_breaking :
 theorem sudoku_sb_is_symmetry_breaking :
     symmetryBreakingConstraint
       (sudoku_csp b)
-      (sudoku_sb_constraint h_b) := by
+      (sudoku_sbc h_b) := by
   left
   exact sudoku_sb_is_domain_symmetry_breaking h_b
 
@@ -211,7 +211,7 @@ theorem sudoku_sb_is_symmetry_breaking :
 theorem sudoku_sb_equisatisfiability :
     equisatisfiable
       (sudoku_csp b)
-      (extended_sudoku_csp h_b) := by
+      (sudoku_sb h_b) := by
   apply domainSymmetryBreaking_equisatisfiability
   exact sudoku_sb_is_domain_symmetry_breaking h_b
 

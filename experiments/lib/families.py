@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 GC = "CSP.L2S.Proofs.GraphColoringSB"            # graph_coloring_csp
-SCH = "CSP.L2S.Proofs.SchurSB"                    # Schur.schur_sb
-PHP = "CSP.L2S.Proofs.PigeonholeValuePrecedence"  # Pigeonhole.php_sb
+SCH = "CSP.L2S.Proofs.SchurSB"                    # Schur.schur_csp
+PHP = "CSP.L2S.Proofs.PigeonholeValuePrecedence"  # Pigeonhole.php_csp
 GEN = "CSP.L2S.Backends.PB.Bench.Generators"      # Bench.gen_*
 RMS = "CSP.L2S.Proofs.RamseyValuePrecedence"      # ramsey_r33_csp (+ verified vp glue)
 
@@ -74,16 +74,16 @@ FAMILIES = {
         glue_import=SCVP,
         glue=lambda i: f"Schur.schur_unsat_of_value_precedence {i['nat']} {i['colors']} "
                        f"(Schur.schurTriples {i['nat']})",
-        instances=[inst(f"c{c}n{n}", n, f"Schur.schur_sb {n} {c}", c)
+        instances=[inst(f"c{c}n{n}", n, f"Schur.schur_csp {n} {c}", c)
                    for c, ns in SCHUR_BAND.items() for n in ns]),
     "vdw": dict(module=GEN, axis="vars", regimes=["none", "vp"],
-        note="Van der Waerden W(r,3) via schur_csp_sb (vp verified, any r)", glue_import=SCVP,
+        note="Van der Waerden W(r,3) via schur_csp_triples (vp verified, any r)", glue_import=SCVP,
         glue=lambda i: f"Schur.schur_unsat_of_value_precedence {i['nat']} {i['colors']} "
                        f"(Bench.vdwTriples {i['nat']})",
         instances=[inst(f"W{r}3n{n}", n, f"Bench.gen_vdw3 {r} {n}", r) for (r, n) in VDW_BAND]),
     "php": dict(module=PHP, axis="h", regimes=["none", "vp"], note="PHP(h+1,h)", glue_import=PHVP,
         glue=lambda i: f"Pigeonhole.php_unsat_of_value_precedence {i['pigeons']} {i['nat']}",
-        instances=[inst(f"h{h}", h, f"Pigeonhole.php_sb {h + 1} {h}", h, pigeons=h + 1)
+        instances=[inst(f"h{h}", h, f"Pigeonhole.php_csp {h + 1} {h}", h, pigeons=h + 1)
                    for h in range(2, 13)]),
     "clique_coloring": dict(module=GEN, axis="vars", regimes=["none", "vp"],
         note="Mycielskian Mⱼ (χ=j+2) with j+1 colours; triangle-free, χ>clique", glue_import=GCVP,
@@ -108,19 +108,19 @@ FAMILIES = {
     # ===== VARIABLE-symmetric (lex/reflection variable SBC; verified via *SB.lean) =====
     "mutilated": dict(module=GEN, axis="board", regimes=["none", "var"],
         note="2k×2k mutilated board; diagonal-reflection SBC (verified)",
-        var_sbc=lambda i: f"Bench.mutilated_sb {i['k']}",
+        var_sbc=lambda i: f"Bench.mutilated_sbc {i['k']}",
         glue_import="CSP.L2S.Proofs.MutilatedSB",
         glue=lambda i: f"CSP.L2S.PB.MutilatedSB.mutilated_unsat_of_var {i['k']} (by norm_num)",
         instances=[inst(f"b{2 * k}", 2 * k, f"Bench.gen_mutilated {k}", 2, k=k) for k in range(2, 7)]),
     "matching": dict(module=GEN, axis="verts", regimes=["none", "var"],
         note="perfect matching on K_{2m+1}; vertex-transposition SBC (verified)",
-        var_sbc=lambda i: f"Bench.matching_sb {i['m']}",
+        var_sbc=lambda i: f"Bench.matching_sbc {i['m']}",
         glue_import="CSP.L2S.Proofs.MatchingSB",
         glue=lambda i: f"CSP.L2S.PB.MatchingSB.matching_unsat_of_var {i['m']} (by norm_num)",
         instances=[inst(f"K{2 * m + 1}", 2 * m + 1, f"Bench.gen_matching {m}", 2, m=m) for m in range(2, 10)]),
     "langford": dict(module=GEN, axis="n", regimes=["none", "var"],
         note="L(2,n) UNSAT (n≡1,2 mod4); reversal SBC x0≤n-1 (verified)",
-        var_sbc=lambda i: f"Bench.langford_sb {i['n']}",
+        var_sbc=lambda i: f"Bench.langford_sbc {i['n']}",
         glue_import="CSP.L2S.Proofs.LangfordSB",
         glue=lambda i: f"(@CSP.L2S.PB.LangfordSB.langford_unsat_of_rev {i['n']} (by norm_num))",
         instances=[inst(f"n{n}", n, f"Bench.gen_langford {n}", 2, n=n) for n in LANGFORD_N]),

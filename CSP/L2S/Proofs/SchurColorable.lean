@@ -3,7 +3,7 @@ import CSP.L2S.Proofs.SchurSB
 /-!
 # Schur numbers — the pure-mathematical bridge
 
-Connects the Schur CSP (`Schur.schur_sb n c`) to the textbook statement
+Connects the Schur CSP (`Schur.schur_csp n c`) to the textbook statement
 `SchurColorable n c`: the integers `{1,…,n}` admit a `c`-colouring with no monochromatic
 `x + y = z`.  The bridge `schur_csp_iff_colorable` turns CSP-satisfiability into this
 math statement, so a kernel-checked witness (`csp_sat_file`) yields a clean
@@ -13,7 +13,7 @@ This is the `CSP/L2S` port of the `CSP/Int` proof in the sibling project: the on
 is that constraint satisfaction is read through `patternHolds` (leancsp's `satisfiesConstraintInt`)
 instead of the dynamic-constraint checker.  The two leaf lemmas (`bound_sat_iff`,
 `schur_triple_sat_iff`) are re-proved accordingly; everything else ports unchanged because
-`schurTriples`/`schur_csp_sb` are defined identically in both projects.
+`schurTriples`/`schur_csp_triples` are defined identically in both projects.
 -/
 
 open CSP.L2S
@@ -98,22 +98,22 @@ private lemma int_eq_of_toNat_eq {a b : ℤ} (ha : 0 ≤ a) (hb : 0 ≤ b) (h : 
   have hb' := Int.toNat_of_nonneg hb
   omega
 
-/-- A `schur_sb` solution keeps every variable in `[0, c-1]`. -/
-lemma schur_sb_bounds {n c : ℕ} (a : IntAssignment n)
-    (h_sol : IntCSP.isSolutionInt (schur_sb n c) a) (v : Fin n) :
+/-- A `schur_csp` solution keeps every variable in `[0, c-1]`. -/
+lemma schur_csp_bounds {n c : ℕ} (a : IntAssignment n)
+    (h_sol : IntCSP.isSolutionInt (schur_csp n c) a) (v : Fin n) :
     0 ≤ a v ∧ a v ≤ c - 1 := by
-  have h_mem : bound v 0 (c - 1) ∈ (schur_sb n c).constraints := by
-    unfold schur_sb schur_csp_sb schur_bound_constraints
+  have h_mem : bound v 0 (c - 1) ∈ (schur_csp n c).constraints := by
+    unfold schur_csp schur_csp_triples schur_bound_constraints
     simp [List.mem_append, List.mem_map, List.mem_finRange]
   exact (bound_sat_iff v 0 (c - 1) a).mp (h_sol _ h_mem)
 
-/-- A `schur_sb` solution satisfies every triple's not-all-equal constraint. -/
-lemma schur_sb_triple {n c : ℕ} (a : IntAssignment n)
-    (h_sol : IntCSP.isSolutionInt (schur_sb n c) a)
+/-- A `schur_csp` solution satisfies every triple's not-all-equal constraint. -/
+lemma schur_csp_triple {n c : ℕ} (a : IntAssignment n)
+    (h_sol : IntCSP.isSolutionInt (schur_csp n c) a)
     (i j k : Fin n) (h_triple : (i, j, k) ∈ schurTriples n) :
     a i ≠ a j ∨ a i ≠ a k ∨ a j ≠ a k := by
-  have h_mem : schur_triple i j k ∈ (schur_sb n c).constraints := by
-    unfold schur_sb schur_csp_sb schur_triple_constraints
+  have h_mem : schur_triple i j k ∈ (schur_csp n c).constraints := by
+    unfold schur_csp schur_csp_triples schur_triple_constraints
     simp only [List.mem_append, List.mem_map]
     right
     exact ⟨(i, j, k), h_triple, rfl⟩
@@ -125,12 +125,12 @@ lemma schur_sb_triple {n c : ℕ} (a : IntAssignment n)
 
 /-- **Bridge:** the Schur CSP is satisfiable iff `{1,…,n}` is `c`-colourable sum-free. -/
 theorem schur_csp_iff_colorable (n c : ℕ) :
-    IntCSP.isSatisfiableInt (schur_sb n c) ↔ SchurColorable n c := by
+    IntCSP.isSatisfiableInt (schur_csp n c) ↔ SchurColorable n c := by
   constructor
   · -- Forward: CSP solution → SchurColorable
     rintro ⟨a, h_sol⟩
     have h_bounds : ∀ v : Fin n, 0 ≤ a v ∧ a v ≤ c - 1 :=
-      fun v => schur_sb_bounds a h_sol v
+      fun v => schur_csp_bounds a h_sol v
     refine ⟨fun v => ⟨(a v).toNat, ?_⟩, ?_⟩
     · have hv := h_bounds v
       have h_nn := hv.1
@@ -148,7 +148,7 @@ theorem schur_csp_iff_colorable (n c : ℕ) :
       · have h_k_lt : i.val + j.val + 1 < n := by omega
         have h_k_fin : k = ⟨i.val + j.val + 1, h_k_lt⟩ := Fin.ext hk
         have h_triple := schurTriples_mem i j h_le h_k_lt
-        have h_ne := schur_sb_triple a h_sol i j ⟨i.val + j.val + 1, h_k_lt⟩ h_triple
+        have h_ne := schur_csp_triple a h_sol i j ⟨i.val + j.val + 1, h_k_lt⟩ h_triple
         rw [h_k_fin] at h_a_jk
         rcases h_ne with h | h | h
         · exact h h_a_ij
@@ -160,7 +160,7 @@ theorem schur_csp_iff_colorable (n c : ℕ) :
         have h_k_fin : k = ⟨j.val + i.val + 1, h_k_lt⟩ :=
           Fin.ext (by show k.val = j.val + i.val + 1; omega)
         have h_triple := schurTriples_mem j i h_le' h_k_lt
-        have h_ne := schur_sb_triple a h_sol j i ⟨j.val + i.val + 1, h_k_lt⟩ h_triple
+        have h_ne := schur_csp_triple a h_sol j i ⟨j.val + i.val + 1, h_k_lt⟩ h_triple
         rw [h_k_fin] at h_a_jk
         rcases h_ne with h | h | h
         · exact h h_a_ij.symm
@@ -170,7 +170,7 @@ theorem schur_csp_iff_colorable (n c : ℕ) :
     rintro ⟨χ, h_χ⟩
     refine ⟨fun v => (χ v).val, ?_⟩
     intro tc h_tc
-    unfold schur_sb schur_csp_sb at h_tc
+    unfold schur_csp schur_csp_triples at h_tc
     simp only [List.mem_append] at h_tc
     rcases h_tc with h_bound | h_triple
     · unfold schur_bound_constraints at h_bound

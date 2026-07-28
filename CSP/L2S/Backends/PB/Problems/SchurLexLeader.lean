@@ -17,7 +17,7 @@ namespace CSP.L2S.PB.SchurLexLeader
 open CSP.L2S CSP.L2S.PB
 
 /-- Base 3-colour Schur CSP at `n = 13` (satisfiable; all solutions palindromes). -/
-def base13 : IntCSP := Schur.schur_csp_sb 13 3 (Schur.schurTriples 13)
+def base13 : IntCSP := Schur.schur_csp_triples 13 3 (Schur.schurTriples 13)
 
 /-- The strict lexicographic reversal leader over the 13 variables. -/
 def leader : IntConstraint base13.num_vars := IntConstraint.strictLexRevLeader

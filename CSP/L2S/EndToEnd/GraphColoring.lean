@@ -18,15 +18,15 @@ open CSP.L2S CSP.L2S.PB CSP.L2S.PB.GraphColoringSBC
 theorem k3_2col_unsat :
     ¬ (graph_coloring_csp 3 k3_edges 2).isSatisfiableInt :=
   unsat_of_sbc _ _
-    (sb_constraint_is_symmetry_breaking 3 2 (by decide) (by decide) k3_edges)
-    extended_k3_2col_unsat
+    (graph_coloring_sbc_is_symmetry_breaking 3 2 (by decide) (by decide) k3_edges)
+    sb_k3_2col_unsat
 
 /-- **End-to-end: `K₄` is not 3-colourable.** -/
 theorem k4_3col_unsat :
     ¬ (graph_coloring_csp 4 k4_edges 3).isSatisfiableInt :=
   unsat_of_sbc _ _
-    (sb_constraint_is_symmetry_breaking 4 3 (by decide) (by decide) k4_edges)
-    extended_k4_3col_unsat
+    (graph_coloring_sbc_is_symmetry_breaking 4 3 (by decide) (by decide) k4_edges)
+    sb_k4_3col_unsat
 
 /-- **End-to-end via full value precedence: `K₃` is not 2-colourable.** -/
 theorem k3_2col_unsat_via_value_precedence :

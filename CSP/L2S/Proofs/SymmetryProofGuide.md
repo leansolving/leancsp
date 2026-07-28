@@ -46,6 +46,6 @@ projection over a `Fin` literal), unfold directly instead — put the CSP
 definition in the simp set so the `valAt` dite discharges:
 
 ```lean
-simp only [IntCSP.satisfiesConstraintInt, sb_constraint, less_than_const, patternHolds,
+simp only [IntCSP.satisfiesConstraintInt, nqueens_sbc, less_than_const, patternHolds,
   valAt, IntCSP.addConstraint, nqueens_csp, h_n, dif_pos, Function.comp_apply]
 ```

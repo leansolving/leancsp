@@ -58,7 +58,7 @@ the problem.
 |------|---------|--------|--------------------|
 | `GraphColoringValuePrecedence.lean` | Graph Coloring | `colors` | `not_equal` edges preserved by any permutation (injectivity) |
 | `SchurValuePrecedence.lean` | Schur | `colors` | `schur_triple_preserved_by_perm` |
-| `PigeonholeValuePrecedence.lean` | Pigeonhole (`php_sb`) | `holes` | `alldifferent_preserved_by_perm` |
+| `PigeonholeValuePrecedence.lean` | Pigeonhole (`php_csp`) | `holes` | `alldifferent_preserved_by_perm` |
 | `RamseyValuePrecedence.lean` | Ramsey R(3,3) | 2 | not-all-equal triangle triples |
 | `VanDerWaerdenValuePrecedence.lean` | Van der Waerden | 2 | not-all-equal over 3-APs |
 

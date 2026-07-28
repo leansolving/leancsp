@@ -62,11 +62,11 @@ def vdwTriples (n : ℕ) : List (Fin n × Fin n × Fin n) :=
       else none
     | _ => none
 
-/-- Van der Waerden `W(r,3)` CSP built *via* the verified `schur_csp_sb` (bounds `0..r-1` + a
+/-- Van der Waerden `W(r,3)` CSP built *via* the verified `schur_csp_triples` (bounds `0..r-1` + a
     `schur_triple` per 3-term AP), so `schur_unsat_of_value_precedence` covers its value-precedence
     SBC for *any* number of colours `r` — no new proof. -/
 def gen_vdw3 (r n : ℕ) : IntCSP :=
-  Schur.schur_csp_sb n r (vdwTriples n)
+  Schur.schur_csp_triples n r (vdwTriples n)
 
 -- ============================================================================
 -- Ramsey:  2-colour edges of Kₙ, no mono K_s in colour 0, no mono K_t in colour 1
@@ -164,7 +164,7 @@ def matchSwap (m x : ℕ) : ℕ :=
 
 /-- Variable SBC for the matching: order the two edges the vertex swap `(0 1)` exchanges
     (`x_{0,2}` vs `x_{1,2}`), breaking the transposition symmetry (non-trivial for `m ≥ 1`). -/
-def matching_sb (m : ℕ) : IntConstraint ((2 * m + 1) * (2 * m + 1)) :=
+def matching_sbc (m : ℕ) : IntConstraint ((2 * m + 1) * (2 * m + 1)) :=
   IntConstraint.le 2 (matchSwap m 2)
 
 -- ============================================================================
@@ -181,13 +181,13 @@ def mutRefl (k x : ℕ) : ℕ :=
 
 /-- Variable SBC for the mutilated board: order placement 1 against its diagonal-reflection
     image, breaking the order-2 board reflection symmetry (non-trivial for `k ≥ 2`). -/
-def mutilated_sb (k : ℕ) : IntConstraint (2 * (2 * k) * (2 * k - 1)) :=
+def mutilated_sbc (k : ℕ) : IntConstraint (2 * (2 * k) * (2 * k - 1)) :=
   IntConstraint.le 1 (mutRefl k 1)
 
 -- ============================================================================
 -- Langford L(2,n):  place 1,1,2,2,…,n,n so the two copies of d are d+1 apart.
 -- Mirrors `Tests/lean/10_langford_simple.lean langford_2n_csp`.  UNSAT iff
--- n ≡ 1,2 (mod 4).  Reversal (order-2) variable symmetry; SBC = `x₀ ≥ n` (see `langford_sb`).
+-- n ≡ 1,2 (mod 4).  Reversal (order-2) variable symmetry; SBC = `x₀ ≥ n` (see `langford_sbc`).
 -- ============================================================================
 
 /-- `L(2,n)` CSP: `2n` position variables (domain `1..2n`), `alldifferent`, and a
@@ -211,14 +211,14 @@ def gen_langford (n : ℕ) : IntCSP :=
 /-- Variable SBC for Langford: digit-0's first copy lies in the **second** half (`x₀ ≥ n`), the
     upper-half representative of the sequence reversal `p ↦ 2n+1-p`.  Sound for all `n` (non-trivial
     for `n ≥ 1`); verified in `Proofs/LangfordSB.lean`.  The equivalent lower-half form `x₀ ≤ n-1`
-    (its mirror image under the reversal) is kept as `langford_sb'`. -/
-def langford_sb (n : ℕ) : IntConstraint (n * 2) :=
+    (its mirror image under the reversal) is kept as `langford_sbc'`. -/
+def langford_sbc (n : ℕ) : IntConstraint (n * 2) :=
   IntConstraint.ge_const 0 (n : ℤ)
 
-/-- Lower-half variant of `langford_sb`: digit-0's first copy lies in the first half (`x₀ ≤ n-1`).
-    The mirror image of `langford_sb` under the reversal `p ↦ 2n+1-p`; equally sound (verified in
+/-- Lower-half variant of `langford_sbc`: digit-0's first copy lies in the first half (`x₀ ≤ n-1`).
+    The mirror image of `langford_sbc` under the reversal `p ↦ 2n+1-p`; equally sound (verified in
     `Proofs/LangfordSB.lean`). -/
-def langford_sb' (n : ℕ) : IntConstraint (n * 2) :=
+def langford_sbc' (n : ℕ) : IntConstraint (n * 2) :=
   IntConstraint.le_const 0 ((n : ℤ) - 1)
 
 -- ============================================================================

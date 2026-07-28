@@ -16,20 +16,20 @@ open CSP.L2S CSP.L2S.PB CSP.L2S.PB.OddCycleSBC
 /-- **End-to-end: `C₅` is not 2-colourable.** -/
 theorem c5_2col_unsat : ¬ (graph_coloring_csp 5 c5_edges 2).isSatisfiableInt :=
   unsat_of_sbc _ _
-    (sb_constraint_is_symmetry_breaking 5 2 (by decide) (by decide) c5_edges)
-    extended_c5_2col_unsat
+    (graph_coloring_sbc_is_symmetry_breaking 5 2 (by decide) (by decide) c5_edges)
+    sb_c5_2col_unsat
 
 /-- **End-to-end: `C₇` is not 2-colourable.** -/
 theorem c7_2col_unsat : ¬ (graph_coloring_csp 7 c7_edges 2).isSatisfiableInt :=
   unsat_of_sbc _ _
-    (sb_constraint_is_symmetry_breaking 7 2 (by decide) (by decide) c7_edges)
-    extended_c7_2col_unsat
+    (graph_coloring_sbc_is_symmetry_breaking 7 2 (by decide) (by decide) c7_edges)
+    sb_c7_2col_unsat
 
 /-- **End-to-end: `C₉` is not 2-colourable.** -/
 theorem c9_2col_unsat : ¬ (graph_coloring_csp 9 c9_edges 2).isSatisfiableInt :=
   unsat_of_sbc _ _
-    (sb_constraint_is_symmetry_breaking 9 2 (by decide) (by decide) c9_edges)
-    extended_c9_2col_unsat
+    (graph_coloring_sbc_is_symmetry_breaking 9 2 (by decide) (by decide) c9_edges)
+    sb_c9_2col_unsat
 
 /-- **End-to-end via full value precedence: `C₅` is not 2-colourable.** -/
 theorem c5_2col_unsat_via_value_precedence :

@@ -1,7 +1,7 @@
 # Schur exact values S(2)–S(4): both pipelines, self-contained
 
 Pins the Schur numbers up to S(4) at the **CSP level**, bracketing each `S(c)` by two facts about
-the *original simple* CSP `Schur.schur_sb n c` (bounds + sum-free triples, no symmetry breaking):
+the *original simple* CSP `Schur.schur_csp n c` (bounds + sum-free triples, no symmetry breaking):
 
 * **lower bound** `S(c) ≥ n` — a MiniZinc value-precedence colouring witness, re-checked in the
   Lean kernel by `decide` (`csp_sat_file`);
@@ -10,7 +10,7 @@ the *original simple* CSP `Schur.schur_sb n c` (bounds + sum-free triples, no sy
 
 Both legs run through the same symmetry-breaking constraint (Law–Lee `value_precedence c`, proved
 equisatisfiable in `CSP/L2S/Proofs/SchurValuePrecedence.lean`), so every theorem is about the plain
-`schur_sb`. The certified theorems live in `CSP/L2S/EndToEnd/SchurCertify.lean` (S(2), S(3)) and
+`schur_csp`. The certified theorems live in `CSP/L2S/EndToEnd/SchurCertify.lean` (S(2), S(3)) and
 the commented `S(4)` block in `CSP/L2S/EndToEnd/SchurCertify.lean` (S(4)).
 
 ## Layout
@@ -44,7 +44,7 @@ For each `(c, m=n+1)` the script runs exactly these steps (all in `experiments/l
 driven from `run_schur_exact.py`):
 
 1. **Dump the OPB from Lean** — `#eval toOPBString` of the value-precedence instance
-   `(Schur.schur_sb m c).addConstraint (value_precedence c)`, giving `artifacts/schur_c{c}n{m}.opb`
+   `(Schur.schur_csp m c).addConstraint (value_precedence c)`, giving `artifacts/schur_c{c}n{m}.opb`
    and the variable count (135 for S(4)).
 2. **Solve + log** — `roundingsat schur_c{c}n{m}.opb --proof-log=schur_{c}_{m}_vp.pbp`
    (S(4): reports UNSAT in ~46 s, ~5.4×10⁵ conflicts).

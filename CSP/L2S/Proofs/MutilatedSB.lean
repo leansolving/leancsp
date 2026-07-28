@@ -12,8 +12,8 @@ closed-form involution `mutRefl` that swaps `h(r,c) ↔ v(c,r)`.
 
 This file proves, **parametrically in `k`**, that `mutRefl` is an involutive in-range permutation
 of the placement variables (`reflN_invol`, `reflN_lt`), that it is a `VariableSymmetry` of
-`gen_mutilated k` (`refl_is_variable_symmetry`), and hence that `mutilated_sb k` is a sound
-`variableSymmetryBreakingConstraint` (`mutilated_sb_is_variable_symmetry_breaking`), giving the
+`gen_mutilated k` (`refl_is_variable_symmetry`), and hence that `mutilated_sbc k` is a sound
+`variableSymmetryBreakingConstraint` (`mutilated_sbc_is_variable_symmetry_breaking`), giving the
 end-to-end bridge `mutilated_unsat_of_var`.
 -/
 
@@ -283,8 +283,8 @@ theorem refl_is_variable_symmetry (k : ℕ) (hk : 1 ≤ k) :
 
 /-! ### The symmetry-breaking constraint is sound -/
 
-theorem mutilated_sb_is_variable_symmetry_breaking (k : ℕ) (hk : 1 ≤ k) :
-    variableSymmetryBreakingConstraint (gen_mutilated k) (mutilated_sb k) := by
+theorem mutilated_sbc_is_variable_symmetry_breaking (k : ℕ) (hk : 1 ≤ k) :
+    variableSymmetryBreakingConstraint (gen_mutilated k) (mutilated_sbc k) := by
   have h1 : (1 : ℕ) < 2 * (2 * k) * (2 * k - 1) := by
     have : 2 ≤ 2 * k := by omega
     have : 1 ≤ 2 * k - 1 := by omega
@@ -296,8 +296,8 @@ theorem mutilated_sb_is_variable_symmetry_breaking (k : ℕ) (hk : 1 ≤ k) :
     refine ⟨Equiv.refl _, VariableSymmetry.identity_is_symmetry _, ?_⟩
     intro c hc
     rcases List.mem_cons.mp hc with rfl | hmem
-    · show satisfiesConstraintInt (mutilated_sb k) (a ∘ Equiv.refl _)
-      simp only [mutilated_sb, satisfiesConstraintInt, patternHolds, mutRefl_eq,
+    · show satisfiesConstraintInt (mutilated_sbc k) (a ∘ Equiv.refl _)
+      simp only [mutilated_sbc, satisfiesConstraintInt, patternHolds, mutRefl_eq,
         Equiv.coe_refl]
       exact hle
     · exact hsol c hmem
@@ -305,8 +305,8 @@ theorem mutilated_sb_is_variable_symmetry_breaking (k : ℕ) (hk : 1 ≤ k) :
     refine ⟨reflPerm k hk, refl_is_variable_symmetry k hk, ?_⟩
     intro c hc
     rcases List.mem_cons.mp hc with rfl | hmem
-    · show satisfiesConstraintInt (mutilated_sb k) (a ∘ reflPerm k hk)
-      simp only [mutilated_sb, satisfiesConstraintInt, patternHolds, mutRefl_eq]
+    · show satisfiesConstraintInt (mutilated_sbc k) (a ∘ reflPerm k hk)
+      simp only [mutilated_sbc, satisfiesConstraintInt, patternHolds, mutRefl_eq]
       rw [show valAt (a ∘ reflPerm k hk) 1 = valAt a (reflN (2 * k) 1) from valAt_refl k hk a 1 h1,
           show valAt (a ∘ reflPerm k hk) (reflN (2 * k) 1)
               = valAt a (reflN (2 * k) (reflN (2 * k) 1)) from valAt_refl k hk a (reflN (2 * k) 1) hr1,
@@ -315,9 +315,9 @@ theorem mutilated_sb_is_variable_symmetry_breaking (k : ℕ) (hk : 1 ≤ k) :
     · exact refl_is_variable_symmetry k hk a hsol c hmem
 
 theorem mutilated_unsat_of_var (k : ℕ) (hk : 1 ≤ k)
-    (h_unsat : ¬ isSatisfiableInt ((gen_mutilated k).addConstraint (mutilated_sb k))) :
+    (h_unsat : ¬ isSatisfiableInt ((gen_mutilated k).addConstraint (mutilated_sbc k))) :
     ¬ isSatisfiableInt (gen_mutilated k) :=
-  unsat_of_variable_sbc (gen_mutilated k) (mutilated_sb k)
-    (mutilated_sb_is_variable_symmetry_breaking k hk) h_unsat
+  unsat_of_variable_sbc (gen_mutilated k) (mutilated_sbc k)
+    (mutilated_sbc_is_variable_symmetry_breaking k hk) h_unsat
 
 end CSP.L2S.PB.MutilatedSB
