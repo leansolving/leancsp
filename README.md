@@ -3,50 +3,65 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Lean 4](https://img.shields.io/badge/Lean-4.30.0-blue.svg)](lean-toolchain)
 
-A Lean 4 + Mathlib formalization of Constraint Satisfaction Problems. You model a CSP once in
-Lean and can then either export it to MiniZinc or SMT-LIB for solving, or prove it
-unsatisfiable. The unsatisfiability proof compiles the CSP to pseudo-Boolean constraints
-through a Lean-verified order encoding, runs an external PB solver, and turns the solver's
-UNSAT proof into a kernel-checked theorem `¬ csp.isSatisfiableInt`. The solver and the proof
-elaborator are untrusted; only the encoder and the proof checker are trusted, and both are
-verified in Lean.
+A Lean 4 project formalizing Constraint Satisfaction Problems, with proofs of equivalence,
+equisatisfiability, and symmetry breaking. The **L2S (LeanToSolver)** framework lets you use
+Lean as a constraint programming language and export models to MiniZinc and SMT-LIB.
 
-The project also proves that candidate symmetry-breaking constraints are sound and that
-alternative formulations of a problem are equivalent. This is what lets a certificate about a
-reduced model transport back to the original problem.
+LeanCSP can also prove a CSP unsatisfiable. It compiles the model to pseudo-Boolean
+constraints through a verified order encoding, runs an external PB solver, and re-checks the
+solver's proof in Lean. The resulting theorems require no trust in the external solver.
 
 ## Requirements
 
-- [elan](https://lean-lang.org/install/manual/) manages the Lean and Mathlib versions pinned
-  by the project. Install it before anything else:
-  ```bash
-  curl https://elan.lean-lang.org/elan-init.sh -sSf | sh && source $HOME/.elan/env
-  ```
-- MiniZinc, Z3 or cvc5 (optional) to solve the models that L2S exports.
-- RoundingSat and veripb (optional). These are only needed to generate a new certificate.
-  Re-checking the committed ones requires nothing but Lean.
+| Tool | Purpose | Link |
+|------|---------|------|
+| **Lean 4** | Theorem prover (required) | [lean-lang.org/install](https://lean-lang.org/install/) |
+| **MiniZinc** | Constraint solver (optional) | [minizinc.org](https://www.minizinc.org/downloads/) |
+| **Z3 / cvc5** | SMT solvers (optional) | [z3](https://github.com/Z3Prover/z3/releases) / [cvc5](https://github.com/cvc5/cvc5/releases) |
+| **RoundingSat** | PB solver, to generate a new certificate (optional) | [gitlab.com/MIAOresearch/software/roundingsat](https://gitlab.com/MIAOresearch/software/roundingsat) |
+| **veripb** | PB proof elaborator, to generate a new certificate (optional) | [gitlab.com/MIAOresearch/software/VeriPB](https://gitlab.com/MIAOresearch/software/VeriPB) |
 
-PBLean, which provides the verified VeriPB proof checker, is fetched automatically by Lake.
-
-## Build
+Make sure to have [elan](https://lean-lang.org/install/manual/) installed to avoid building
+the Mathlib dependencies. Elan auto-downloads the correct Lean version:
 
 ```bash
+# Install git and curl
+sudo apt install git curl
+
+# Install elan (choose 1 to accept the default install option)
+curl https://elan.lean-lang.org/elan-init.sh -sSf | sh
+
+# Add the elan executables to the PATH
+source $HOME/.elan/env
+```
+
+RoundingSat and veripb are only needed to generate a new certificate. Re-checking the
+committed ones needs nothing but Lean. The Lean dependency PBLean, which provides the
+verified proof checker, is fetched automatically by Lake.
+
+## Building the Project
+
+```bash
+# 1. Clone the repository
 git clone https://github.com/leansolving/leancsp.git
 cd leancsp
-lake exe cache get   # download prebuilt Mathlib (saves 30+ min)
+
+# 2. Download pre-built Mathlib cache (IMPORTANT: saves 30+ min build time)
+lake exe cache get
+
+# 3. Build the project
 lake build
 ```
 
-A clean `lake build` is the verification. The lakefile globs every submodule, so a bare build
-compiles the whole project and re-checks every committed certificate.
+The lakefile builds every submodule, so a bare `lake build` also re-checks every committed
+certificate. It ends with `Build completed successfully`.
 
 ## Usage
 
-### Modelling a CSP
+### Modelling CSPs
 
-An `IntCSP` is a variable count together with a list of `IntConstraint`s. A variable's range
-comes from a `bound` constraint, so bounds are constraints rather than a separate domain
-field.
+The L2S framework uses `IntCSP` with a number of variables and a list of constraints. A
+variable's range comes from a `bound` constraint:
 
 ```lean
 import CSP.L2S.Core
@@ -60,169 +75,166 @@ def graph_coloring (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) (colors
   ⟨nodes, bounds ++ edge_constrs⟩
 ```
 
-There are 51 constraints available, including `alldifferent`, `count`, `element`, `sum_eq`,
-`linear_eq`, `at_most_k` and the Boolean gates. See `CSP/L2S/Constraints.lean`.
+Available constraints: `alldifferent`, `count`, `element`, `sum_eq`, `linear_eq`,
+`not_equal`, `at_most_k`, `at_least_k`, `bound`, and 40+ more (see `L2S/Constraints.lean`).
 
-### Exporting to a solver
+### Solver translation
+
+Export CSPs to MiniZinc or SMT-LIB:
 
 ```lean
 import CSP.L2S.Translate
+
 open CSP.L2S
+
+def my_csp : IntCSP := ...
 
 def main : IO Unit := do
   saveTo my_csp "model.mzn" BackendType.MiniZinc
   saveTo my_csp "model.smt2" BackendType.SMTLIB
 ```
 
+Then solve the generated files:
+
 ```bash
-lake env lean --run MyFile.lean   # runs `main`, emits the files
-minizinc model.mzn                # or: z3 model.smt2  /  cvc5 model.smt2
+lake env lean --run MyFile.lean
+
+minizinc model.mzn
+z3 model.smt2
+cvc5 --produce-models model.smt2
 ```
 
-### Proving a CSP unsatisfiable
+### Proving unsatisfiability
 
-Every committed instance is one line plus a certificate file:
+Each instance is one line plus a committed certificate:
 
 ```lean
 theorem php_3_2_unsat : ¬ php_3_2.isSatisfiableInt :=
   csp_unsat_file php_3_2 3 "certs/php_3_2.pbp"
 ```
 
-`csp_unsat_file csp numVars "certs/foo.pbp"` loads a VeriPB kernel proof at compile time and
-re-checks it. The order-encoding signature, the PB formula and every precondition are all
-derived from `csp` automatically. The `numVars` argument is printed by
-`experiments/gen_cert.py` when it generates the certificate.
+Everything else is derived from the CSP. To add your own instance, generate a certificate
+with `experiments/gen_cert.py <Module> <cspExpr> <out>`, which needs `roundingsat` and
+`veripb`, and prints the `numVars` argument to pass.
 
 ## How it works
 
-```
-IntCSP ──encodeCSP──▶ PB constraints ──▶ OPB file ──[ RoundingSat ]──▶ VeriPB proof
-        (verified)      over threshold                                      │
-                          variables                          [ veripb --elaborate ]
-                                                                            ▼
-   ¬ csp.isSatisfiableInt  ◀──[ csp_unsat ]── formulaUnsat ◀──[ checker ]── certs/*.pbp
-        (kernel-checked)                                       (verified)
-```
+1. **Encode.** `encodeCSP` compiles each constraint to pseudo-Boolean constraints over
+   threshold variables, where an integer variable with domain `D` becomes bits "`x ≤ dⱼ`".
+   One soundness theorem covers this step for every CSP, so instances need no proofs of
+   their own.
+2. **Solve.** The constraints are written as OPB, RoundingSat solves them, and veripb
+   elaborates its log into a certificate committed under `Problems/certs/`.
+3. **Check.** PBLean's verified checker re-runs the certificate against the Lean-side
+   constraints, and `csp_unsat` turns the result into `¬ csp.isSatisfiableInt`. A bad
+   certificate makes the check fail, so the theorem does not go through.
 
-1. **Encode.** `encodeCSP` dispatches each `IntConstraint` to its per-pattern order encoder.
-   An integer variable with domain `D` becomes threshold bits "`x ≤ dⱼ`".
-2. **Solve.** The PB constraints are serialized to OPB, RoundingSat solves them, and veripb
-   elaborates its log into a kernel certificate committed under `Problems/certs/`.
-3. **Check.** PBLean's reflection checker re-runs the certificate against the Lean-side
-   formula, and `csp_unsat` turns the resulting `formulaUnsat` into `¬ csp.isSatisfiableInt`.
-
-The whole backend rests on one soundness theorem, `csp_sat_pb_sat`: every satisfiable
-`IntCSP` has a satisfiable PB encoding. Its witness order-encodes the solution and sets the
-Big-M selector auxiliaries with a generic allocator. Selector distinctness is proved once and
-structurally, so no instance carries its own hypotheses. `csp_unsat` is the contrapositive.
-Supporting a new constraint family takes one `encodePatternAt` case and one soundness case,
-and no per-problem proof work.
-
-All 51 `IntConstraint` constructors are handled. Four of them carry no PB constraints, and in
-each case that is sound. `bound` is consumed by the signature to build the domains.
-`disjunctive` and `unknown` have semantics `True`, so the empty encoding is exact.
-`product_rel_var` is genuinely non-linear and is dropped, which is sound but incomplete.
-`xor_all` is exact at arity 2 and 3; wider parity should be modelled as a chain of ternary
-gates, as the corpus adders do.
-
-### Trust boundary
-
-Trusted: Lean's kernel, PBLean's proof checker, and this backend's encoder and soundness
-theorems. The checker is proved sound in Lean, but its `Bool` check is run natively via
-`Lean.ofReduceBool`, which puts the Lean compiler in the trusted base. This is the same trust
-shape as `native_decide`.
-
-Untrusted: RoundingSat, veripb, and the OPB serializer. A fault in any of them is caught
-rather than certifying a false theorem. If the proof on disk does not match the Lean-side
-formula, the check fails and the theorem does not elaborate.
-
-Every UNSAT theorem depends on exactly `propext`, `Classical.choice`, `Quot.sound`,
-`Lean.ofReduceBool` and `Lean.trustCompiler`. That is the three standard axioms plus the two
-reflection axioms, which stay stable and nameable instead of becoming a fresh per-theorem
-`native_decide` axiom. There is no `sorryAx` anywhere. SAT witnesses go through
-`csp_sat_file`, which uses kernel `decide` and needs neither reflection axiom. You can check
-this yourself:
-
-```bash
-echo 'import CSP.L2S.Backends.PB.Problems.Pigeonhole
-#print axioms CSP.L2S.PB.Pigeonhole.php_3_2_unsat' > /tmp/chk.lean
-lake env lean /tmp/chk.lean
-```
+The same pattern works for satisfiability: `csp_sat_file` re-checks an external solver's
+witness with kernel `decide`.
 
 ## Project structure
 
 ```
 CSP/
-├── Core.lean, Symmetry.lean, Equivalence.lean   # General heterogeneous CSP theory
-├── GlobalConstraints.lean, Transport.lean
-└── L2S/                          # LeanToSolver framework
-    ├── Core.lean                 # IntCSP / IntConstraint / patternHolds
-    ├── Constraints.lean          # The constraint constructors
-    ├── Translate.lean            # Unified translation API
-    ├── Witness.lean              # csp_sat_file, kernel-checked SAT witnesses
+├── Core.lean                 # General CSP definitions
+├── Symmetry.lean             # General symmetry theory
+├── Equivalence.lean          # General equivalence theory
+├── GlobalConstraints.lean    # Predefined constraints
+├── Transport.lean            # Type casting utilities
+│
+└── L2S/                      # LeanToSolver framework
+    ├── Core.lean             # IntCSP foundations
+    ├── Constraints.lean      # 50+ constraint types
+    ├── Translate.lean        # Unified translation API
+    ├── Symmetry.lean         # Symmetry breaking theory
+    ├── Equivalence.lean      # Equivalence theory
+    ├── ValuePrecedence.lean  # Value precedence as a symmetry break
+    ├── Witness.lean          # SAT witness checking
     ├── Backends/
-    │   ├── MiniZinc.lean, SMTLIB.lean
-    │   └── PB/                   # Verified pseudo-Boolean UNSAT backend
-    │       ├── GenericEncode.lean    # cspSig, encodePattern, csp_unsat_file
-    │       └── Problems/             # Corpus instances + certs/*.pbp
-    ├── Proofs/                   # Symmetry breaking, equivalence, circuit theorems
-    ├── EndToEnd/                 # Results about the original CSPs, via an SBC
-    └── Tests/lean/               # Example problems
-experiments/                      # Reproducible studies, see experiments/README.md
+    │   ├── MiniZinc.lean     # MiniZinc code generation
+    │   ├── SMTLIB.lean       # SMT-LIB code generation
+    │   └── PB/               # Verified pseudo-Boolean UNSAT backend
+    │       └── Problems/     # Instances and their certificates
+    ├── Proofs/               # Verified theorems (see below)
+    ├── EndToEnd/             # Results about the original CSPs
+    └── Tests/                # 36 example problems
+
+experiments/                  # Reproducible studies (see experiments/README.md)
 ```
 
-## Verified results
+## Verified Results
 
-Each row is a kernel-checked `¬ ....isSatisfiableInt` theorem in
-`CSP/L2S/Backends/PB/Problems/`. The `*SBC.lean` and `*VP.lean` modules carry the same
-families extended with a symmetry-breaking constraint.
+### UNSAT theorems
 
-| Family | Certifies |
-|---|---|
-| Pigeonhole (`php_3_2` to `php_9_8`) | `k+1` pigeons cannot injectively occupy `k` holes |
-| Graph colouring, odd cycles | K₃ and K₄ are not 2- resp. 3-colourable, nor are C₅, C₇, C₉ |
-| Schur (`schur_2_5`, `schur_3_14`) | S(2) = 4 and S(3) = 13 |
-| van der Waerden, Ramsey | W(2,3) = 9 and R(3,3) = 6 |
-| Paley, Langford | α(Paley(13)) ≤ 3, and L(2,2) has no solution |
-| Sudoku, Latin square, magic hexagon | Contradictory-given instances are unsolvable |
-| Mutilated chessboard (4×4, 6×6) | A board minus two same-colour corners has no domino tiling |
-| N-Queens, blocked queens, peaceable armies | No solution at the given sizes |
-| Circuits (XOR equivalence, majority-3, full adder, ripple-carry) | Gate-level implementations meet their specifications |
+Instances live in `CSP/L2S/Backends/PB/Problems/`, each with a committed certificate. The
+`*SBC.lean` and `*VP.lean` modules repeat these families with a symmetry-breaking constraint
+added.
 
-`CSP/L2S/EndToEnd/` states results about the original CSP by transporting a certificate about
-a symmetry-broken variant back through a verified SBC. `SchurCertify.lean` brackets each
-Schur number from both sides, with a MiniZinc witness below and a PB certificate above, which
-pins `S(2) = 4` and `S(3) = 13` exactly. `S(4) ≥ 44` is kernel-checked. Its upper bound needs
-a certificate of about 98 MB that is too large to commit, so that block ships disabled. See
-`experiments/README.md` for how to regenerate and enable it.
+| Module | Certifies |
+|--------|-----------|
+| `Pigeonhole.lean` | `p` pigeons do not fit injectively into `h < p` holes |
+| `GraphColoring.lean` | K₃ is not 2-colourable, K₄ is not 3-colourable |
+| `OddCycle.lean` | C₅, C₇ and C₉ are not 2-colourable |
+| `Schur.lean`, `Schur3.lean` | `{1..5}` has no sum-free 2-colouring, `{1..14}` none with 3 |
+| `VanDerWaerden.lean` | Every 2-colouring of `{1..9}` has a monochromatic 3-term AP |
+| `Ramsey.lean` | Every 2-colouring of K₆'s edges has a monochromatic triangle |
+| `Paley.lean` | Paley(13) has no independent set of size 4 |
+| `Langford.lean` | The Langford pairing L(2,2) has no solution |
+| `Sudoku.lean`, `Latin.lean` | Instances with contradictory givens are unsolvable |
+| `MagicHexagon.lean` | There is no order-2 normal magic hexagon |
+| `MutilatedChessboard*.lean` | A 4×4 or 6×6 board minus two same-colour corners has no domino tiling |
+| `NQueens.lean`, `BlockedQueens.lean` | 2- and 3-Queens, and 4-Queens with a blocked column, have no solution |
+| `PeaceableArmies.lean` | No 3+3 peaceable queens fit on a 4×4 board |
+| `Circuit.lean`, `CircuitEquiv.lean`, `FullAdder.lean`, `RippleCarry.lean` | Gate-level circuits meet their specifications |
 
-`CSP/L2S/Proofs/` holds the supporting theory: symmetry breaking (`NQueensSB`,
-`GraphColoringSB`, `LatinSquareSB`, `SudokuSB`, `SchurSB`, `MatchingSB`, `MutilatedSB`,
-`LangfordSB`), value precedence, π-equivalence between formulations, and circuit
-optimization. `SchurReversalCounterexample.lean` is the cautionary counterpart. The strict
-lexicographic reversal leader is a sound symmetry break for van der Waerden but not for
-ordinary Schur, and the backend certifies the false UNSAT claim that results.
+`CSP/L2S/EndToEnd/` combines these with a verified symmetry break to state results about the
+original CSP. `SchurCertify.lean` pairs a solver witness with a certificate to pin the exact
+Schur numbers S(2) = 4 and S(3) = 13, and proves S(4) ≥ 44.
 
-## Adding a new UNSAT instance
+### Symmetry breaking
 
-```lean
-import CSP.L2S.Backends.PB.GenericEncode
+Each file proves a candidate constraint is a valid symmetry break, so adding it preserves
+satisfiability.
 
-theorem my_unsat : ¬ myCSP.isSatisfiableInt :=
-  csp_unsat_file myCSP <numVars> "certs/my.pbp"
-```
+| File | Problem | Symmetry | Constraint |
+|------|---------|----------|------------|
+| `NQueensSB.lean` | N-Queens | Horizontal reflection | First queen in the first half |
+| `GraphColoringSB.lean` | Graph Coloring | Colour swap | Node 0 has colour 0 |
+| `LatinSquareSB.lean` | Latin Square | Column permutation | First row sorted |
+| `SudokuSB.lean` | Sudoku | Value swap | Cell (0,0) fixed |
+| `SchurSB.lean` | Schur | Colour swap | `x₀ = 0` |
+| `MatchingSB.lean` | Perfect matching | Vertex transposition | Order the swapped edge variables |
+| `MutilatedSB.lean` | Mutilated chessboard | Diagonal reflection | Order the swapped domino variables |
+| `LangfordSB.lean` | Langford | Sequence reversal | Digit 0 in the second half |
 
-Generate the certificate and its `numVars` with the following, which needs `roundingsat` and
-`veripb` on `PATH`:
+`ValuePrecedence.lean` proves the Law-Lee value precedence constraint sound for any CSP whose
+solutions are closed under colour permutations; `*ValuePrecedence.lean` files discharge that
+for graph colouring, Schur, Ramsey, van der Waerden and pigeonhole.
 
-```bash
-python3 experiments/gen_cert.py <Module> <cspExpr> <out>
-```
+`SchurReversalCounterexample.lean` is the cautionary case: the strict lexicographic reversal
+leader is sound for van der Waerden but not for ordinary Schur.
 
-## Experiments
+### Equivalence proofs
 
-`experiments/` reproduces the proof-size scaling study, the symmetry-breaking study, and the
-exact Schur numbers. See [`experiments/README.md`](experiments/README.md).
+All use π-equivalence, an explicit projection and lifting between two formulations, which
+transports both solutions and unsatisfiability across the reformulation.
+
+| File | Formulations |
+|------|--------------|
+| `NQueensEquivalence.lean` | Column model ↔ board model |
+| `GraphColoringEquivalence.lean` | Vertex model ↔ binary one-hot matrix |
+| `LatinSquareEquivalence.lean` | Value-compact ↔ one-hot binary |
+| `SudokuEquivalence.lean` | Value-compact ↔ one-hot expanded |
+| `SchurEquivalence.lean` | Compact colour model ↔ binary matrix |
+| `MutilatedEquivalence.lean` | Orientation model ↔ edge model |
+
+### Circuit theorems
+
+| File | Result |
+|------|--------|
+| `UnreachableInputElimination.lean` | Inputs with no path to outputs can be fixed to any value |
+| `ParityPathTheorem.lean` | Inputs with uniform parity to all outputs can be optimally fixed |
+| `CircuitInputSymmetryBreaking.lean` | Inputs with identical fanout can be ordered |
 
 ## License
 
