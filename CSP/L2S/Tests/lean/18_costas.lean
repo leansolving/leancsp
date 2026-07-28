@@ -6,38 +6,14 @@ import CSP.L2S.Symmetry
 open CSP.L2S
 
 /-!
-# Costas Array Problem
-CSPLib Problem 076
+# Costas arrays
 
-## Problem Description
-A Costas array is a permutation of 1..n such that all pairwise differences
-(both horizontal and vertical) are distinct. Used in sonar and radar for
-minimal cross-correlation.
+A Costas array is a permutation of `1..n` in which all pairwise differences at each
+offset are distinct — used in sonar and radar for minimal cross-correlation.
 
-## CSP Formulation
-- **Primary variables**: n array positions, domain [1, n]
-- **Auxiliary variables**: n(n-1)/2 difference variables organized by offset
-  - For offset k=1: (n-1) differences
-  - For offset k=2: (n-2) differences
-  - ...
-  - For offset k=n-1: 1 difference
-- **Total variables**: n + n(n-1)/2
-- **Variable mapping**:
-  - Costas array: indices 0..(n-1)
-  - Differences: indices n onward, grouped by offset
-
-## Constraints
-1. Bounds: costas[i] ∈ [1, n], diff[k] ∈ [-(n-1), n-1]
-2. Alldifferent on costas (permutation)
-3. For each offset k: alldifferent on differences at that offset
-4. Difference definition: diff[offset,i] = costas[i+offset] - costas[i]
-
-## Parametrized Design
-- `costas_csp(n, num_vars)` - general formulation for array size n
-- `costas_8` - standard n=8 instance
-
-## Source
-CSPLib Problem 076
+`n + n(n-1)/2` variables: the array (indices `0..n-1`, domain `[1,n]`) plus, for each
+offset `k`, the differences `diff[k,i] = costas[i+k] - costas[i]`.  The array is
+`alldifferent`, as is each offset's difference group.  CSPLib problem 076.
 -/
 
 -- Helper: compute number of differences for all offsets

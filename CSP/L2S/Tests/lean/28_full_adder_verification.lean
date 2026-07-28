@@ -4,20 +4,13 @@ import CSP.L2S.Constraints
 open CSP.L2S
 
 /-!
-# Full Adder Circuit Verification (Pure Logic)
+# Full adder verification (pure logic)
 
-Full adder: (a, b, cin) → (sum, cout)
+A full adder `(a, b, cin) → (sum, cout)` with `sum = a ⊕ b ⊕ cin` and
+`cout = (a∧b) ∨ (a∧cin) ∨ (b∧cin)`.
 
-Circuit definition using only logical operations:
-- sum = a ⊕ b ⊕ cin (3-way XOR)
-- cout = (a∧b) ∨ (a∧cin) ∨ (b∧cin) (majority via AND/OR)
-
-Variables:
-- v0=a, v1=b, v2=cin (inputs)
-- v3=sum, v4=cout (outputs)
-- v5=ab, v6=ac, v7=bc (AND gates for majority)
-
-Result: 8 variables, 6 constraints
+Variables: `v0..v2` the inputs, `v3,v4` the outputs, `v5..v7` the AND gates feeding
+the majority.  8 variables, 6 constraints.
 -/
 
 def full_adder_verification : IntCSP :=

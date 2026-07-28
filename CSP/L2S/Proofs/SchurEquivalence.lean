@@ -38,14 +38,11 @@ We prove these formulations are π-equivalent via:
 - Projection π: Matrix → Compact (extract color from one-hot encoding)
 - Lifting λ: Compact → Matrix (construct one-hot encoding)
 
-This is the `CSP/L2S` port of the `CSP/Int` proof: the satisfaction reasoning goes
-through `patternHolds` and the `PatternBridges` `*_holds_iff` lemmas instead of the
-dynamic-constraint checker.
+Satisfaction reasoning goes through `patternHolds` and the `PatternBridges`
+`*_holds_iff` lemmas rather than the dynamic-constraint checker.
 -/
 
--- ============================================================================
--- Schur Triple Generation
--- ============================================================================
+/-! ### Schur Triple Generation -/
 
 /-- Generate all Schur triples for {1, ..., n} (0-indexed).
     A triple (i, j, k) satisfies (i+1) + (j+1) = (k+1), i.e. k = i + j + 1,
@@ -60,9 +57,7 @@ def schurTriples (n : ℕ) : List (Fin n × Fin n × Fin n) :=
         else none
       else none
 
--- ============================================================================
--- CSP Definitions
--- ============================================================================
+/-! ### CSP Definitions -/
 
 section Definitions
 
@@ -125,9 +120,7 @@ def schur_expanded : IntCSP :=
 
 end Definitions
 
--- ============================================================================
--- Projection and Lifting Functions
--- ============================================================================
+/-! ### Projection and Lifting Functions -/
 
 /-- Projection π: Matrix → Compact
     For each integer v, find the unique color d where matrix[v,d] = 1 -/
@@ -148,9 +141,7 @@ def schur_lift {n colors : ℕ} (h_colors : 0 < colors) (assignment : IntAssignm
       rw [Nat.div_lt_iff_lt_mul h_colors]
       exact idx.isLt⟩ = d.val then 1 else 0
 
--- ============================================================================
--- Auxiliary Lemmas
--- ============================================================================
+/-! ### Auxiliary Lemmas -/
 
 section AuxiliaryLemmas
 
@@ -351,9 +342,7 @@ lemma schur_compact_solution_bounds (assignment : IntAssignment n)
 
 end AuxiliaryLemmas
 
--- ============================================================================
--- Main Theorems
--- ============================================================================
+/-! ### Main Theorems -/
 
 section MainTheorems
 
@@ -708,9 +697,7 @@ theorem schur_injective (h_pos : 0 < colors) (sol₂ sol₂' : IntAssignment (n 
 
 end MainTheorems
 
--- ============================================================================
--- π-Equivalence Theorem
--- ============================================================================
+/-! ### π-Equivalence Theorem -/
 
 theorem schur_pi_equivalent (n colors : ℕ) (h_colors : 0 < colors)
     (triples : List (Fin n × Fin n × Fin n)) :
@@ -742,9 +729,7 @@ theorem schur_equisatisfiable (n colors : ℕ) (h_colors : 0 < colors)
   apply piEquivalent_implies_equisatisfiable
   exact schur_pi_equivalent n colors h_colors triples
 
--- ============================================================================
--- Instantiated Versions (triples computed from n)
--- ============================================================================
+/-! ### Instantiated Versions (triples computed from n) -/
 
 /-- Schur compact CSP with triples computed from n -/
 def schur (n colors : ℕ) : IntCSP :=

@@ -5,31 +5,24 @@ namespace CSP.L2S.PB
 open scoped BigOperators
 
 /-!
-# PB backend — the substitution theorem (the technical core, PLAN.md §5)
+# PB backend — the substitution theorem
 
-Under the order encoding, a linear arithmetic constraint `Σ aᵢ·xᵢ ≤ b` over CSP
-integer variables converts to a single linear PB constraint over the threshold
-variables, with gap-weighted coefficients.  This file proves the underlying
-arithmetic identity `linear_le_of_threshold_sum`; every linear-arithmetic
-encoding (`≤`, `≥`, `=`, `<`, `>`, and `≠` via Big-M) is justified through it.
+Under the order encoding a linear constraint `Σ aᵢ·xᵢ ≤ b` over CSP integer
+variables becomes a single linear PB constraint over the threshold variables,
+with gap-weighted coefficients.  Every linear encoding (`≤`, `≥`, `=`, `<`, `>`,
+and `≠` via Big-M) is justified through `linear_le_of_threshold_sum`.
 
-The identity is *pure algebra* — it follows from `intValue i = maxVal i − Σⱼ gapⱼ·⟦thr i j⟧`
-by distributing the sum and rearranging; order consistency (`orderConsistent`) is
-**not** needed here (it is what makes the recovered value land in the domain — see
-`intValue_mem_values` — but the substitution identity holds for any valuation).
-
-Note on notation: PLAN.md writes `∑ p ∈ terms` with `terms : List …`, but the
-`∑ … ∈ …` big-operator notation is `Finset`-only; we use `(terms.map …).sum`.
+The identity is pure algebra; order consistency is *not* needed here (that is
+what makes the recovered value land in the domain — see `intValue_mem_values`).
 -/
 
 variable {S : CSPSig}
 
-/-- **The substitution theorem.** For a linear combination `Σ aᵢ·xᵢ` of CSP
-    variables (given as a `terms` list of `(coefficient, variable)` pairs), the
-    constraint `Σ aᵢ·xᵢ ≤ b` is equivalent to a single linear PB constraint over
-    the threshold variables: `Σᵢ aᵢ·(Σⱼ gapᵢⱼ·⟦thr i j⟧) ≥ (Σᵢ aᵢ·maxVal i) − b`.
-    The gap-weighted threshold coefficients are exactly what generalize the
-    interval-domain order encoding to arbitrary finite domains. -/
+/-- **The substitution theorem.** For a linear combination `Σ aᵢ·xᵢ` given as a
+    list of `(coefficient, variable)` pairs, `Σ aᵢ·xᵢ ≤ b` is equivalent to the
+    PB constraint `Σᵢ aᵢ·(Σⱼ gapᵢⱼ·⟦thr i j⟧) ≥ (Σᵢ aᵢ·maxVal i) − b`.  The
+    gap-weighted coefficients generalize the interval-domain order encoding to
+    arbitrary finite domains. -/
 theorem linear_le_of_threshold_sum (v : Valuation S)
     (terms : List (Int × Fin S.nInt)) (b : Int) :
     (terms.map (fun p => p.1 * v.intValue p.2)).sum ≤ b
@@ -55,7 +48,7 @@ theorem linear_le_of_threshold_sum (v : Valuation S)
       rw [hp]; ring
   rw [key]; omega
 
-/-! ### By-hand sanity check (PLAN.md M2): two variables over `{0, 2, 4}`. -/
+/-! ### Sanity check: two variables over `{0, 2, 4}`. -/
 
 namespace DemoTest
 

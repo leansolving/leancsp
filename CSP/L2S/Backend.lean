@@ -3,28 +3,14 @@ import CSP.L2S.Core
 namespace CSP.L2S
 
 /-!
-# Backend Abstraction for Translators
+# Backend abstraction for translators
 
-Unified interface for translating IntCSP to various solver formats.
+A runtime-selected interface for translating an `IntCSP` to a solver format, with
+`Except` error handling for unsupported constraints.
 
-## Design Principles
-- Backend selected at runtime (not typeclass inference)
-- Error handling with Except for unsupported constraints
-- Options for strict mode, logic selection, etc.
-- Zero impact on semantic proofs
-
-## Architecture
-
-The backend system provides a common driver (`translateWith`) that handles:
-1. Variable declarations
-2. Domain assertions
-3. Constraint translation loop
-4. File assembly (header + decls + constraints + footer)
-
-Each backend only needs to implement:
-- Format-specific syntax (MiniZinc vs SMT-LIB)
-- Pattern translation logic
-- Include/header generation
+The common driver `translateWith` handles variable declarations, domain assertions,
+the constraint translation loop, and file assembly.  A backend supplies only its
+format-specific syntax, pattern translation, and header generation.
 -/
 
 /-- Translation errors -/
@@ -114,9 +100,7 @@ def translateWith (backend : Backend) (opts : BackendOptions)
   let allLines := header ++ decls ++ domains ++ constraints ++ footer
   return String.intercalate "\n" allLines
 
--- ============================================================================
--- Backend Type Enumeration
--- ============================================================================
+/-! ### Backend Type Enumeration -/
 
 /-!
 ## Backend Types

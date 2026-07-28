@@ -8,48 +8,37 @@ import Mathlib.Tactic.IntervalCases
 /-!
 # A cautionary example: an unsound reversal reformulation of Schur
 
-This file backs the paper's cautionary subsection (`sec:cautionary`): the
-reversal-based strict lexicographic leader `x <_lex rev(x)`, a *sound* symmetry break
-for van der Waerden / modular Schur, is **unsound** when transplanted onto ordinary
-Schur. Two independent facts, both proved here at the *reformulation level* — with the
-symmetry framework, concrete witnesses, and kernel `decide`, using **no** UNSAT
-pipeline and **no** `¬ isSatisfiableInt`:
+The reversal-based strict lexicographic leader `x <_lex rev(x)` is a *sound*
+symmetry break for van der Waerden and modular Schur, but **unsound** when
+transplanted onto ordinary Schur.  Two independent facts, both proved at the
+reformulation level with concrete witnesses and kernel `decide` — no UNSAT
+pipeline, no `¬ isSatisfiableInt`:
 
-1. **The reversal is not a variable symmetry of the Schur CSP** for every satisfiable
-   size `3 ≤ n ≤ 12` (`reversal_not_schur_symmetry_range`, and its `n = 3` instance
-   `reversal_not_schur_symmetry`, the paper's headline theorem). A solution survives the
-   reversal only accidentally; e.g. `[0,1,1]` reverses to `[1,1,0]`, which colours
-   `1 + 1 = 2` monochromatically.
+1. **The reversal is not a variable symmetry of the Schur CSP** for every
+   satisfiable size `3 ≤ n ≤ 12` (`reversal_not_schur_symmetry_range`).  E.g.
+   `[0,1,1]` reverses to `[1,1,0]`, which colours `1 + 1 = 2` monochromatically.
 
 2. **The strict reversal leader is not a valid symmetry break** at `n = 13`
-   (`schur_strict_reversal_leader_unsound`). There every solution is a palindrome, so the
-   reversal fixes it; but a palindrome satisfies neither `s <_lex rev s` nor
-   `rev s <_lex s`, so the strict leader deletes the whole orbit `{s, rev s} = {s}`.
-   This is the deliberate *negation* of Langford's sound break lemma
-   `CSP.L2S.PB.LangfordSB.langford_sbc_break` (a non-strict leader on a family with no
-   palindrome solutions). See the `≤_lex` companion below for the strict-vs-non-strict
-   contrast.
+   (`schur_strict_reversal_leader_unsound`).  There every solution is a palindrome,
+   so the reversal fixes it; but a palindrome satisfies neither `s <_lex rev s` nor
+   `rev s <_lex s`, so the strict leader deletes the whole orbit.  This is the
+   deliberate negation of Langford's sound break `langford_sbc_break`.
 
-Design note: we deliberately do *not* target the framework predicate
-`¬ variableSymmetryBreakingConstraint`. That
-quantifies over *all* variable symmetries and would force "every `n = 13` solution is a
-palindrome", provable in this framework only through `¬ isSatisfiableInt` (the PB
-certificate pipeline). Refuting the reversal-symmetry-specific break — the operative,
-Langford-parallel statement — needs only a single concrete solution and `decide`.
+We deliberately do *not* target the framework predicate
+`¬ variableSymmetryBreakingConstraint` here: it quantifies over *all* variable
+symmetries and would need "every `n = 13` solution is a palindrome", which in this
+framework requires the PB certificate pipeline (see the end of the file).
 -/
 
 open CSP.L2S
 
 namespace Schur
 
--- ============================================================================
--- Obligation 1: the reversal is not a variable symmetry (3 ≤ n ≤ 12)
--- ============================================================================
+/-! ### Obligation 1: the reversal is not a variable symmetry (3 ≤ n ≤ 12) -/
 
 /-- Per-size witness solutions of the 3-colour Schur CSP whose reversal is *not* a
     solution (found by brute force).  Each reversal makes some triple monochromatic.
-    Sizes outside `3..12` are unused
-    (the statement is false there) and map to the zero assignment. -/
+    Sizes outside `3..12` are unused and map to the zero assignment. -/
 def schurRevWitness : (n : ℕ) → IntAssignment n
   | 3  => ![0, 1, 1]
   | 4  => ![0, 1, 0, 2]
@@ -64,11 +53,9 @@ def schurRevWitness : (n : ℕ) → IntAssignment n
   | _  => fun _ => 0
 
 /-- **The reversal is not a variable symmetry of the 3-colour Schur CSP for `3 ≤ n ≤ 12`.**
-    `Fin.revPerm` is the paper's `reversal n` (since `VarType n = Fin n`). Each size is a
-    separate concrete instance discharged by its witness and `decide`. The range is tight:
-    at `n = 1, 2` the reversal is accidentally a symmetry, at `n = 13` all solutions are
-    palindromes (so it fixes each one), and at `n ≥ 14` the CSP is UNSAT (symmetry
-    vacuous). -/
+    Each size is a separate concrete instance discharged by its witness and `decide`.
+    The range is tight: at `n = 1, 2` the reversal is accidentally a symmetry, at
+    `n = 13` all solutions are palindromes, and at `n ≥ 14` the CSP is UNSAT. -/
 theorem reversal_not_schur_symmetry_range
     (n : ℕ) (h3 : 3 ≤ n) (h12 : n ≤ 12) :
     ¬ VariableSymmetry (schur_csp_triples n 3 (schurTriples n)) Fin.revPerm := by
@@ -76,21 +63,18 @@ theorem reversal_not_schur_symmetry_range
   interval_cases n <;>
     exact absurd (hsym (schurRevWitness _) (by decide)) (by decide)
 
-/-- **The reversal is not a variable symmetry of `schur 3 3` (the paper's headline
-    theorem).** Witness `[0,1,1]` is a solution whose reversal `[1,1,0]` is monochromatic
-    on the triple `1 + 1 = 2`. Named to match the `lstlisting` in `sec:cautionary`. -/
+/-- **The reversal is not a variable symmetry of `schur 3 3`.** Witness `[0,1,1]` is a
+    solution whose reversal `[1,1,0]` is monochromatic on the triple `1 + 1 = 2`. -/
 theorem reversal_not_schur_symmetry :
     ¬ VariableSymmetry (schur_csp_triples 3 3 (schurTriples 3)) Fin.revPerm :=
   reversal_not_schur_symmetry_range 3 (by decide) (by decide)
 
--- ============================================================================
--- Obligation 2: the strict reversal leader is not a valid symmetry break (n = 13)
--- ============================================================================
+/-! ### Obligation 2: the strict reversal leader is not a valid symmetry break (n = 13) -/
 
 /-- The strict lexicographic reversal leader `x <_lex rev(x)`, as a standalone decidable
     predicate on assignments: some position `p` is the first at which `x` and its reversal
     differ, and there `x` is strictly smaller. A palindrome (`x = rev x`) never satisfies
-    it. Kept out of the `IntConstraint` inductive on purpose — obligation 2 is refuted at
+    it.  Kept out of the `IntConstraint` inductive on purpose: fact 2 is refuted at
     the reformulation level, so the leader need only be a predicate. -/
 def strictLexRevLt {n : ℕ} (a : IntAssignment n) : Prop :=
   ∃ p : Fin n, (∀ q : Fin n, q < p → a q = a (Fin.rev q)) ∧ a p < a (Fin.rev p)
@@ -104,8 +88,8 @@ instance instDecStrictLexRevLt {n : ℕ} (a : IntAssignment n) :
     (= `CSP/L2S/EndToEnd/sols/schur_c3_n13.sol`) is fixed by the reversal (`rev s = s`),
     and satisfies neither `s <_lex rev s` nor `rev s <_lex rev(rev s)`. So the reversal
     symmetry maps its whole orbit `{s, rev s} = {s}` off the strict leader: no member
-    survives, and the augmented model would be wrongly UNSAT. This is the exact
-    false-certificate mechanism of `sec:cautionary`, shown without the UNSAT pipeline.
+    survives, and the augmented model would be wrongly UNSAT — the false-certificate
+    mechanism, shown here without the UNSAT pipeline.
 
     Contrast: the *non-strict* leader retains `s` — see
     `schur_nonstrict_reversal_leader_retains`. And the analogous *sound* break for a
@@ -118,9 +102,7 @@ theorem schur_strict_reversal_leader_unsound :
   · decide
   · decide
 
--- ============================================================================
--- Companion: the non-strict leader retains the palindrome (strictness is the culprit)
--- ============================================================================
+/-! ### Companion: the non-strict leader retains the palindrome (strictness is the culprit) -/
 
 /-- The *non-strict* lexicographic reversal leader `x ≤_lex rev(x)`: strictly smaller at
     the first difference, or equal to its reversal (a palindrome). -/
@@ -142,9 +124,7 @@ theorem schur_nonstrict_reversal_leader_retains :
   · decide
   · decide
 
--- ============================================================================
--- Obligation 2, framework level: the leader is not a variableSymmetryBreakingConstraint
--- ============================================================================
+/-! ### Obligation 2, framework level: the leader is not a variableSymmetryBreakingConstraint -/
 
 /-!
 The reformulation-level results above refute the reversal-symmetry-specific break. The
@@ -173,8 +153,8 @@ open CSP.L2S.PB.SchurLexLeader in
 /-- **The strict reversal leader is not a valid variable symmetry-breaking constraint** for
     the 3-colour Schur CSP at `n = 13`.  Were it one, it would preserve satisfiability
     (`variableSymmetryBreaking_equisatisfiability`); but it turns the SAT base CSP into the
-    UNSAT `aug13`.  This is the framework-level form of the paper's cautionary example, with
-    the false UNSAT certificate supplied by the verified PB backend. -/
+    UNSAT `aug13`.  The framework-level form of the cautionary example, with the false
+    UNSAT certificate supplied by the verified PB backend. -/
 theorem schur_leader_not_variableSBC :
     ¬ variableSymmetryBreakingConstraint base13 leader :=
   mt (variableSymmetryBreaking_equisatisfiability base13 leader)

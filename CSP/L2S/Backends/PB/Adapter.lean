@@ -8,21 +8,16 @@ open CSP.L2S
 open scoped BigOperators
 
 /-!
-# PB backend — `IntCSP` → `CSPSig` adapter (PLAN.md M5)
+# PB backend — `IntCSP` → `CSPSig` adapter
 
-The generic spine (`Extend.lean`) proves `formulaUnsat → ¬∃ in-domain linear
-solution` over an abstract `CSPSig` and a list of linear `≤` constraints.  This
-file connects it to a real `IntCSP`:
+Connects the abstract generic spine (`Extend.lean`) to a real `IntCSP`:
 
 * `domainValues lb ub` turns a `bound` interval into the strictly-sorted value
-  list a `CSPSig` needs; `toCSPSig` builds the signature (one integer variable
-  per CSP variable, `nBool = nAux = 0`);
-* per-pattern *bridge* lemmas turn `IntCSP.satisfiesConstraintInt` of a
-  `bound` / `linear_le` into the in-domain / linear-`≤` facts the spine consumes;
-* `unsat_of_pb` composes them into a `¬ csp.isSatisfiableInt` theorem.
-
-Phase 1 covers `bound` + `linear_le` (a `≥` constraint is just `linear_le` with
-negated coefficients); wider pattern coverage rides on the M4 encoders.
+  list a `CSPSig` needs; `toCSPSig` builds the signature;
+* per-pattern bridge lemmas turn `IntCSP.satisfiesConstraintInt` into the
+  in-domain / linear-`≤` facts the spine consumes;
+* `unsat_of_pb` composes them into a `¬ csp.isSatisfiableInt` theorem for the
+  linear fragment.
 -/
 
 /-! ### Domain value lists -/
@@ -119,10 +114,7 @@ theorem linear_eq_sat {n m : ℕ} (scope : _root_.Vector (VarType n) m)
   exact h
 
 /-- A satisfied `linear_ne scope coeffs target` constraint gives the disequality
-    `Σ coeffᵢ·a(scopeᵢ) ≠ target` over `terms = coeffs.zip scope`.  The `linear_ne`
-    analogue of `linear_eq_sat`; a consumer feeds it to the Big-M `encodeLinearNe`.
-    Powers circuit-verification queries with a negated correctness property
-    (`FullAdder.lean`). -/
+    `Σ coeffᵢ·a(scopeᵢ) ≠ target`; a consumer feeds it to `encodeLinearNe`. -/
 theorem linear_ne_sat {n m : ℕ} (scope : _root_.Vector (VarType n) m)
     (coeffs : _root_.Vector ℤ m) (target : ℤ) (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (linear_ne scope coeffs target) a) :
@@ -133,11 +125,8 @@ theorem linear_ne_sat {n m : ℕ} (scope : _root_.Vector (VarType n) m)
   rw [List.map_zip_eq_zipWith]
   exact h
 
-/-- A satisfied `sum_eq scope target` constraint gives the equality
-    `Σ a(scopeᵢ) = target` over the scope.  The `sum`-pattern (unit-coefficient)
-    analogue of `linear_eq_sat`; a consumer reduces `scope.toList` to a concrete
-    list and splits the equality into the linear `≤` facts the PB fragment encodes.
-    Powers the binary-encoded Latin-square family (`Latin.lean`). -/
+/-- A satisfied `sum_eq scope target` constraint gives `Σ a(scopeᵢ) = target`;
+    a consumer splits it into the two linear `≤` facts the PB fragment encodes. -/
 theorem sum_eq_sat {n m : ℕ} (scope : _root_.Vector (VarType n) m) (target : ℤ)
     (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (sum_eq scope target) a) :
@@ -146,10 +135,7 @@ theorem sum_eq_sat {n m : ℕ} (scope : _root_.Vector (VarType n) m) (target : �
   exact h
 
 /-- A satisfied `at_most_k scope k` constraint gives the cardinality bound
-    `Σ a(scopeᵢ) ≤ k` over the (Boolean `{0,1}`) scope.  The `≤`-direction
-    cardinality analogue of `sum_eq_sat`; a consumer feeds it as a linear `≤`
-    fact to `encodeLinearLe`.  Powers the Paley-graph independence-number family
-    (`Paley.lean`). -/
+    `Σ a(scopeᵢ) ≤ k` over the Boolean `{0,1}` scope. -/
 theorem at_most_k_sat {n m : ℕ} (scope : _root_.Vector (VarType n) m) (k : ℕ)
     (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (at_most_k scope k) a) :

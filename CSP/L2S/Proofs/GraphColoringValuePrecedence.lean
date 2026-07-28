@@ -5,11 +5,10 @@ import CSP.L2S.ValuePrecedence
 # Value precedence for graph colouring
 
 Discharges the hypotheses of `value_precedence_is_domain_symmetry_breaking` for
-`graph_coloring_csp` (bounds + `not_equal` edges): every interval-preserving colour permutation
-is a domain symmetry (bounds via `intervalPreserving_preserves_bound`, edges via
-`not_equal_preserved_by_swap` — any permutation, by injectivity), and every solution colours in
-`[0, colors-1]`.  Hence `value_precedence colors` is a `domainSymmetryBreakingConstraint`, and
-`unsat_of_domain_sbc` bridges UNSAT of the extended CSP to UNSAT of the original.
+`graph_coloring_csp`: every interval-preserving colour permutation is a domain symmetry
+(bounds are preserved by `intervalPreserving_preserves_bound`, edges by injectivity), and
+every solution colours in `[0, colors-1]`.  Hence `value_precedence colors` is a
+`domainSymmetryBreakingConstraint` and `unsat_of_domain_sbc` transports UNSAT.
 -/
 
 open CSP.L2S IntCSP

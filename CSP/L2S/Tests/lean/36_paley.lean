@@ -5,28 +5,16 @@ open CSP.L2S
 open CSP.L2S.IntCSP   -- for `listToFinVector`
 
 /-!
-# Paley Graph Independent Sets
+# Paley graph independent sets
 
-## Problem Description
-For a prime p ≡ 1 (mod 4) the Paley graph has vertex set ℤ/pℤ with an edge
-{u,v} whenever u−v is a nonzero quadratic residue mod p. Its independence
-number α is small; asserting an independent set of size α+1 is unsatisfiable.
-For p = 13, α(Paley(13)) = 3, so an independent set of size 4 is impossible.
+For a prime `p ≡ 1 (mod 4)` the Paley graph has vertex set `ℤ/pℤ` and an edge
+`{u,v}` whenever `u − v` is a nonzero quadratic residue.  Asserting an independent
+set of size `α + 1` is unsatisfiable, which certifies the independence number.
 
-## CSP Formulation
-- **Variables**: one per vertex 0..p−1, domain {0,1} (in the set or not).
-- **Edge constraint**: for every edge {u,v}, at most one endpoint is selected
-  (`at_most_k [u,v] 1`, i.e. x_u + x_v ≤ 1).
-- **Size constraint**: `at_least_k` over all vertices with target = α+1.
+One `{0,1}` variable per vertex, `at_most_k [u,v] 1` per edge, and one `at_least_k`
+over all vertices with target `α + 1`.
 
-The conjunction is UNSAT exactly when no independent set of size `target` exists,
-certifying the independence-number upper bound — veripb's `Paley_p` benchmarks.
-
-## Instances
-- `paley_13_4` : Paley(13), target 4 — **UNSAT** (α = 3).
-
-## Constraint families
-`bound`, `at_most_k`, `at_least_k` (cardinality).
+Instance: `paley_13_4` — Paley(13) with target 4, UNSAT since `α = 3`.
 -/
 
 -- Quadratic residues mod p (squares of 0..p−1; duplicates are harmless for `∈`).

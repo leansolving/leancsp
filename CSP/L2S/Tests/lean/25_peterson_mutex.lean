@@ -4,19 +4,14 @@ import CSP.L2S.Constraints
 open CSP.L2S
 
 /-!
-# Mutual Exclusion Verification
+# Mutual exclusion verification
 
-Two processes compete for a critical section.
-States: 0=idle, 1=trying, 2=critical
+Two processes with states `0 = idle`, `1 = trying`, `2 = critical` and
+non-deterministic transitions (`idle → {idle, trying}`, `trying → {trying,
+critical}`, `critical → {idle}`).
 
-Non-deterministic state transitions (for each process):
-- IDLE (0) → {IDLE, TRYING} (may stay idle or request critical section)
-- TRYING (1) → {TRYING, CRITICAL} (may wait or enter critical section)
-- CRITICAL (2) → {IDLE} (must exit to idle)
-
-Safety property: Both processes can't be in critical section simultaneously.
-
-If UNSAT: mutual exclusion holds. If SAT: safety violation found.
+The safety property is that both processes are never critical at once: UNSAT means
+mutual exclusion holds, SAT exhibits a violation.
 -/
 
 -- Parameterized mutual exclusion verification

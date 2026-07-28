@@ -17,29 +17,18 @@ import Mathlib.Data.List.OfFn
 open CSP.L2S CSP.L2S.PB
 
 /-!
-## Graph Coloring Equivalent Formulations
+## Graph colouring: two equivalent formulations
 
-### Formulation 1 (Vertex Model)
-Variables: One per vertex (|V|)
-Domains: Colors {0, 1, ..., k-1}
-Constraints: Adjacent vertices have different colors
+1. **Vertex model** — one variable per vertex over colours `{0,…,k-1}`; adjacent vertices
+   get different colours.
+2. **Binary matrix model** — one `{0,1}` variable per `(vertex, colour)` pair, with a
+   one-hot constraint per vertex and no shared colour across an edge.
 
-### Formulation 2 (Binary Matrix Model)
-Variables: One per (vertex, color) pair (|V| × k)
-Domain: {0, 1} (binary)
-Constraints:
-- Each vertex assigned exactly one color (one-hot encoding)
-- Adjacent vertices cannot share a color
-
-### π-Equivalence
-We prove these formulations are π-equivalent via:
-- Projection π: Matrix → Vertex (extract color from one-hot encoding)
-- Lifting λ: Vertex → Matrix (construct one-hot encoding)
+The two are π-equivalent via the projection `π` (extract the colour from the one-hot
+encoding) and the lifting `λ` (build the one-hot encoding).
 -/
 
--- ============================================================================
--- CSP Definitions
--- ============================================================================
+/-! ### CSP Definitions -/
 
 section Definitions
 
@@ -103,9 +92,7 @@ def graph_coloring_matrix (vertices colors : ℕ)
 
 end Definitions
 
--- ============================================================================
--- Projection and Lifting Functions
--- ============================================================================
+/-! ### Projection and Lifting Functions -/
 
 -- No section here, define at top level
 
@@ -132,9 +119,7 @@ def lift {vertices colors : ℕ} (h_colors : 0 < colors) (assignment : IntAssign
       rw [Nat.div_lt_iff_lt_mul h_colors]
       exact idx.isLt⟩ = c.val then 1 else 0
 
--- ============================================================================
--- Auxiliary Lemmas
--- ============================================================================
+/-! ### Auxiliary Lemmas -/
 
 section AuxiliaryLemmas
 
@@ -351,9 +336,7 @@ lemma vertex_solution_bounds (assignment : IntAssignment vertices)
 
 end AuxiliaryLemmas
 
--- ============================================================================
--- Main Theorems
--- ============================================================================
+/-! ### Main Theorems -/
 
 section MainTheorems
 
@@ -735,9 +718,7 @@ theorem injective (h_pos : 0 < colors) (sol₂ sol₂' : IntAssignment (vertices
 
 end MainTheorems
 
--- ============================================================================
--- π-Equivalence Theorem
--- ============================================================================
+/-! ### π-Equivalence Theorem -/
 
 theorem graph_coloring_pi_equivalent (vertices colors : ℕ) (h_colors : 0 < colors)
     (edges : List (Fin vertices × Fin vertices)) :
@@ -779,9 +760,7 @@ theorem graph_coloring_equisatisfiable (vertices colors : ℕ) (h_colors : 0 < c
   apply piEquivalent_implies_equisatisfiable
   exact graph_coloring_pi_equivalent vertices colors h_colors edges
 
--- ============================================================================
--- Solver Translation
--- ============================================================================
+/-! ### Solver Translation -/
 
 def petersenEdges : List (Fin 10 × Fin 10) :=
   [

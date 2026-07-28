@@ -7,9 +7,7 @@ namespace CSP
 
 open Equiv
 
--- ============================================================================
--- Extended CSP for Symmetry Breaking
--- ============================================================================
+/-! ### Extended CSP for Symmetry Breaking -/
 
 section ExtendedCSP
 
@@ -20,9 +18,7 @@ def extended_csp {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq
 
 end ExtendedCSP
 
--- ============================================================================
--- Heterogeneous Domain Symmetries
--- ============================================================================
+/-! ### Heterogeneous Domain Symmetries -/
 
 /-- A domain symmetry family provides an equivalence for each variable's domain type.
     This generalizes the homogeneous case where all variables shared the same domain. -/
@@ -73,9 +69,7 @@ def inv {VarIndex : Type} {DomainType : VarIndex → Type}
 
 end DomainSymmetryFamily
 
--- ============================================================================
--- Variable Symmetries for Heterogeneous Domains
--- ============================================================================
+/-! ### Variable Symmetries for Heterogeneous Domains -/
 
 /-- A variable symmetry in heterogeneous domains requires domain type preservation.
     This is a very restrictive condition - most useful when domain types are uniform. -/
@@ -85,18 +79,14 @@ def variable_symmetry {VarIndex : Type} {DomainType : VarIndex → Type} [Decida
   (∀ v : VarIndex, ∀ h : DomainType (π v) = DomainType v,
     @Eq.mpr (Set (DomainType v)) (Set (DomainType (π v))) (congr_arg Set h.symm) (csp.domain (π v)) = csp.domain v)
 
--- ============================================================================
--- Domain Symmetries for CSPs
--- ============================================================================
+/-! ### Domain Symmetries for CSPs -/
 
 /-- A domain symmetry family respects the CSP's domain constraints -/
 def domain_symmetry {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarIndex]
     (csp : CSP VarIndex DomainType) (σ : DomainSymmetryFamily VarIndex DomainType) : Prop :=
   ∀ v : VarIndex, ∀ d ∈ csp.domain v, σ.to_equiv v d ∈ csp.domain v
 
--- ============================================================================
--- Constraint Symmetries with ScopeValues
--- ============================================================================
+/-! ### Constraint Symmetries with ScopeValues -/
 
 /-- Apply a domain symmetry family to scope values by applying the appropriate
     symmetry for each variable in the scope -/
@@ -119,9 +109,7 @@ def dynamic_constraint_domain_symmetric {VarIndex : Type} {DomainType : VarIndex
   match dc with
   | DynamicConstraint.mk _ c => constraint_domain_symmetric c σ
 
--- ============================================================================
--- Variable Symmetry Preservation and Constraint Symmetries
--- ============================================================================
+/-! ### Variable Symmetry Preservation and Constraint Symmetries -/
 
 /-- Apply a variable symmetry to an assignment by permuting variables.
     This requires careful type handling due to the type compatibility requirement. -/
@@ -145,9 +133,7 @@ def dynamic_constraint_variable_symmetric {VarIndex : Type} {DomainType : VarInd
   match dc with
   | DynamicConstraint.mk _ c => constraint_variable_symmetric c π h_types
 
--- ============================================================================
--- Variable Symmetry Preservation Theorems
--- ============================================================================
+/-! ### Variable Symmetry Preservation Theorems -/
 
 /-- Variable symmetries preserve solutions when type compatibility holds -/
 theorem variable_symmetry_preserves_solutions {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarIndex]
@@ -176,9 +162,7 @@ theorem variable_symmetry_preserves_solutions {VarIndex : Type} {DomainType : Va
       have h_orig := h_sat (DynamicConstraint.mk n constraint) hc
       exact h_orig
 
--- ============================================================================
--- Variable Symmetry Breaking Constraints
--- ============================================================================
+/-! ### Variable Symmetry Breaking Constraints -/
 
 /-- A constraint is a variable symmetry breaking constraint if for every solution
     of the original CSP, there exists a variable symmetry that transforms it into
@@ -212,9 +196,7 @@ theorem variable_symmetry_breaking_preserves_equisatisfiability
     exact ⟨assignment, h_sol⟩
 
 
--- ============================================================================
--- Key Lemmas for Assignment Transformation
--- ============================================================================
+/-! ### Key Lemmas for Assignment Transformation -/
 
 section AssignmentLemmas
 
@@ -231,9 +213,7 @@ lemma map_assignment_apply_symmetry {VarIndex : Type} {DomainType : VarIndex →
 
 end AssignmentLemmas
 
--- ============================================================================
--- Symmetry Preservation Theorems
--- ============================================================================
+/-! ### Symmetry Preservation Theorems -/
 
 /-- Domain symmetry preserves constraint satisfaction -/
 theorem constraint_symmetric_preserves_satisfaction {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarIndex]
@@ -274,9 +254,7 @@ theorem domain_symmetry_preserves_solutions {VarIndex : Type} {DomainType : VarI
     exact h_sat c hc
 
 
--- ============================================================================
--- Symmetry Breaking Constraints
--- ============================================================================
+/-! ### Symmetry Breaking Constraints -/
 
 /-- A constraint is a domain symmetry breaking constraint if for every solution
     of the original CSP, there exists a domain symmetry that transforms it into
@@ -290,9 +268,7 @@ def domain_symmetry_breaking_constraint {VarIndex : Type} {DomainType : VarIndex
       is_solution (extended_csp csp c) (σ.apply assignment)
 
 
--- ============================================================================
--- Symmetry Breaking Preserves Satisfiability
--- ============================================================================
+/-! ### Symmetry Breaking Preserves Satisfiability -/
 
 /-- Domain symmetry breaking constraints preserve equisatisfiability -/
 theorem domain_symmetry_breaking_preserves_equisatisfiability
@@ -316,9 +292,7 @@ theorem domain_symmetry_breaking_preserves_equisatisfiability
     exact ⟨assignment, h_sol⟩
 
 
--- ============================================================================
--- Utility Lemmas for Specific Domain Types
--- ============================================================================
+/-! ### Utility Lemmas for Specific Domain Types -/
 
 section SpecificDomainSymmetries
 
@@ -338,9 +312,7 @@ def custom_domain_symmetry {VarIndex : Type} {DomainType : VarIndex → Type}
 
 end SpecificDomainSymmetries
 
--- ============================================================================
--- Composition and Group Structure
--- ============================================================================
+/-! ### Composition and Group Structure -/
 
 section GroupStructure
 
@@ -373,9 +345,7 @@ instance {VarIndex : Type} {DomainType : VarIndex → Type} :
 
 end GroupStructure
 
--- ============================================================================
--- Combined Symmetry Breaking Constraints
--- ============================================================================
+/-! ### Combined Symmetry Breaking Constraints -/
 
 /-- A constraint can break either domain or variable symmetries -/
 def general_symmetry_breaking_constraint {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarIndex]

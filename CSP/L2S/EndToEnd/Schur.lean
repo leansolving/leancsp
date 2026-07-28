@@ -5,20 +5,16 @@ import CSP.L2S.Proofs.SchurValuePrecedence
 /-!
 # End-to-end UNSAT via symmetry breaking — Schur `S(2) < 5`
 
-This module ties the two halves of the project together for the Schur problem:
+Ties the two halves of the project together:
 
-1. **SBC correctness** (`Proofs/SchurSB.lean`): the colour-fixing constraint `x₀ = 0`
-   is a *domain symmetry-breaking constraint* for the Schur CSP — proved from the fact
-   that swapping two colours is a domain symmetry (`schur_colour_swap`), so it preserves
-   equisatisfiability.
-2. **Verified PB UNSAT** (`Problems/SchurSBC.lean`): the *extended* CSP
-   `(schur_csp 5 2).addConstraint (x₀ = 0)` is UNSAT, certified by a kernel-checked
-   pseudo-Boolean proof (`certs/schur_2_5_sbc.pbp`).
+1. **SBC correctness** (`Proofs/SchurSB.lean`): the colour-fixing constraint `x₀ = 0` is
+   a domain symmetry-breaking constraint for the Schur CSP, since swapping two colours is
+   a domain symmetry.
+2. **Verified PB UNSAT** (`Problems/SchurSBC.lean`): the extended CSP
+   `(schur_csp 5 2).addConstraint (x₀ = 0)` is UNSAT by a kernel-checked certificate.
 
-The bridge `CSP.L2S.unsat_of_sbc` (in `CSP/L2S/Symmetry.lean`) composes them: a verified
-SBC plus UNSAT of the extended CSP yields UNSAT of the **original** CSP.
-
-This is the template followed by every other family under `CSP/L2S/EndToEnd/`.
+`CSP.L2S.unsat_of_sbc` composes them: a verified SBC plus UNSAT of the extended CSP gives
+UNSAT of the original.  Every other family under `EndToEnd/` follows this template.
 -/
 
 namespace CSP.L2S.EndToEnd.Schur

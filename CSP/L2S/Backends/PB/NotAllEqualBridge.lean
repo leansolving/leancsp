@@ -7,35 +7,19 @@ namespace CSP.L2S.PB
 open CSP.L2S
 
 /-!
-# PB backend — adapter bridges for the not-all-equal / `ne` / `ne_const` patterns
+# PB backend — bridges for the not-all-equal / `ne` / `ne_const` patterns
 
-The not-all-equal encoder (`encodeNotAllEqualBin` + `encodeNotAllEqualBin_sound`,
-`NotAllEqual.lean`) is aux-free, so — like `alldifferent` for pigeonhole — it
-rides on the existing generic spine `csp_unsat_generic` (`Extend.lean`) through
-two reusable bridges, the analogues of `bound_sat` / `extend_sat_encodeLinearLe`:
+The not-all-equal encoders are aux-free, so they ride the generic spine
+`csp_unsat_generic` through reusable bridges, the analogues of `bound_sat` /
+`extend_sat_encodeLinearLe`:
 
-* `schur_triple_sat` — a satisfied corpus `schur_triple v1 v2 v3` constraint makes
-  the three assigned values not all equal (`a v1 ≠ a v2 ∨ a v1 ≠ a v3 ∨ a v2 ≠ a v3`);
-* `extend_sat_encodeNotAllEqualBin` — a normalized `encodeNotAllEqualBin` constraint
-  is modelled by `extend a bA auxA` (it mentions only thresholds) whenever two of
-  the recovered values differ; composes `encodeNotAllEqualBin_sound` with
-  `extend_intValue`.
-
-These power the end-to-end UNSAT proofs for the binary-domain colouring showcase
-CSPs `vdw_2_3_9` (`VanDerWaerden.lean`), `ramsey_3_3_K6` (`Ramsey.lean`), and the
-graph 2-colouring `k3_2col` (`GraphColoring.lean`).
-
-The multi-valued (`k > 2`-colour) analogue `extend_sat_encodeNotAllEqualMulti`
-mirrors `extend_sat_encodeNotAllEqualBin` but composes `encodeNotAllEqualMulti_sound`
-(`AllDifferent.lean`, the per-value cardinality form) — it powers the end-to-end
-3-colour Schur UNSAT proof `schur_3_14` (`Schur3.lean`).
-
-Two further pattern bridges support graph colouring with explicit edges and
-forbidden colours: `not_equal_sat` (`ne` edge → the endpoints differ) and
-`not_equals_const_sat` / `extend_sat_encodeNeConst` (`ne_const` → the value avoids
-the forbidden constant, modelled via the aux-free `encodeNeConst`).  These power
-the forbidden-colour CSP `k2_forbidden` (`ForbiddenColoring.lean`), the first
-end-to-end consumer of `encodeNeConst`.
+* `schur_triple_sat` — a satisfied `schur_triple` makes the three assigned values
+  not all equal;
+* `extend_sat_encodeNotAllEqualBin` / `..Multi` — a normalized not-all-equal
+  constraint is modelled by `extend a bA auxA` whenever two recovered values
+  differ (the binary and `k > 2`-valued forms);
+* `not_equal_sat` and `not_equals_const_sat` / `extend_sat_encodeNeConst` — the
+  explicit-edge and forbidden-colour patterns.
 -/
 
 /-- **Bridge.** A satisfied corpus `schur_triple v1 v2 v3` constraint makes the
@@ -68,11 +52,9 @@ theorem not_equals_const_sat {n : ℕ} (v : VarType n) (c : ℤ)
   simp only [IntCSP.satisfiesConstraintInt, not_equals_const, patternHolds, valAt_eq] at h
   exact h
 
-/-- **Bridge.** A satisfied corpus `equals_const v c` constraint (a fixed value /
-    Sudoku "given", pattern `eq_const`) pins the assigned value to `c`.  The positive
-    twin of `not_equals_const_sat`; the unary checker `decide (x = c)` reduces the same
-    way once `unary_constraint` is unfolded.  Powers the Sudoku-with-clues family
-    (`Sudoku.lean`). -/
+/-- **Bridge.** A satisfied `equals_const v c` constraint (a fixed value, e.g. a
+    Sudoku given) pins the assigned value to `c`.  The positive twin of
+    `not_equals_const_sat`. -/
 theorem equals_const_sat {n : ℕ} (v : VarType n) (c : ℤ)
     (a : IntAssignment n)
     (h : IntCSP.satisfiesConstraintInt (equals_const v c) a) :
@@ -80,10 +62,8 @@ theorem equals_const_sat {n : ℕ} (v : VarType n) (c : ℤ)
   simp only [IntCSP.satisfiesConstraintInt, equals_const, patternHolds, valAt_eq] at h
   exact h
 
-/-- **Bridge.** A normalized `encodeNeConst j val` constraint (`xⱼ ≠ val`, aux-free)
-    is modelled by `extend a bA auxA` whenever the recovered value of `xⱼ` differs
-    from `val`.  Composes `encodeNeConst_sound` (needs `orderConsistent`, supplied by
-    `extend_orderConsistent`) with `extend_intValue`. -/
+/-- **Bridge.** A normalized `encodeNeConst j val` constraint is modelled by
+    `extend a bA auxA` whenever the recovered value of `xⱼ` differs from `val`. -/
 theorem extend_sat_encodeNeConst {S : CSPSig} (a : Fin S.nInt → Int)
     (bA : Fin S.nBool → Bool) (auxA : Fin S.nAux → Bool) (hdom : ∀ i, a i ∈ S.values i)
     (j : Fin S.nInt) (val : Int) (hne : a j ≠ val)
@@ -95,10 +75,7 @@ theorem extend_sat_encodeNeConst {S : CSPSig} (a : Fin S.nInt → Int)
   exact hne
 
 /-- **Bridge.** A normalized `encodeNotAllEqualBin` constraint is modelled by
-    `extend a bA auxA` (for any Boolean / aux setting — it mentions only thresholds)
-    whenever two of the recovered values differ.  Composes
-    `encodeNotAllEqualBin_sound` with `extend_intValue`; the analogue of
-    `extend_sat_encodeLinearLe` / `extend_sat_encodeAllDifferent`. -/
+    `extend a bA auxA` whenever two of the recovered values differ. -/
 theorem extend_sat_encodeNotAllEqualBin {S : CSPSig} (a : Fin S.nInt → Int)
     (bA : Fin S.nBool → Bool) (auxA : Fin S.nAux → Bool) (hdom : ∀ i, a i ∈ S.values i)
     (vars : List (Fin S.nInt)) (hw : ∀ i ∈ vars, 0 < S.width i)
@@ -116,11 +93,8 @@ theorem extend_sat_encodeNotAllEqualBin {S : CSPSig} (a : Fin S.nInt → Int)
   rw [extend_intValue a bA auxA hdom i, extend_intValue a bA auxA hdom i']
   exact hii
 
-/-- **Bridge (multi-valued).** A normalized `encodeNotAllEqualMulti` constraint is
-    modelled by `extend a bA auxA` (it mentions only thresholds — the encoding is
-    aux-free) whenever two of the recovered values differ.  Composes
-    `encodeNotAllEqualMulti_sound` with `extend_intValue`; the multi-valued
-    (k>2-colour) analogue of `extend_sat_encodeNotAllEqualBin`. -/
+/-- **Bridge (multi-valued).** The `k > 2`-valued analogue of
+    `extend_sat_encodeNotAllEqualBin`. -/
 theorem extend_sat_encodeNotAllEqualMulti {S : CSPSig} (a : Fin S.nInt → Int)
     (bA : Fin S.nBool → Bool) (auxA : Fin S.nAux → Bool) (hdom : ∀ i, a i ∈ S.values i)
     (vars : List (Fin S.nInt)) (D : List Int)

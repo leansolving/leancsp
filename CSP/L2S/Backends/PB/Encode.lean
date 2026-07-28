@@ -6,14 +6,13 @@ namespace CSP.L2S.PB
 open scoped BigOperators
 
 /-!
-# PB backend — the linear-`≤` encoder (PLAN.md §6.2)
+# PB backend — the linear-`≤` encoder
 
-`encodeLinearLe terms b` turns a linear arithmetic constraint `Σ aᵢ·xᵢ ≤ b` over
-CSP integer variables into a single **signed** PB constraint over the threshold
-variables, with gap-weighted coefficients.  Soundness (`encodeLinearLe_sound`)
-is exactly the forward direction of the substitution theorem (M2,
-`linear_le_of_threshold_sum`): the heavy lifting is bridging the encoder's
-`flatMap`/`finRange` term list to the theorem's `Finset`-over-`Fin` sums.
+`encodeLinearLe terms b` turns `Σ aᵢ·xᵢ ≤ b` into a single **signed** PB
+constraint over the threshold variables, with gap-weighted coefficients.
+Soundness is the forward direction of `linear_le_of_threshold_sum`; the work is
+bridging the encoder's `flatMap`/`finRange` term list to that theorem's
+`Finset`-over-`Fin` sums.
 -/
 
 variable {V : Type} {S : CSPSig}
@@ -74,17 +73,12 @@ theorem encodeLinearLe_sound (v : Valuation S) (terms : List (Int × Fin S.nInt)
   rw [signedEval_encode]
   exact hsub
 
-/-! ### Derived comparisons `≥, <, >, =` (PLAN.md §6.3)
+/-! ### Derived comparisons `≥, <, >, =`
 
-Thin wrappers over `encodeLinearLe`, each reusing `encodeLinearLe_sound`:
-
-* `≥` encodes `Σ (−aᵢ)·xᵢ ≤ −b`;
-* `<` (integer-strict) encodes `Σ aᵢ·xᵢ ≤ b − 1`;
-* `>` (integer-strict) encodes `Σ (−aᵢ)·xᵢ ≤ −b − 1`;
-* `=` emits both the `≤` and the `≥` halves.
-
-The `<`/`>` lowerings rely on the variables being integer-valued (`intValue : … → Int`),
-so `s < b ↔ s ≤ b − 1`. -/
+Thin wrappers over `encodeLinearLe`, each reusing `encodeLinearLe_sound`: `≥`
+encodes `Σ (−aᵢ)·xᵢ ≤ −b`; `<` encodes `Σ aᵢ·xᵢ ≤ b − 1`; `>` encodes
+`Σ (−aᵢ)·xᵢ ≤ −b − 1`; `=` emits both halves.  The strict lowerings rely on the
+variables being integer-valued, so `s < b ↔ s ≤ b − 1`. -/
 
 /-- Evaluating the coefficient-negated term list negates the linear sum.
     (Private helper for `encodeLinearGe_sound` / `encodeLinearGt_sound`.) -/

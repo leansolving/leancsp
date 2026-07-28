@@ -8,34 +8,21 @@ import Mathlib.Data.List.Sort
 namespace CSP.L2S
 
 /-!
-# L2M Tagged Constraint Implementations
+# L2S constraint constructors
 
-This module provides all tagged constraint constructors with dual representation:
-- **Semantic Pattern**: High-level structure for MiniZinc translation
-- **Dynamic Checker**: Executable predicate for Lean proofs
+One smart constructor per supported constraint, each pairing a semantic pattern (used
+by the backends) with an executable checker (used in proofs).  Covers globals
+(`alldifferent`, `count`, `element`, min/max), linear arithmetic, binary and unary
+comparisons, cardinality, Boolean gates and bounds.
 
-## Constraint Categories
-
-1. **Global Constraints**: alldifferent, count, element, min/max
-2. **Arithmetic Constraints**: sum with all relational operators
-3. **Binary Comparisons**: =, ≠, <, ≤, >, ≥ between variables
-4. **Unary Comparisons**: =, ≠, <, ≤, >, ≥ with constants
-5. **Bound Constraints**: Variable domain specification
-6. **N-Queens Specific**: Diagonal alldifferent constraints
-
-## Adding New Constraints
-
-1. Add pattern to `IntConstraint` in Core.lean
-2. Create constructor function here
-3. Add MiniZinc translation in Translator.lean
+To add a constraint: extend `IntConstraint` in `Core.lean`, add a constructor here,
+then add its translation in `Backends/MiniZinc.lean` and `Backends/SMTLIB.lean`.
 -/
 
 open IntCSP
 open IntConstraint
 
--- ============================================================================
--- Helper Functions
--- ============================================================================
+/-! ### Helper Functions -/
 
 /-- Extract values from ScopeValues for integer homogeneous domain -/
 def extractValues {num_vars n : ℕ} {scope : _root_.Vector (VarType num_vars) n}
@@ -43,9 +30,7 @@ def extractValues {num_vars n : ℕ} {scope : _root_.Vector (VarType num_vars) n
     List IntDomain :=
   List.ofFn fun i => values i
 
--- ============================================================================
--- Global Constraints
--- ============================================================================
+/-! ### Global Constraints -/
 
 section GlobalConstraints
 
@@ -93,27 +78,22 @@ def minimum {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
     IntConstraint num_vars :=
   IntConstraint.minimum (scope.toList.map (·.val)) minVar.val
 
-/-- Value-precedence symmetry-breaking constraint over `x₀ … x_{num_vars-1}` with `colors`
-    interchangeable colours: a colour `v ∈ [1, colors)` may first appear (scanning the
-    variables in index order) only after `v-1` has.  The Law–Lee (2004) constraint; sound
-    for any CSP whose solution set is closed under all colour permutations (see
-    `CSP/L2S/ValuePrecedence.lean`).  The PB backend encodes its staircase consequence
-    `xⱼ ≤ j`. -/
+/-- Value precedence over `x₀ … x_{num_vars-1}` with `colors` interchangeable colours:
+    a colour `v ∈ [1, colors)` may first appear only after `v-1` has (Law–Lee 2004).
+    Sound for any CSP closed under colour permutations; the PB backend encodes its
+    staircase consequence `xⱼ ≤ j`. -/
 def value_precedence (colors : ℕ) : IntConstraint num_vars :=
   IntConstraint.value_precedence colors
 
-/-- Strict lexicographic reversal leader `x <_lex rev(x)` over all variables, where the
-    reversal is the index map `i ↦ (num_vars-1)-i`.  A whole-CSP symmetry-breaking
-    constraint (no explicit scope), sound only when the index reversal is a symmetry of the
-    CSP.  See `CSP/L2S/Proofs/SchurReversalCounterexample.lean` for the cautionary case. -/
+/-- Strict lexicographic reversal leader `x <_lex rev(x)` over all variables, for the
+    index map `i ↦ (num_vars-1)-i`.  Sound only when that reversal is a symmetry of the
+    CSP — see `Proofs/SchurReversalCounterexample.lean`. -/
 def strictLexRevLeader : IntConstraint num_vars :=
   IntConstraint.strictLexRevLeader
 
 end GlobalConstraints
 
--- ============================================================================
--- Arithmetic Constraints
--- ============================================================================
+/-! ### Arithmetic Constraints -/
 
 section ArithmeticConstraints
 
@@ -200,9 +180,7 @@ def linear_ne {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
 
 end ArithmeticConstraints
 
--- ============================================================================
--- Bound Constraints
--- ============================================================================
+/-! ### Bound Constraints -/
 
 section BoundConstraints
 
@@ -213,9 +191,7 @@ def bound {num_vars : ℕ} (var : VarType num_vars) (lb ub : ℤ) :
 
 end BoundConstraints
 
--- ============================================================================
--- Binary Comparison Constraints (Variable to Variable)
--- ============================================================================
+/-! ### Binary Comparison Constraints (Variable to Variable) -/
 
 section BinaryComparisons
 
@@ -247,9 +223,7 @@ def greater_equal (v1 v2 : VarType num_vars) :
 
 end BinaryComparisons
 
--- ============================================================================
--- Unary Comparison Constraints (Variable to Constant)
--- ============================================================================
+/-! ### Unary Comparison Constraints (Variable to Constant) -/
 
 section UnaryComparisons
 
@@ -281,9 +255,7 @@ def greater_equal_const (v : VarType num_vars) (c : ℤ) :
 
 end UnaryComparisons
 
--- ============================================================================
--- N-Queens Specific Constraints
--- ============================================================================
+/-! ### N-Queens Specific Constraints -/
 
 section NQueens
 
@@ -301,9 +273,7 @@ def alldifferent_diag_neg (n : ℕ) : IntConstraint n :=
 
 end NQueens
 
--- ============================================================================
--- Schur Number Constraints
--- ============================================================================
+/-! ### Schur Number Constraints -/
 
 section SchurConstraints
 
@@ -318,9 +288,7 @@ def schur_triple (v1 v2 v3 : VarType num_vars) :
 
 end SchurConstraints
 
--- ============================================================================
--- Absolute Value Constraints
--- ============================================================================
+/-! ### Absolute Value Constraints -/
 
 section AbsoluteValueConstraints
 
@@ -357,9 +325,7 @@ def abs_diff_var {num_vars : ℕ} (v1 v2 result : VarType num_vars) :
 
 end AbsoluteValueConstraints
 
--- ============================================================================
--- Modulo Constraints
--- ============================================================================
+/-! ### Modulo Constraints -/
 
 section ModuloConstraints
 
@@ -374,21 +340,14 @@ def modulo {num_vars : ℕ} (v : VarType num_vars) (n k : ℤ) :
 
 end ModuloConstraints
 
--- ============================================================================
--- Sliding Window Constraints
--- ============================================================================
+/-! ### Sliding Window Constraints -/
 
 section SlidingWindowConstraints
 
 variable {num_vars : ℕ}
 
-/-- Sliding sum constraint: for each consecutive window of size `window_size`,
-    the sum of values in that window satisfies `op target`.
-
-    For Car Sequencing: ensures that in any consecutive sequence of `b` cars,
-    at most `m` have a particular feature (when op = LE, target = m).
-
-    Translates to MiniZinc's `sliding_sum` global constraint. -/
+/-- Sliding sum: for each consecutive window of size `window_size`, the sum of values
+    in that window satisfies `op target`.  Translates to MiniZinc's `sliding_sum`. -/
 def sliding_sum {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
     (window_size : ℕ) (op : RelOp) (target : ℤ) :
     IntConstraint num_vars :=
@@ -408,9 +367,7 @@ def sliding_sum_eq {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
 
 end SlidingWindowConstraints
 
--- ============================================================================
--- Boolean Gate Constraints
--- ============================================================================
+/-! ### Boolean Gate Constraints -/
 
 section BooleanGates
 
@@ -462,9 +419,7 @@ def nor_gate {num_vars : ℕ} (in1 in2 out : VarType num_vars) :
 
 end BooleanGates
 
--- ============================================================================
--- Multi-Input Logical Operations
--- ============================================================================
+/-! ### Multi-Input Logical Operations -/
 
 section MultiInputLogic
 
@@ -495,9 +450,7 @@ def xor_all {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
 
 end MultiInputLogic
 
--- ============================================================================
--- Implication and Equivalence Constraints
--- ============================================================================
+/-! ### Implication and Equivalence Constraints -/
 
 section ImplicationConstraints
 
@@ -536,9 +489,7 @@ def if_then_or {num_vars : ℕ}
 
 end ImplicationConstraints
 
--- ============================================================================
--- Cardinality Constraints
--- ============================================================================
+/-! ### Cardinality Constraints -/
 
 section CardinalityConstraints
 
@@ -564,9 +515,7 @@ def exactly_k {n : ℕ} (scope : _root_.Vector (VarType num_vars) n) (k : ℕ) :
 
 end CardinalityConstraints
 
--- ============================================================================
--- Arithmetic Constraints with Variable Targets
--- ============================================================================
+/-! ### Arithmetic Constraints with Variable Targets -/
 
 section VariableTargetConstraints
 
@@ -625,9 +574,7 @@ def sum_ne_var {n : ℕ} (scope : _root_.Vector (VarType num_vars) n)
 
 end VariableTargetConstraints
 
--- ============================================================================
--- Scheduling Constraints
--- ============================================================================
+/-! ### Scheduling Constraints -/
 
 section SchedulingConstraints
 
@@ -643,9 +590,7 @@ def disjunctive {num_vars : ℕ}
 
 end SchedulingConstraints
 
--- ============================================================================
--- Convenience Functions
--- ============================================================================
+/-! ### Convenience Functions -/
 
 section Convenience
 

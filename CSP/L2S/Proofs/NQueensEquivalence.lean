@@ -30,9 +30,7 @@ Constraints: Different queens must be in different rows, columns and diagonals
 
 -/
 
--- ============================================================================
--- CSP definitions
--- ============================================================================
+/-! ### CSP definitions -/
 
 -- Formulation 1
 
@@ -146,9 +144,7 @@ def nqueens_csp2D (n : ℕ) : IntCSP :=
     diag_constraints2D n  ++
     antidiag_constraints2D n ⟩
 
--- ============================================================================
--- Equivalence Functions (Projection and Lifting)
--- ============================================================================
+/-! ### Equivalence Functions (Projection and Lifting) -/
 
 /--
 Projection π: 2D board → 1D permutation
@@ -177,9 +173,7 @@ def lift {n : ℕ} (hn : 0 < n) (q : IntAssignment n) : IntAssignment (n*n) :=
     let c : Fin n := ⟨v.val % n, Nat.mod_lt v.val hn⟩
     if q c = r then 1 else 0
 
--- ============================================================================
--- Auxiliary Lemmas
--- ============================================================================
+/-! ### Auxiliary Lemmas -/
 
 section AuxiliaryLemmas
 
@@ -636,9 +630,7 @@ lemma π_eq_row_of_queen (x : IntAssignment (n*n))
 
 end AuxiliaryLemmas
 
--- ============================================================================
--- Forward Direction: 2D → 1D
--- ============================================================================
+/-! ### Forward Direction: 2D → 1D -/
 
 section ForwardDirection
 
@@ -1076,9 +1068,7 @@ theorem forward_direction (hn : 0 < n) (sol₂ : IntAssignment (n*n))
 
 end ForwardDirection
 
--- ============================================================================
--- Backward Direction: 1D → 2D
--- ============================================================================
+/-! ### Backward Direction: 1D → 2D -/
 
 section BackwardDirection
 
@@ -1653,9 +1643,7 @@ theorem backward_direction (hn : 0 < n) (sol₁ : IntAssignment n)
 
 end BackwardDirection
 
--- ============================================================================
--- Injectivity
--- ============================================================================
+/-! ### Injectivity -/
 
 section Injectivity
 
@@ -1743,9 +1731,7 @@ theorem injective_on_solutions (hn : 0 < n) (sol₂ sol₂' : IntAssignment (n*n
 
 end Injectivity
 
--- ============================================================================
--- π-Equivalence
--- ============================================================================
+/-! ### π-Equivalence -/
 
 section PiEquivalence
 
@@ -1775,9 +1761,7 @@ theorem nqueens_equisatisfiable (hn_pos : 0 < n) :
 
 end PiEquivalence
 
--- ============================================================================
--- Solvers translation
--- ============================================================================
+/-! ### Solvers translation -/
 
 
 def main : IO Unit := do

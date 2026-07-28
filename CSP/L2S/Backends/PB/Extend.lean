@@ -7,30 +7,21 @@ open CSPSig
 open scoped BigOperators
 
 /-!
-# PB backend — the `extend` valuation and the generic soundness spine (PLAN.md §7)
+# PB backend — the `extend` valuation and the generic soundness spine
 
-`Demo.lean` proves `formulaUnsat → ¬ ∃ solution` for one hand-wired 3-variable
-instance.  This file makes that bridge **generic** over an arbitrary `CSPSig`:
+Bridges `formulaUnsat → ¬ ∃ solution` generically over an arbitrary `CSPSig`:
 
-* `extend a bA auxA` builds a `Valuation S` from a CSP solution — the integer
-  assignment `a` order-encoded into the thresholds (`thr i j ↦ a i ≤ valuesᵢ[j]`),
-  the Boolean assignment `bA`, and an encoder-supplied auxiliary setting `auxA`.
-  The threshold bits depend only on `a`, so the order-encoding lemmas below are
-  insensitive to `bA` / `auxA`;
+* `extend a bA auxA` builds a `Valuation S` from a CSP solution — `a`
+  order-encoded into the thresholds, plus the Boolean and auxiliary settings.
+  Only the threshold bits read `a`;
 * `extend_orderConsistent` / `extend_sat_monotonicity` — the extended valuation
-  is order-consistent and models the staircase clauses (the converse direction
-  of `orderConsistent_of_monotonicity`);
-* `extend_intValue` — the order encoding is a faithful inverse of `intValue`:
-  the recovered value of `i` is exactly `a i`;
-* `csp_unsat_generic` — the **aux-aware** spine: given the encoder's PB
-  constraints, a semantic solution predicate `P`, and an aux-setter `auxOf`, a
-  `formulaUnsat` certificate rules out every solution.  The spine discharges the
-  staircase clauses (`extend_sat_monotonicity`) and bridges to PBLean
-  (`unsat_bridge`); each encoder supplies its own constraint-soundness lemma.
-  This is the gateway for the aux/bool-based encodings (Big-M `≠`, Tseitin,
-  reified `≠`), whose fresh variables must be set from the solution;
-* `csp_unsat_of_linear` — the linear-`≤` fragment, re-derived as the aux-free
-  (`auxA := false`) specialization of `csp_unsat_generic`.
+  is order-consistent and models the staircase clauses;
+* `extend_intValue` — the order encoding is a faithful inverse of `intValue`;
+* `csp_unsat_generic` — the aux-aware spine: PB constraints, a solution
+  predicate `P` and an aux-setter `auxOf` plus a `formulaUnsat` certificate rule
+  out every solution.  The gateway for aux-using encodings (Big-M `≠`, Tseitin),
+  whose fresh variables must be set from the solution;
+* `csp_unsat_of_linear` — the aux-free (`auxA := false`) specialization.
 -/
 
 variable {S : CSPSig}
@@ -45,12 +36,9 @@ theorem nth_lt_nth (i : Fin S.nInt) {p q : Nat} (hq : q < (S.values i).length)
       List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hq]
   exact (List.pairwise_iff_getElem.mp (S.sorted i)) p q hp hq hpq
 
-/-- The valuation induced by a CSP solution: the integer assignment `a`
-    order-encoded into the thresholds (`thr i j` set iff `a i ≤ valuesᵢ[j]`), the
-    Boolean assignment `bA` carried to the original Boolean variables, and the
-    encoder-supplied setting `auxA` carried to the auxiliary variables.  Only the
-    threshold case reads `a`; `bA` / `auxA` pass through verbatim, so the
-    order-encoding lemmas are independent of them. -/
+/-- The valuation induced by a CSP solution: `a` order-encoded into the
+    thresholds (`thr i j` set iff `a i ≤ valuesᵢ[j]`), with `bA` and `auxA`
+    passed through verbatim to the Boolean and auxiliary variables. -/
 def extend (a : Fin S.nInt → Int) (bA : Fin S.nBool → Bool) (auxA : Fin S.nAux → Bool) :
     Valuation S
   | .bool b  => bA b
@@ -176,19 +164,12 @@ theorem extend_intValue (a : Fin S.nInt → Int) (bA : Fin S.nBool → Bool)
 
 /-! ### The aux-aware generic soundness spine -/
 
-/-- **Generic UNSAT spine.** Let `userConstrs` be the encoder's PB constraints
-    (over the threshold / Boolean / aux variables of `S`), `P a bA` the property a
-    CSP solution must satisfy, and `auxOf a bA` the encoder's auxiliary-variable
-    setting derived from a solution.  If for every in-domain solution the induced
-    valuation `extend a bA (auxOf a bA)` models every user constraint, and the
-    staircase (monotonicity) clauses together with the user constraints are
-    `formulaUnsat` (kernel-checked through PBLean), then no solution exists.
-
-    The spine discharges the monotonicity clauses itself (`extend_sat_monotonicity`)
-    and bridges to PBLean (`unsat_bridge`); a caller proves only its own
-    constraints, for which `extend_orderConsistent` / `extend_intValue` are the
-    workhorses.  Unlike `csp_unsat_of_linear`, the aux/bool variables are not pinned
-    to `false`, so aux-based encodings (Big-M `≠`, Tseitin, reified `≠`) can set
+/-- **Generic UNSAT spine.** If every in-domain solution's induced valuation
+    `extend a bA (auxOf a bA)` models the encoder's constraints `userConstrs`, and
+    those together with the staircase clauses are `formulaUnsat`, then no solution
+    exists.  The spine discharges monotonicity itself and bridges to PBLean; a
+    caller proves only its own constraints.  Unlike `csp_unsat_of_linear` the
+    aux/bool variables are not pinned to `false`, so aux-using encodings can set
     their fresh variables from the solution. -/
 theorem csp_unsat_generic (S : CSPSig)
     (userConstrs : List (PBConstr (PBVar S)))
@@ -236,11 +217,10 @@ theorem extend_sat_encodeLinearLe (a : Fin S.nInt → Int) (bA : Fin S.nBool →
       List.map_congr_left (fun p _ => by rw [extend_intValue a bA auxA hdom p.2])]
   exact hle
 
-/-- **Generic UNSAT bridge (linear fragment).** If the order encoding of a `CSPSig`
-    together with a list of linear `≤` constraints is `formulaUnsat` (kernel-checked
-    through PBLean), then no in-domain integer assignment satisfies all the linear
-    constraints.  The aux-free specialization of `csp_unsat_generic`
-    (`auxOf := fun _ _ _ => false`, Boolean part unused). -/
+/-- **Generic UNSAT bridge (linear fragment).** If the order encoding together
+    with a list of linear `≤` constraints is `formulaUnsat`, no in-domain integer
+    assignment satisfies them all.  The aux-free specialization of
+    `csp_unsat_generic`. -/
 theorem csp_unsat_of_linear (S : CSPSig) (lin : List (List (Int × Fin S.nInt) × Int))
     (hunsat : VeriPB.Reflect.formulaUnsat
       ((encodeLinear S lin).toArray.map PBConstr.toNatConstr)) :

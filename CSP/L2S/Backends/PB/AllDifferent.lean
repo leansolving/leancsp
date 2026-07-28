@@ -6,25 +6,14 @@ namespace CSP.L2S.PB
 open CSPSig
 
 /-!
-# PB backend — `alldifferent` value-indicator semantics (PLAN.md §6.5)
+# PB backend — `alldifferent` value-indicator semantics
 
-`alldifferent` over finite-domain integer variables decomposes, value by value,
-into `∀ v ∈ ⋃ᵢ domainᵢ : Σⱼ [xⱼ = v] ≤ 1`.  The order-encoded indicator
-`[xⱼ = v] = ⟦xⱼ ≤ v⟧ − ⟦xⱼ ≤ v − 1⟧` is built from the smart threshold
-constructor `mkLeLit`.  This file proves the reusable semantic core:
-
-* `mkLeLit_eval` — under order consistency, `⟦xⱼ ≤ k⟧` (as built by `mkLeLit`)
-  evaluates to the indicator `[intValue j ≤ k]`.  This is the order-encoding's
-  *threshold faithfulness*, and is reused by every value-based encoding
-  (`alldifferent`, hard `≠`, reified `≠`).
-* `eqIndicator_eval` — hence the difference indicator evaluates to
-  `[intValue j = v]` for any value `v`.
-
-The PB-constraint *assembly* follows in the second half: `litConstContrib` folds
-each variable's `mkLeLit` indicators into signed terms + a constant, `perValueConstr`
-builds the `Σⱼ [xⱼ = v] ≤ 1` constraint per value, and `encodeAllDifferent` /
-`encodeAllDifferent_sound` close the loop — pairwise-distinct recovered values
-(`Nodup`) satisfy every per-value constraint.
+`alldifferent` decomposes value by value into `∀ v : Σⱼ [xⱼ = v] ≤ 1`, with the
+order-encoded indicator `[xⱼ = v] = ⟦xⱼ ≤ v⟧ − ⟦xⱼ ≤ v − 1⟧` built from
+`mkLeLit`.  The semantic core is `mkLeLit_eval` (threshold faithfulness, reused
+by every value-based encoding) and `eqIndicator_eval`.  The PB-constraint
+assembly follows: `litConstContrib`, `perValueConstr`, and
+`encodeAllDifferent` / `encodeAllDifferent_sound`.
 -/
 
 variable {S : CSPSig}
@@ -34,10 +23,9 @@ def evalLitConst {V : Type} (v : V → Bool) : LitConst V → Int
   | .lit ℓ   => (evalLit v ℓ : Int)
   | .const b => if b then 1 else 0
 
-/-- **Threshold faithfulness of the order encoding.** Under order consistency, the
-    smart threshold literal `mkLeLit i k` (denoting `xᵢ ≤ k`) evaluates to the
-    indicator `[intValue i ≤ k]`.  Boundary cases (`k` below the minimum / at-or-above
-    the maximum) are handled by `mkLeLit`'s constant collapse. -/
+/-- **Threshold faithfulness.** Under order consistency, `mkLeLit i k` (denoting
+    `xᵢ ≤ k`) evaluates to the indicator `[intValue i ≤ k]`.  Out-of-domain `k` is
+    handled by `mkLeLit`'s constant collapse. -/
 theorem mkLeLit_eval (v : Valuation S) (hv : v.orderConsistent) (i : Fin S.nInt) (k : Int) :
     evalLitConst v (LitConst.mkLeLit S i k) = if v.intValue i ≤ k then (1 : Int) else 0 := by
   obtain ⟨M, hMw, hval, hbits⟩ := intValue_switch i v hv
@@ -132,14 +120,10 @@ theorem eqIndicator_eval (v : Valuation S) (hv : v.orderConsistent) (i : Fin S.n
     · have h2 : ¬ v.intValue i ≤ val - 1 := by omega
       rw [if_neg h1, if_neg h2]; ring
 
-/-! ### Per-value constraints and the `alldifferent` encoder (common domain, PLAN §6.5)
+/-! ### Per-value constraints and the `alldifferent` encoder (common domain)
 
-The PB-constraint assembly: each value `val` in the (shared) domain gets the
-constraint `Σⱼ [xⱼ = val] ≤ 1`, encoded in signed `≥` form by folding each
-variable's two `mkLeLit` indicators into weighted terms + a constant
-(`litConstContrib` absorbs the boundary constants `mkLeLit` produces).  Soundness
-rides on `eqIndicator_eval` plus a `Nodup`-of-recovered-values → at-most-one
-counting argument.
+Each value `val` gets `Σⱼ [xⱼ = val] ≤ 1`, in signed `≥` form.  Soundness rides
+on `eqIndicator_eval` plus a `Nodup`-of-recovered-values counting argument.
 -/
 
 variable {V : Type}
@@ -266,20 +250,15 @@ theorem encodeAllDifferent_sound (v : Valuation S) (hv : v.orderConsistent)
   rw [List.map_map] at hcount
   exact perValueConstr_sound v hv vars val hcount
 
-/-! ### Multi-valued not-all-equal (PLAN §6.8, the k>2-colour case)
+/-! ### Multi-valued not-all-equal (the `k > 2`-colour case)
 
-`schur_triple` and its k-ary generalization over a domain `{1..k}` with `k > 2`
-(3-colour Schur, …) cannot use the binary bottom-threshold reduction of
-`NotAllEqual.lean`.  But not-all-equal is exactly a **per-value cardinality**
+Over a domain with `k > 2` values the binary bottom-threshold reduction of
+`NotAllEqual.lean` does not apply, but not-all-equal is a per-value cardinality
 statement, reusing the `alldifferent` machinery with a relaxed bound:
 
-  `x₁,…,x_m` are not all equal  ⟺  ∀ val : at most `m−1` of them equal `val`
-                                ⟺  ∀ val : `Σⱼ [xⱼ = val] ≤ m − 1`.
+  `x₁,…,x_m` are not all equal  ⟺  ∀ val : `Σⱼ [xⱼ = val] ≤ m − 1`.
 
-(⟸: if all equalled some `w`, the `val = w` constraint would force `m ≤ m−1`.
-⟹: if all `m` equalled a fixed `val` they would be all equal.)  This is aux-free
-— no reified disequality is needed — so, like `alldifferent`, it rides on the
-generic spine through `extend_intValue`.
+Aux-free, so like `alldifferent` it rides the generic spine via `extend_intValue`.
 -/
 
 /-- Each `[· = val]` indicator is `≤ 1`, so a length-`n` list has indicator sum
@@ -340,12 +319,11 @@ theorem encodeNotAllEqualMulti_sound (v : Valuation S) (hv : v.orderConsistent)
     · exact ⟨v.intValue i', List.mem_map.mpr ⟨i', hi', rfl⟩, fun hc => hii (h.trans hc.symm)⟩
     · exact ⟨v.intValue i, List.mem_map.mpr ⟨i, hi, rfl⟩, h⟩
 
-/-! ### `xⱼ ≠ val` — the aux-free `≠` special case (PLAN §6.4)
+/-! ### `xⱼ ≠ val` — the aux-free `≠` special case
 
-The general linear `Σ aᵢ xᵢ ≠ b` needs a fresh selector variable (Big-M), but the
-common `xⱼ ≠ val` (variable ≠ constant) case is aux-free: it is exactly
-`[xⱼ = val] ≤ 0`, i.e. `−[xⱼ = val] ≥ 0`, reusing the per-variable indicator
-`adContrib`.  (The `xᵢ ≠ xⱼ` case is `encodeAllDifferent [i, j] _`.)
+The general linear `Σ aᵢ xᵢ ≠ b` needs a Big-M selector, but `xⱼ ≠ val` is
+aux-free: it is `−[xⱼ = val] ≥ 0`, reusing the indicator `adContrib`.  (The
+`xᵢ ≠ xⱼ` case is `encodeAllDifferent [i, j] _`.)
 -/
 
 /-- Encode `xⱼ ≠ val` (variable ≠ constant) as `−[xⱼ = val] ≥ 0`. -/

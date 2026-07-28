@@ -6,19 +6,15 @@ namespace CSP.L2S.PB
 open Sat.PB (Constr Literal)
 
 /-!
-# PB (pseudo-Boolean) verified backend — umbrella / bridge-API anchor
+# PB backend — the PBLean bridge API
 
-Confirms that leancsp (`IntCSP`, with Mathlib) and PBLean
-(`VeriPB.*`, Mathlib-free) co-compile on the shared Lean 4.30.0 toolchain,
-and pins down the exact PBLean symbols the UNSAT bridge composes with:
+Pins down the PBLean symbols the UNSAT bridge composes with:
 
   * `Sat.PB.Constr` — a pseudo-Boolean constraint `Σ aᵢ·lᵢ ≥ degree`.
   * `VeriPB.Reflect.checkProofBool : Array Constr → Nat → String → Bool`.
-  * `VeriPB.Reflect.checkProof_sound` — soundness: a `true` check yields
-    `formulaUnsat` of the Lean-side constraint array (the `.opb` file is
-    outside the trust base; the proof is consumed as a raw `String`).
-
-The encoder (PLAN.md M2/M3) targets `formulaUnsat (Array Sat.PB.Constr)`.
+  * `VeriPB.Reflect.checkProof_sound` — a `true` check yields `formulaUnsat` of
+    the Lean-side constraint array.  The certificate is consumed as a raw
+    `String` and stays outside the trust base.
 -/
 
 /-- The bridge contract we build on: a verified VeriPB proof string makes the

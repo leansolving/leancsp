@@ -7,9 +7,7 @@ import Mathlib.Logic.Equiv.Basic
 
 namespace CSP
 
--- ============================================================================
--- Core Transport Lemmas  
--- ============================================================================
+/-! ### Core Transport Lemmas -/
 
 section CoreTransport
 

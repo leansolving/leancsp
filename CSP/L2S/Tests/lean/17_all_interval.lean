@@ -6,40 +6,15 @@ import CSP.L2S.Symmetry
 open CSP.L2S
 
 /-!
-# All-Interval Series Problem
-CSPLib Problem 007
+# All-interval series
 
-## Problem Description
-Find a permutation of 0..(n-1) such that the absolute differences between
-consecutive elements form a permutation of 1..(n-1).
+Find a permutation of `0..n-1` whose consecutive absolute differences form a
+permutation of `1..n-1`; e.g. `[0,3,1,2]` has differences `[3,2,1]`.
 
-Example for n=4: [0, 3, 1, 2] has differences [|3-0|, |1-3|, |2-1|] = [3, 2, 1]
-
-## CSP Formulation
-- **Primary variables**: n series positions, domain [0, n-1]
-- **Auxiliary variables**: (n-1) difference variables, domain [1, n-1]
-- **Total variables**: n + (n-1) = 2n - 1
-- **Variable mapping**:
-  - Series: indices 0..(n-1)
-  - Differences: indices n..(2n-2)
-
-## Constraints
-1. Bounds: x[i] ∈ [0, n-1], diff[k] ∈ [1, n-1]
-2. Alldifferent on series (permutation of 0..(n-1))
-3. Alldifferent on differences (permutation of 1..(n-1))
-4. Difference definition: diff[i] = |x[i+1] - x[i]| for i=0..(n-2)
-5. Symmetry breaking: x[0] < x[n-1], diff[0] < diff[1]
-
-## Note on Absolute Value
-We use the abs_diff_var constraint which directly encodes: diff[i] = |x[i+1] - x[i]|
-This translates to MiniZinc as: x[diff_idx] = abs(x[i] - x[j])
-
-## Parametrized Design
-- `all_interval_csp(n, num_vars)` - general formulation for series of length n
-- `all_interval_10` - standard n=10 instance
-
-## Source
-CSPLib Problem 007
+`2n-1` variables: the `n` series positions (indices `0..n-1`, domain `[0,n-1]`) and
+`n-1` difference variables (indices `n..2n-2`, domain `[1,n-1]`), linked by
+`abs_diff_var`.  Both groups are `alldifferent`, with `x[0] < x[n-1]` and
+`diff[0] < diff[1]` breaking symmetry.  CSPLib problem 007.
 -/
 
 -- Parametrized All-Interval Series CSP

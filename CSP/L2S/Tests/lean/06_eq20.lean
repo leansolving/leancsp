@@ -6,19 +6,10 @@ import CSP.L2S.Symmetry
 open CSP.L2S
 
 /-!
-# Solving 20 Linear Equations (06_eq20)
+# 20 linear equations
 
-This problem solves a system of 20 linear equations with 7 variables.
-Each equation has the form: c₀*x[0] + c₁*x[1] + ... + c₆*x[6] = target
-
-## Problem Details
-- **Variables**: 7 variables (x[0]..x[6])
-- **Domain**: 0..10 for all variables
-- **Constraints**: 20 linear equations with large integer coefficients
-
-## Source
-Ported from Gecode example by Guido Tack
-Original: 2007-02-22
+A system of 20 linear equations over 7 variables `x[0]..x[6]`, each with domain
+`0..10` and large integer coefficients.  Ported from a Gecode example.
 -/
 
 -- Helper to create a vector of coefficients from a list

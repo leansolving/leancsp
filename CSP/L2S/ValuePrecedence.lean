@@ -8,21 +8,18 @@ import Mathlib.Tactic
 /-!
 # Value precedence as a domain symmetry-breaking constraint
 
-The `value_precedence colors` constraint (Law–Lee 2004) is proven to be a
-`domainSymmetryBreakingConstraint` for any CSP whose solution set is closed under all
-colour permutations preserving the colour interval `[0, colors-1]`.  It therefore plugs into
-the project's symmetry-breaking machinery: `domainSymmetryBreaking_equisatisfiability` gives
-equisatisfiability and `unsat_of_domain_sbc` (in `CSP/L2S/Symmetry.lean`) gives the end-to-end
-`¬ csp.isSatisfiableInt` from a PB UNSAT certificate of the extended CSP.
+`value_precedence colors` (Law–Lee 2004) is a `domainSymmetryBreakingConstraint` for
+any CSP whose solution set is closed under all colour permutations preserving the
+interval `[0, colors-1]`.  It therefore plugs into the symmetry-breaking machinery:
+`domainSymmetryBreaking_equisatisfiability` gives equisatisfiability, and
+`unsat_of_domain_sbc` gives `¬ csp.isSatisfiableInt` from a certificate of the
+extended CSP.
 
-## Construction of the symmetry `δ` (what the framework requires)
-
-`domainSymmetryBreakingConstraint` asks, for each solution `a`, for a *single* domain symmetry
-`δ` such that `δ ∘ a` solves the extended CSP.  We take `δ` to be the **lexicographically
-minimal element of `a`'s colour-orbit** `{ δ' ∘ a | δ' interval-preserving }` (a finite set).
-Its minimality forces `δ ∘ a` to respect value precedence: otherwise, at the least violating
-position `p` (colour `v := (δ∘a) p ≥ 1` with no `v-1` earlier), composing with the colour
-transposition `swap(v-1, v)` stays in the orbit and is strictly lex-smaller — a contradiction.
+The framework asks, for each solution `a`, for a single domain symmetry `δ` with
+`δ ∘ a` solving the extended CSP.  We take `δ` minimizing `a`'s colour-orbit
+lexicographically.  Minimality forces `δ ∘ a` to respect value precedence: at a least
+violating position, composing with the transposition `swap(v-1, v)` would stay in the
+orbit and be strictly lex-smaller.
 -/
 
 namespace CSP.L2S
@@ -30,9 +27,7 @@ namespace CSP.L2S
 open IntCSP
 open scoped Classical
 
--- ============================================================================
--- Interval-preserving permutation helpers
--- ============================================================================
+/-! ### Interval-preserving permutation helpers -/
 
 /-- The identity preserves every interval. -/
 lemma intervalPreserving_refl (lb ub : ℤ) : intervalPreserving (Equiv.refl ℤ) lb ub := by
@@ -63,9 +58,7 @@ lemma intervalPreserving_swap (c1 c2 lb ub : ℤ)
       · rw [e2]; exact h2
       · rw [Equiv.swap_apply_of_ne_of_ne e1 e2] at hd; exact hd
 
--- ============================================================================
--- Lex-minimality core
--- ============================================================================
+/-! ### Lex-minimality core -/
 
 /-- If `b ≤ₗₑₓ b'`, they agree strictly before `p`, then `b p ≤ b' p` — so a strictly-smaller
     value at `p` is impossible. -/
@@ -75,9 +68,7 @@ private theorem lex_swap_contra {n : ℕ} (b b' : Fin n → ℤ) (p : Fin n)
   have hkey : b p ≤ b' p := Pi.apply_le_of_toLex hle (fun j hj => hagree j (Fin.lt_def.mp hj))
   omega
 
--- ============================================================================
--- Value precedence is a domain symmetry-breaking constraint
--- ============================================================================
+/-! ### Value precedence is a domain symmetry-breaking constraint -/
 
 /-- **Value precedence is a domain symmetry-breaking constraint.**  If every solution of `csp`
     colours in `[0, colors-1]` and every interval-preserving colour permutation is a domain

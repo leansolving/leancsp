@@ -7,18 +7,9 @@ import Mathlib.Logic.Equiv.Basic
 namespace CSP.L2S
 
 /-!
-# L2M Equivalence Theory
+# L2S equivalence theory
 
-Equivalence relations for L2M IntCSPs where all variables have integer domains.
-
-## Key Advantage
-
-Working directly with the unified structure means:
-- **Simpler Proofs**: No `.base` extraction in theorem statements
-- **Direct MiniZinc**: Prove equivalence on translatable CSPs
-- **Cleaner API**: One structure for both solving and proving
-
-## Equivalence Hierarchy
+Equivalence relations between `IntCSP`s, in decreasing strength:
 
 ```
 π-equivalence ⟹ Strong equivalence ⟹ Equisatisfiability
@@ -28,11 +19,9 @@ Working directly with the unified structure means:
 
 open IntCSP
 
--- ============================================================================
--- Solution Set Definition
--- ============================================================================
+/-! ### Solution Set Definition -/
 
-/-- The solution set for an L2M CSP with integer domains -/
+/-- The solution set for an L2S CSP with integer domains -/
 def solSet (csp : IntCSP) : Set (IntAssignment csp.num_vars) :=
   { assignment | isSolutionInt csp assignment }
 
@@ -43,19 +32,17 @@ theorem solSet_eq_heterogeneous (csp : IntCSP) :
   simp only [solSet, CSP.sol_set, Set.mem_setOf]
   exact embedding_preserves_solutions csp assignment
 
--- ============================================================================
--- Native Equivalence Relations
--- ============================================================================
+/-! ### Native Equivalence Relations -/
 
 /--
-Two L2M CSPs are equivalent if there exists a bijection between their solution sets.
+Two L2S CSPs are equivalent if there exists a bijection between their solution sets.
 This is the strongest equivalence notion.
 -/
 def equivalent (csp₁ csp₂ : IntCSP) : Prop :=
   ∃ f : {x // x ∈ solSet csp₁} → {x // x ∈ solSet csp₂}, Function.Bijective f
 
 /--
-Two L2M CSPs are equisatisfiable if they have the same satisfiability status.
+Two L2S CSPs are equisatisfiable if they have the same satisfiability status.
 This is a weaker notion than equivalence.
 -/
 def equisatisfiable (csp₁ csp₂ : IntCSP) : Prop :=
@@ -79,9 +66,7 @@ def piEquivalent (csp₁ csp₂ : IntCSP)
     isSolutionInt csp₂ sol₂ → isSolutionInt csp₂ sol₂' →
     π sol₂ = π sol₂' → sol₂ = sol₂')
 
--- ============================================================================
--- Equivalence Hierarchy
--- ============================================================================
+/-! ### Equivalence Hierarchy -/
 
 /-- π-equivalence implies equivalence -/
 theorem piEquivalent_implies_equivalent (csp₁ csp₂ : IntCSP)
@@ -134,9 +119,7 @@ theorem piEquivalent_implies_equisatisfiable (csp₁ csp₂ : IntCSP)
   have h_equisat := equivalent_implies_equisatisfiable csp₂ csp₁ h_equiv
   exact h_equisat.symm
 
--- ============================================================================
--- Equivalence Properties (Reflexivity, Symmetry, Transitivity)
--- ============================================================================
+/-! ### Equivalence Properties (Reflexivity, Symmetry, Transitivity) -/
 
 /-- Equivalence is reflexive -/
 theorem equivalent_refl (csp : IntCSP) : equivalent csp csp := by
@@ -182,11 +165,9 @@ theorem equisatisfiable_trans (csp₁ csp₂ csp₃ : IntCSP) :
   intro h₁₂ h₂₃
   exact h₁₂.trans h₂₃
 
--- ============================================================================
--- Compatibility with Heterogeneous Equivalence
--- ============================================================================
+/-! ### Compatibility with Heterogeneous Equivalence -/
 
-/-- L2M equisatisfiability implies heterogeneous equisatisfiability via embedding -/
+/-- L2S equisatisfiability implies heterogeneous equisatisfiability via embedding -/
 theorem equisatisfiable_implies_heterogeneous_equisatisfiable (csp₁ csp₂ : IntCSP) :
     equisatisfiable csp₁ csp₂ → CSP.equisatisfiable (embed csp₁) (embed csp₂) := by
   intro h
@@ -195,7 +176,7 @@ theorem equisatisfiable_implies_heterogeneous_equisatisfiable (csp₁ csp₂ : I
   rw [← embedding_preserves_satisfiability csp₂]
   exact h
 
-/-- Heterogeneous equisatisfiability implies L2M equisatisfiability (converse) -/
+/-- Heterogeneous equisatisfiability implies L2S equisatisfiability (converse) -/
 theorem heterogeneous_equisatisfiable_implies_equisatisfiable (csp₁ csp₂ : IntCSP) :
     CSP.equisatisfiable (embed csp₁) (embed csp₂) → equisatisfiable csp₁ csp₂ := by
   intro h
@@ -204,14 +185,14 @@ theorem heterogeneous_equisatisfiable_implies_equisatisfiable (csp₁ csp₂ : I
   exact (embedding_preserves_satisfiability csp₁).trans
     (h.trans (embedding_preserves_satisfiability csp₂).symm)
 
-/-- L2M equisatisfiability is equivalent to heterogeneous equisatisfiability -/
+/-- L2S equisatisfiability is equivalent to heterogeneous equisatisfiability -/
 theorem equisatisfiable_iff_heterogeneous_equisatisfiable (csp₁ csp₂ : IntCSP) :
     equisatisfiable csp₁ csp₂ ↔ CSP.equisatisfiable (embed csp₁) (embed csp₂) := by
   constructor
   · exact equisatisfiable_implies_heterogeneous_equisatisfiable csp₁ csp₂
   · exact heterogeneous_equisatisfiable_implies_equisatisfiable csp₁ csp₂
 
-/-- L2M equivalence implies heterogeneous equivalence via embedding -/
+/-- L2S equivalence implies heterogeneous equivalence via embedding -/
 theorem equivalent_implies_heterogeneous_equivalent (csp₁ csp₂ : IntCSP) :
     equivalent csp₁ csp₂ → CSP.equivalent (embed csp₁) (embed csp₂) := by
   intro h
@@ -247,12 +228,12 @@ theorem equivalent_implies_heterogeneous_equivalent (csp₁ csp₂ : IntCSP) :
     have h_val_eq : (f ⟨a, ha⟩).val = b := Subtype.mk_eq_mk.mp heq
     exact h_val_eq
 
-/-- Heterogeneous equivalence implies L2M equivalence (converse) -/
+/-- Heterogeneous equivalence implies L2S equivalence (converse) -/
 theorem heterogeneous_equivalent_implies_equivalent (csp₁ csp₂ : IntCSP) :
     CSP.equivalent (embed csp₁) (embed csp₂) → equivalent csp₁ csp₂ := by
   intro h
   obtain ⟨f, hf_bij⟩ := h
-  -- Construct bijection between L2M solution sets
+  -- Construct bijection between L2S solution sets
   let g : {x // x ∈ solSet csp₁} → {x // x ∈ solSet csp₂} :=
     fun ⟨x, hx⟩ => by
       have hx' : x ∈ CSP.sol_set (embed csp₁) := solSet_eq_heterogeneous csp₁ ▸ hx
@@ -283,7 +264,7 @@ theorem heterogeneous_equivalent_implies_equivalent (csp₁ csp₂ : IntCSP) :
     have h_val_eq : (f ⟨a, ha⟩).val = b := Subtype.mk_eq_mk.mp heq
     exact h_val_eq
 
-/-- L2M equivalence is equivalent to heterogeneous equivalence -/
+/-- L2S equivalence is equivalent to heterogeneous equivalence -/
 theorem equivalent_iff_heterogeneous_equivalent (csp₁ csp₂ : IntCSP) :
     equivalent csp₁ csp₂ ↔ CSP.equivalent (embed csp₁) (embed csp₂) := by
   constructor

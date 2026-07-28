@@ -7,28 +7,21 @@ open CSPSig
 open scoped BigOperators
 
 /-!
-# PB backend — general linear disequality `Σ aᵢ·xᵢ ≠ b` via a Big-M selector (PLAN §6.4)
+# PB backend — general linear disequality `Σ aᵢ·xᵢ ≠ b` via a Big-M selector
 
-The aux-free `≠` special cases (variable ≠ constant `encodeNeConst`, variable ≠
-variable `encodeAllDifferent [i,j]`) live in `AllDifferent.lean`.  The **general**
-linear disequality `Σ aᵢ·xᵢ ≠ b` is genuinely disjunctive — `Σ ≤ b−1 ∨ Σ ≥ b+1` —
-so it needs a fresh Boolean **selector** `s` (an `aux` variable) plus the Big-M
-construction:
+The aux-free `≠` special cases live in `AllDifferent.lean`.  The general linear
+disequality is genuinely disjunctive — `Σ ≤ b−1 ∨ Σ ≥ b+1` — so it needs a fresh
+Boolean selector `s` (an `aux` variable) plus the Big-M construction:
 
 * `s = false ⇒ Σ ≤ b−1`   encoded as   `Σ ≤ (b−1) + M·⟦s⟧`
 * `s = true  ⇒ Σ ≥ b+1`   encoded as   `Σ ≥ (b+1) − M·(1−⟦s⟧)`
 
-with `M` large enough that the *unselected* branch is vacuous.  We take
-`M = Σᵢ |aᵢ|·maxAbsᵢ + |b| + 1`, where `maxAbsᵢ = max(|minVal i|, |maxVal i|)`
-bounds `|xᵢ|`; this dominates `|Σ aᵢ·xᵢ − b|` for every in-domain assignment
-(`linear_abs_bound`).
+with `M = Σᵢ |aᵢ|·maxAbsᵢ + |b| + 1` large enough to make the unselected branch
+vacuous (`linear_abs_bound`).
 
-This is the **first aux-using encoder**: it supplies the aux-setter
-`auxOf a := s ↦ decide(Σ aᵢ·a(xᵢ) > b)` to the generic spine `csp_unsat_generic`
-through the bridge `extend_sat_encodeLinearNe`, so the selector is set from the
-solution.  Both Big-M constraints are built by appending one aux-literal term to a
-reused `encodeLinearLe`, so soundness rides on `encodeLinearLe`'s substitution
-identity plus the `linear_abs_bound` range fact.
+The aux-setter `auxOf a := s ↦ decide(Σ aᵢ·a(xᵢ) > b)` is supplied to the generic
+spine through `extend_sat_encodeLinearNe`, so the selector is set from the
+solution.
 -/
 
 variable {S : CSPSig}
@@ -203,10 +196,7 @@ theorem encodeLinearNe_sound (v : Valuation S) (hv : v.orderConsistent)
 
 /-- **Bridge.** A normalized `encodeLinearNe` constraint is modelled by
     `extend a bA auxA` whenever the linear sum on `a` differs from `b` and the
-    selector aux `auxA s` is set to `decide(Σ aᵢ·a(xᵢ) > b)`.  This is the
-    per-constraint soundness fact the generic spine consumes, with the aux-setter
-    `auxOf a := s ↦ decide(Σ aᵢ·a(xᵢ) > b)`.  Composes `encodeLinearNe_sound`
-    with `extend_intValue` / `extend_orderConsistent` / `extend_aux`. -/
+    selector aux is set to `decide(Σ aᵢ·a(xᵢ) > b)`. -/
 theorem extend_sat_encodeLinearNe (a : Fin S.nInt → Int) (bA : Fin S.nBool → Bool)
     (auxA : Fin S.nAux → Bool) (hdom : ∀ i, a i ∈ S.values i)
     (terms : List (Int × Fin S.nInt)) (b : Int) (s : Fin S.nAux)
@@ -226,13 +216,7 @@ theorem extend_sat_encodeLinearNe (a : Fin S.nInt → Int) (bA : Fin S.nBool →
   · rw [hsum]; exact hne
   · rw [extend_aux, hauxs, hsum]
 
-/-! ### Unit test: `x ∈ {0,1,2}` with `x ≠ 1` via the Big-M selector
-
-A single integer variable over `{0,1,2}` and one selector aux.  Under the
-all-false threshold valuation the recovered value is the domain maximum
-`x₀ = 2` (no "`x ≤ k`" threshold is set), so the selector `s = decide(2 > 1)`
-must be `true`; both Big-M constraints then hold.
--/
+/-! ### Unit test: `x ∈ {0,1,2}` with `x ≠ 1` via the Big-M selector -/
 
 namespace LinearNeTest
 

@@ -5,14 +5,10 @@ namespace CSP.L2S.PB
 /-!
 # PB backend — polymorphic pseudo-Boolean constraint mirror
 
-PBLean's kernel constraint type `Sat.PB.Constr` is **monomorphic** over `Nat`
-variables.  The encoder, however, builds constraints over the *typed* variable
-type `PBVar S` (so that only valid threshold variables can be named).  This file
-provides a structurally identical, *polymorphic* mirror `PBConstr V` with the
-same `Σ aᵢ·lᵢ ≥ degree` semantics.  The `ToOPB` bridge (PLAN §8) later collapses
-`V := PBVar S` to `Nat` via an injection, mapping `PBConstr (PBVar S)` to
-`Sat.PB.Constr`; because the two types are structurally identical, that map and
-its `sat`-preservation are mechanical.
+PBLean's kernel constraint type is monomorphic over `Nat`, but the encoder builds
+constraints over the typed `PBVar S` so that only valid thresholds can be named.
+`PBConstr V` is a structurally identical polymorphic mirror with the same
+`Σ aᵢ·lᵢ ≥ degree` semantics; `ToNat.lean` collapses `V := PBVar S` to `Nat`.
 -/
 
 variable {V : Type}

@@ -5,42 +5,25 @@ import CSP.L2S.Backends.SMTLIB
 namespace CSP.L2S
 
 /-!
-# Unified Translation API
+# Unified translation API
 
-All CSP translation functions in one place. Provides:
-- **Unified API**: `translateTo` for all backends
-- **Extended features**: Objectives, utility functions
+The translation entry points (`translateTo`, `saveTo`) for every backend.  This
+module sits above the backend implementations: `Backend.lean` defines the interface,
+`Backends/MiniZinc.lean` and `Backends/SMTLIB.lean` implement it, and this file
+imports both.
 
-## Design
-
-This module sits "above" the backend implementations and provides all
-translation entry points. It breaks the circular dependency by:
-- `Backend.lean` defines the interface (imported by backend implementations)
-- `Backends/MiniZinc.lean` and `Backends/SMTLIB.lean` implement the interface
-- `Translate.lean` (this file) imports everything and provides all APIs
-
-
-## Adding New Backends
-
-1. Create `CSP/Backends/Backends/YourBackend.lean`
-2. Implement the `Backend` interface
-3. Add constructor to `BackendType` in `Backend.lean`
-4. Add case to `selectBackend` below
-5. That's it! No other changes needed.
+To add a backend: implement the `Backend` interface, add a constructor to
+`BackendType`, and add a case to `selectBackend` below.
 -/
 
--- ============================================================================
--- Backend Selection
--- ============================================================================
+/-! ### Backend Selection -/
 
 /-- Select the backend implementation for a given backend type -/
 def selectBackend : BackendType → Backend
   | BackendType.MiniZinc => MiniZinc.miniZincBackend
   | BackendType.SMTLIB => SMTLIB.smtlibBackend
 
--- ============================================================================
--- Unified Translation Functions
--- ============================================================================
+/-! ### Unified Translation Functions -/
 
 def translateToExcept (csp : IntCSP)
                       (backendType : BackendType)
@@ -61,28 +44,13 @@ def translateTo (csp : IntCSP)
         | BackendType.SMTLIB => ";"
       s!"{commentPrefix} Translation error: {e.msg}"
 
--- ============================================================================
--- File I/O Functions
--- ============================================================================
+/-! ### File I/O Functions -/
 
-/--
-Save a translated CSP to a file.
+/-- Save a translated CSP to `filepath`, creating parent directories as needed.
 
-Creates parent directories automatically if they don't exist.
-Prints the output path for confirmation.
-
-## Parameters
-- `csp`: The CSP to translate
-- `filepath`: Path where to save the file (e.g., "output/model.mzn")
-- `backendType`: Which solver format to generate
-- `opts`: Backend options (optional)
-
-## Example
-```lean
-saveTo myCSP "output/queens.mzn" BackendType.MiniZinc
--- Output: ✓ Saved to output/queens.mzn
-```
--/
+    ```lean
+    saveTo myCSP "output/queens.mzn" BackendType.MiniZinc
+    ``` -/
 def saveTo (csp : IntCSP)
            (filepath : String)
            (backendType : BackendType)
@@ -113,9 +81,7 @@ def saveToAuto (csp : IntCSP)
   let filepath := s!"{basename}.{ext}"
   saveTo csp filepath backendType opts
 
--- ============================================================================
--- MiniZinc Functions
--- ============================================================================
+/-! ### MiniZinc Functions -/
 
 
 def translateToMiniZinc (csp : IntCSP) : String :=
@@ -159,9 +125,7 @@ def translateToMiniZincWithObjective (csp : IntCSP)
   let allLines := includes ++ [""] ++ varDecls ++ [""] ++ constraints ++ ["", solveStmt]
   String.intercalate "\n" allLines
 
--- ============================================================================
--- Utility Functions (for analysis and debugging)
--- ============================================================================
+/-! ### Utility Functions (for analysis and debugging) -/
 
 /-- Extract variable bounds for MiniZinc variable declarations -/
 def extractVariableBoundsForMiniZinc (csp : IntCSP) :

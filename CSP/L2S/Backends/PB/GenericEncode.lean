@@ -9,23 +9,21 @@ open scoped BigOperators
 /-!
 # PB backend — the single generic `csp_unsat`
 
-This file closes the loop: a **one-theorem** `CSP-SAT ⇒ PB-SAT` pipeline that takes a
-`IntCSP` and a kernel-checked PB UNSAT certificate and concludes `¬ csp.isSatisfiableInt`,
-with no per-instance soundness glue.
+A one-theorem `CSP-SAT ⇒ PB-SAT` pipeline: given an `IntCSP` and a kernel-checked
+PB UNSAT certificate, conclude `¬ csp.isSatisfiableInt` with no per-instance glue.
 
-* `cspSig csp` — the order-encoding signature derived from `csp`'s `bound` constraints
-  (`extractVariableBounds`), one integer variable per CSP variable.
-* `encodePattern S c` — dispatch on the finite `IntConstraint` inductive to the matching
-  `EncConstr` from `Library.lean`; unsupported patterns encode to `[]` (sound: dropping a
-  constraint only weakens the PB formula).  The raw `ℕ` pattern indices are converted to
-  `Fin S.nInt` by `toFinList`, guarded by a decidable in-range check so the soundness link
-  needs no external well-formedness hypothesis.
-* `encodePattern_sound` — for every emitted entry, its arithmetic precondition follows
-  from `patternHolds c a` (which *is* `satisfiesConstraintInt`).  This is the generic
-  Step-A bridge, replacing the per-instance `*_sat` lemmas.
-* `csp_unsat csp cert` — assemble: a solution gives `patternHolds` for each constraint,
-  hence each entry's precondition; the composition spine (`csp_unsat_of_encfree`) plus the
-  certificate close the goal.  In-domain comes from the `bound` constraints.
+* `cspSig csp` — the order-encoding signature derived from `csp`'s `bound`
+  constraints, one integer variable per CSP variable.
+* `encodePattern S c` — dispatch on the `IntConstraint` inductive to the matching
+  `EncConstr` from `Library.lean`; unsupported patterns encode to `[]` (sound:
+  dropping a constraint only weakens the PB formula).  Raw `ℕ` indices become
+  `Fin S.nInt` via `toFinList`, guarded by a decidable in-range check so soundness
+  needs no well-formedness hypothesis.
+* `encodePattern_sound` — each emitted entry's precondition follows from
+  `patternHolds c a`, which *is* `satisfiesConstraintInt`.
+* `csp_unsat csp cert` — a solution gives `patternHolds` for each constraint,
+  hence each precondition; the composition spine plus the certificate close the
+  goal.  In-domain comes from the `bound` constraints.
 -/
 
 variable {S : CSPSig}
@@ -71,8 +69,7 @@ def cspNAux (csp : IntCSP) : ℕ := (csp.constraints.map auxCount).sum
 
 /-- The order-encoding signature derived from `csp`'s bounds, sized to hold the Big-M
     selector variables (`nAux := cspNAux csp`).  Aux-free CSPs have `cspNAux = 0`, so for
-    them this is definitionally the old `nAux = 0` signature (committed certificates stay
-    valid). -/
+    them this is definitionally the `nAux = 0` signature. -/
 def cspSig (csp : IntCSP) : CSPSig :=
   { toCSPSig csp (cspLb csp) (cspUb csp) (cspLb_le_cspUb csp) with nAux := cspNAux csp }
 
@@ -108,7 +105,7 @@ def domOf (S : CSPSig) (vars : List (Fin S.nInt)) : List Int :=
 /-! ### Linear / cardinality relations via a single dispatcher -/
 
 /-- Encode a relation `Σ termᵢ (op) target` to the matching linear encoder.  `≠`
-    (which needs a fresh aux variable) encodes to `[]` for now. -/
+    (which needs a fresh aux variable) is handled by `encodeRelAt` instead. -/
 def encodeRel (S : CSPSig) (op : RelOp) (terms : List (Int × Fin S.nInt))
     (target : Int) : List (EncConstr S) :=
   match op with
@@ -2548,13 +2545,12 @@ def encodeConstraints (S : CSPSig) : List (IntConstraint S.nInt) → ℕ → Lis
 def encodeCSP (csp : IntCSP) : List (EncConstr (cspSig csp)) :=
   encodeConstraints (cspSig csp) csp.constraints 0
 
-/-! ### Generic selector distinctness (no per-instance obligation)
+/-! ### Generic selector distinctness
 
-The owned selector keys of `encodeCSP` are pairwise distinct *generically*: each
-constraint owns at most the single key at its own base (`encodePatternAt_keys_eq`), and
-the threaded fold places later constraints at strictly larger bases.  This discharges the
-allocator spine's `Nodup` obligation once and for all — no `decide`, no `native_decide`,
-no per-problem hypothesis. -/
+The owned selector keys of `encodeCSP` are pairwise distinct generically: each
+constraint owns at most the key at its own base, and the threaded fold places later
+constraints at strictly larger bases.  This discharges the allocator's `Nodup`
+obligation with no per-problem hypothesis. -/
 
 /-- The owned selector keys of `encodeRelAt` (assignment-free): the `≠` selector, or none. -/
 theorem encodeRelAt_keys (base : ℕ) (op : RelOp) (terms : List (Int × Fin S.nInt))
@@ -3035,10 +3031,10 @@ theorem encodeConstraints_pre (cs : List (IntConstraint S.nInt)) (base : ℕ)
     · exact ih (base + auxCount c) (fun c' hc' => hsol c' (by simp [hc'])) e he
 
 /-- **The general soundness theorem: CSP-SAT ⇒ PB-SAT.**  Every satisfiable `IntCSP`
-    (whose every variable carries a `bound` constraint) has a *satisfiable* PB encoding:
-    order-encoding any solution — with the Big-M selectors set by the generic allocator —
-    satisfies the full PB formula (staircase clauses plus every constraint's encoding).
-    No per-instance hypotheses: selector distinctness is `encodeCSP_keys_nodup`. -/
+    whose variables each carry a `bound` constraint has a satisfiable PB encoding:
+    order-encoding any solution, with the Big-M selectors set by the generic
+    allocator, satisfies the whole PB formula.  No per-instance hypotheses —
+    selector distinctness is `encodeCSP_keys_nodup`. -/
 theorem csp_sat_pb_sat (csp : IntCSP)
     (hbound : ∀ i : Fin csp.num_vars,
         bound i (csp.extractVariableBounds i).1 (csp.extractVariableBounds i).2
@@ -3109,14 +3105,12 @@ theorem csp_unsat (csp : IntCSP)
   exact hnc (hv c hc)
 
 open Lean Lean.Meta Lean.Elab Lean.Elab.Term in
-/-- The elaborator behind `csp_unsat_file`.  It discharges PBLean's reflection check with a
-    hand-built `Lean.ofReduceBool` proof term (PBLean's `veripb_reflect` style) — an
-    `addAndCompile`d `Bool` aux (`checkProofBool cs numVars cert`) plus `ofReduceBool` and
-    `checkProof_sound` — instead of the `native_decide` *tactic*, so every committed UNSAT
-    theorem carries the single stable `Lean.ofReduceBool` axiom rather than a fresh
-    per-theorem `._native.native_decide.ax`.  The auxiliary + cert declarations are named
-    after the enclosing theorem; the certificate string is spliced by `include_str`
-    (module-relative, compile time). -/
+/-- The elaborator behind `csp_unsat_file`.  It discharges the reflection check with
+    a hand-built `Lean.ofReduceBool` term — an `addAndCompile`d `Bool` aux plus
+    `ofReduceBool` and `checkProof_sound` — rather than the `native_decide` *tactic*,
+    so every committed theorem carries the single stable `Lean.ofReduceBool` axiom
+    instead of a fresh per-theorem `._native.native_decide.ax`.  The certificate is
+    spliced by `include_str` at compile time. -/
 elab "cspUnsatReflect " cspStx:term:max numVarsStx:term:max certStx:term:max : term => do
   let certE ← instantiateMVars (← elabTerm certStx (some (Lean.mkConst ``String)))
   let csE ← instantiateMVars (← elabTerm
@@ -3144,13 +3138,10 @@ elab "cspUnsatReflect " cspStx:term:max numVarsStx:term:max certStx:term:max : t
   elabTerm (← `(csp_unsat $cspStx $(mkIdent certName))) none
 
 /-- **File-based generic UNSAT.**  `csp_unsat_file csp numVars "certs/foo.pbp"` is
-    `csp_unsat csp cert` with the VeriPB kernel proof loaded from a committed file at
-    compile time (`include_str`) and re-checked by PBLean's reflection checker.  The
-    reflection step is discharged via a hand-built `Lean.ofReduceBool` term (see
-    `cspUnsatReflect`), so the theorem's only extra axiom is `Lean.ofReduceBool`.  The
-    formula is inferred from `csp`; `numVars` is the OPB `#variable=` count
-    (`Σ (cspSig csp).width + nBool + nAux` — the Big-M selectors count too; printed by
-    `experiments/gen_cert.py`). -/
+    `csp_unsat csp cert` with the kernel proof loaded from a committed file at compile
+    time (`include_str`) and re-checked by the reflection checker.  The formula is
+    inferred from `csp`; `numVars` is the OPB `#variable=` count
+    (`Σ (cspSig csp).width + nBool + nAux`, printed by `experiments/gen_cert.py`). -/
 macro "csp_unsat_file " csp:term:max numVars:term:max path:str : term =>
   `(cspUnsatReflect $csp $numVars (include_str $path))
 

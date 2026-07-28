@@ -4,27 +4,15 @@ import CSP.L2S.Constraints
 open CSP.L2S
 
 /-!
-# Ramsey Number R(3,3)
+# Ramsey number R(3,3)
 
-## Problem Description
-R(3,3) = 6: every 2-colouring of the edges of K₆ contains a monochromatic
-triangle, while K₅ admits a colouring with none (the two 5-cycles).
+`R(3,3) = 6`: every 2-colouring of `K₆`'s edges contains a monochromatic triangle,
+while `K₅` admits one with none (the two 5-cycles).
 
-## CSP Formulation
-- **Variables**: one per edge of Kₙ (edges {i,j}, i<j, indexed lexicographically).
-- **Domain**: {0,1} (the two edge colours).
-- **Constraint**: for each triangle {i,j,k} (i<j<k), its three edge colours are
-  **not all equal** — the `schur_triple` pattern over the edges {i,j}, {i,k}, {j,k}.
+One variable per edge `{i,j}` (`i < j`, lexicographic) over `{0,1}`, with a
+`schur_triple` not-all-equal constraint on each triangle's three edges.
 
-## Instances
-- `ramsey_3_3_K5` : K₅ — **SAT** (5-cycle witness).
-- `ramsey_3_3_K6` : K₆ — **UNSAT** (this is R(3,3) = 6).
-
-## Showcase
-PBLean / veripb benchmark `ramsey6` (the R(3,3) upper-bound certificate).
-
-## Constraint families
-`bound`, `schur_triple` (3-ary not-all-equal).
+Instances: `ramsey_3_3_K5` is SAT, `ramsey_3_3_K6` is UNSAT.
 -/
 
 -- Number of edges in Kₙ.

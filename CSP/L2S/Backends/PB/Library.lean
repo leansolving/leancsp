@@ -11,19 +11,14 @@ open CSP.L2S
 /-!
 # PB backend — the per-pattern `EncConstr` library
 
-For each constraint pattern the PB backend supports, one smart constructor
-`enc<Pattern> : … → EncConstr S` packages its encoding together with its soundness
-(`sound`), reusing the already-verified `extend_sat_*` / `encode*_sound` bridges.
-The `pre` field is the *arithmetic* fact the constraint produces (a linear `≤`,
-`Nodup`, a disequality, …); the Step-A link from `satisfiesConstraint` to that fact is
-applied per problem (by the `csp_pb_unsat` tactic, or by hand via the `*_sat` bridges).
+One smart constructor `enc<Pattern> : … → EncConstr S` per supported constraint
+pattern, packaging its encoding together with its soundness and reusing the
+verified `extend_sat_*` / `encode*_sound` bridges.  The `pre` field is the
+arithmetic fact the constraint produces (a linear `≤`, `Nodup`, a disequality, …).
 
-Aux-free entries set `setsAux := fun _ => []`.  The only aux user is `encLinearNe`
-(Big-M `≠`), which owns one selector index.
-
-These compose through `csp_unsat_of_enc_alloc` (`Compose.lean`) into a single
-`formulaUnsat ⇒ ¬ satisfiable` theorem, with the aux allocator building the global
-`auxOf` automatically.
+Aux-free entries set `setsAux := fun _ => []`; the only aux user is `encLinearNe`,
+which owns one selector index.  These compose through `csp_unsat_of_enc_alloc`
+into a single `formulaUnsat ⇒ ¬ satisfiable` theorem.
 -/
 
 variable {S : CSPSig}
@@ -209,13 +204,11 @@ def encLinearNe (terms : List (Int × Fin S.nInt)) (b : Int) (s : Fin S.nAux) : 
 
 /-! ### The `HomogeneousCSP` entry point -/
 
-/-- **`HomogeneousCSP` UNSAT via a composed encoding.**  Given per-variable bounds
-    (each present as a `bound` constraint), a list of `EncConstr` over the resulting
-    signature whose preconditions follow from any solution (`hpre`), pairwise-distinct
-    owned aux indices (`hnd`), and a `formulaUnsat` certificate over the combined
-    formula, the CSP is unsatisfiable.  Generalizes the linear-only `unsat_of_pb` to
-    the whole `EncConstr` library; the per-problem `hpre`/`hnd` are produced by the
-    `csp_pb_unsat` tactic. -/
+/-- **CSP UNSAT via a composed encoding.**  Given per-variable `bound`
+    constraints, a list of `EncConstr` whose preconditions follow from any solution
+    (`hpre`), pairwise-distinct owned aux indices (`hnd`), and a `formulaUnsat`
+    certificate over the combined formula, the CSP is unsatisfiable.  Generalizes
+    the linear-only `unsat_of_pb` to the whole `EncConstr` library. -/
 theorem unsat_of_encoding (csp : IntCSP) (lb ub : Fin csp.num_vars → ℤ)
     (hle : ∀ i, lb i ≤ ub i)
     (hbound : ∀ i, bound i (lb i) (ub i) ∈ csp.constraints)

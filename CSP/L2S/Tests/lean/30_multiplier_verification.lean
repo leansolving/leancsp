@@ -4,21 +4,13 @@ import CSP.L2S.Constraints
 open CSP.L2S
 
 /-!
-# 2-Bit × 2-Bit Multiplier Verification (Specification-Level)
+# 2-bit × 2-bit multiplier verification
 
-Specification: (2*a1 + a0) × (2*b1 + b0) = 8*p3 + 4*p2 + 2*p1 + p0
+Checks `(2·a1 + a0) × (2·b1 + b0) = 8·p3 + 4·p2 + 2·p1 + p0`.
 
-Variables:
-- v0,v1: a0,a1 (inputs)
-- v2,v3: b0,b1 (inputs)
-- v4..v7: pp00,pp01,pp10,pp11 (DUT partial products)
-- v8: c1 (DUT half-adder carry)
-- v9..v12: p0,p1,p2,p3 (DUT outputs)
-- v13: sum_a = 2*a1 + a0
-- v14: sum_b = 2*b1 + b0
-- v15: spec_product = sum_a * sum_b
-
-Total: 16 variables
+Variables: `v0..v3` the inputs, `v4..v7` the partial products, `v8` the half-adder
+carry, `v9..v12` the outputs, and `v13..v15` the specification-side operands and
+product.  16 variables in total.
 -/
 
 def multiplier_2bit : IntCSP :=

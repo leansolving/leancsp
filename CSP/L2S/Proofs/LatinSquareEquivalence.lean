@@ -18,26 +18,18 @@ open CSP.L2S
 namespace LatinSquare
 
 /-!
-## Latin Square π-Equivalence: Value-Based ↔ One-Hot Binary
+## Latin square π-equivalence: value-based ↔ one-hot binary
 
-### Formulation 1 (Value-Based, Compact)
-Variables: n² (one per cell), Domain: {0, ..., n-1}
-Constraints: bounds, row alldifferent, column alldifferent
-This is `latin_square_csp n` from LatinSquareSB.lean.
+1. **Value-based (compact)** — `n²` variables, one per cell over `{0,…,n-1}`, with row and
+   column `alldifferent`.  This is `latin_square_csp n` from `LatinSquareSB.lean`.
+2. **One-hot binary (expanded)** — `n³` `{0,1}` variables, one per `(cell, value)` triple,
+   with cell one-hot plus row-value and column-value uniqueness.
 
-### Formulation 2 (One-Hot Binary, Expanded)
-Variables: n³ (one per (cell, value) triple), Domain: {0, 1}
-Constraints: binary bounds, cell one-hot (sum=1), row-value uniqueness (sum=1),
-             column-value uniqueness (sum=1)
+π-equivalence via the projection `π` (find the unique 1 per cell group) and the lifting
+`lift` (one-hot encode each cell value).
 
-### π-Equivalence
-We prove these formulations are π-equivalent via:
-- Projection π: Expanded → Compact (find unique 1 per cell group)
-- Lifting lift: Compact → Expanded (one-hot encode each cell value)
-
-This is the `CSP/L2S` port of the `CSP/Int` proof: the satisfaction reasoning goes
-through `patternHolds` and the `PatternBridges` `*_holds_iff` lemmas instead of the
-dynamic-constraint checker.
+Satisfaction reasoning goes through `patternHolds` and the `PatternBridges`
+`*_holds_iff` lemmas rather than the dynamic-constraint checker.
 -/
 
 /-- Local port helper: a vector scope mapped through an assignment equals the
@@ -50,9 +42,7 @@ private lemma ls_toList_map_get {N k : ℕ} (vec : _root_.Vector (VarType N) k)
   · intro i h1 h2
     simp [_root_.Vector.get]
 
--- ============================================================================
--- Expanded CSP Definitions (Formulation 2)
--- ============================================================================
+/-! ### Expanded CSP Definitions (Formulation 2) -/
 
 section Definitions
 
@@ -126,9 +116,7 @@ def latin_square_matrix : IntCSP :=
 
 end Definitions
 
--- ============================================================================
--- Projection and Lifting Functions
--- ============================================================================
+/-! ### Projection and Lifting Functions -/
 
 /-- π: expanded → compact (find unique 1 per cell group) -/
 def ls_π {n : ℕ} (x : IntAssignment (n*n*n)) : IntAssignment (n*n) :=
@@ -148,9 +136,7 @@ def ls_lift {n : ℕ} (h_n : 0 < n) (a : IntAssignment (n*n)) :
     let v : Fin n := ⟨idx.val % n, Nat.mod_lt idx.val h_n⟩
     if a c = v.val then 1 else 0
 
--- ============================================================================
--- Arithmetic Lemmas
--- ============================================================================
+/-! ### Arithmetic Lemmas -/
 
 section ArithmeticLemmas
 
@@ -180,9 +166,7 @@ private lemma ls_cell_lt {n : ℕ} (i j : Fin n) : i.val * n + j.val < n * n := 
 
 end ArithmeticLemmas
 
--- ============================================================================
--- Generic Infrastructure (ported from GraphColoringEquivalence)
--- ============================================================================
+/-! ### Generic Infrastructure (ported from GraphColoringEquivalence) -/
 
 section GenericInfrastructure
 
@@ -376,9 +360,7 @@ lemma ls_π_eq_of_unique (x : IntAssignment (n*n*n))
 
 end GenericInfrastructure
 
--- ============================================================================
--- Forward Direction: Expanded → Compact
--- ============================================================================
+/-! ### Forward Direction: Expanded → Compact -/
 
 section Forward
 
@@ -636,9 +618,7 @@ theorem ls_forward (sol₂ : IntAssignment (n*n*n))
 
 end Forward
 
--- ============================================================================
--- Backward Direction: Compact → Expanded
--- ============================================================================
+/-! ### Backward Direction: Compact → Expanded -/
 
 section Backward
 
@@ -904,9 +884,7 @@ theorem ls_backward (sol₁ : IntAssignment (n*n)) (h_n : 0 < n)
 
 end Backward
 
--- ============================================================================
--- Injectivity
--- ============================================================================
+/-! ### Injectivity -/
 
 section Injectivity
 
@@ -967,9 +945,7 @@ theorem ls_injective (sol₂ sol₂' : IntAssignment (n*n*n)) (h_n : 0 < n)
 
 end Injectivity
 
--- ============================================================================
--- Main Theorems
--- ============================================================================
+/-! ### Main Theorems -/
 
 /-- Latin Square formulations are π-equivalent -/
 theorem latin_square_pi_equivalent (n : ℕ) (h_n : 0 < n) :

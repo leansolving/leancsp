@@ -5,18 +5,13 @@ import Mathlib.Data.Fin.Rev
 /-!
 # PB encoding of the strict lexicographic reversal leader `x <_lex rev(x)`
 
-The leader is encoded, over a `{0,1,2}` domain, as the single Big-M linear disequality
-`Σᵢ (3ⁱ − 3^{rev i})·xᵢ ≠ 0`.  This linear form is `L(x) − L(rev x)` for the base-3
-value `L(x) = Σᵢ 3ⁱ·xᵢ`, which is injective on `{0,1,2}`-vectors, so the form is `0`
-**iff** `x` is a palindrome (`x = rev x`).  Hence:
+Over a `{0,1,2}` domain the leader is encoded as the single Big-M linear
+disequality `Σᵢ (3ⁱ − 3^{rev i})·xᵢ ≠ 0`.  That form is `L(x) − L(rev x)` for the
+base-3 value `L(x) = Σᵢ 3ⁱ·xᵢ`, which is injective on `{0,1,2}`-vectors, so the
+form vanishes **iff** `x` is a palindrome.  Hence it is a sound relaxation of the
+strict leader, and it is violated by every palindrome.
 
-* it is a **sound relaxation** of the strict leader (`x <_lex rev x ⇒ x ≠ rev x ⇒ form ≠ 0`),
-  so `csp_sat_pb_sat` goes through; and
-* it is violated by every palindrome, so `base ⊕ leader` is PB-UNSAT — which is exactly
-  what lets the certificate exist.
-
-The encoder reuses `encodeLinearNe` (one Big-M selector); the only genuinely new fact is
-the base-3 non-vanishing lemma `base3_nonvanish`.
+The encoder reuses `encodeLinearNe`; the new fact is `base3_nonvanish`.
 -/
 
 namespace CSP.L2S.PB
@@ -89,10 +84,9 @@ theorem lexRevCoeffs_sum_ne (a : Fin S.nInt → Int)
 
 /-! ### The soundness-carrying encoded constraint -/
 
-/-- The leader `x <_lex rev(x)` as a soundness-carrying encoded constraint over a signature
-    whose every variable has domain `{0,1,2}`.  It reuses the Big-M linear-`≠` encoder on
-    the base-3 mirror form (one selector `base`); its precondition is the domain-free
-    "`x` is not a palindrome", which the strict leader implies directly. -/
+/-- The leader `x <_lex rev(x)` as an `EncConstr` over a signature whose every
+    variable has domain `{0,1,2}`.  Reuses the Big-M linear-`≠` encoder on the
+    base-3 mirror form; its precondition is "`x` is not a palindrome". -/
 def encStrictLexRev (S : CSPSig) (base : ℕ) (hb : base < S.nAux)
     (hg : ∀ i : Fin S.nInt, S.values i = [0, 1, 2]) : EncConstr S where
   constrs := (encodeLinearNe (lexRevCoeffs S) 0 ⟨base, hb⟩).filterMap normalize

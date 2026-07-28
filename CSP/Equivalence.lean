@@ -3,18 +3,14 @@ import Mathlib.Logic.Function.Basic
 
 namespace CSP
 
--- ============================================================================
--- Solution Sets and Equivalence Relations for Heterogeneous Domain CSPs
--- ============================================================================
+/-! ### Solution Sets and Equivalence Relations for Heterogeneous Domain CSPs -/
 
 /-- Set of solutions of a CSP with heterogeneous domains -/
 def sol_set {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarIndex] 
     (csp : CSP VarIndex DomainType) : Set (Assignment VarIndex DomainType) :=
   { assignment | is_solution csp assignment }
 
--- ============================================================================
--- Equivalence Relations between CSPs
--- ============================================================================
+/-! ### Equivalence Relations between CSPs -/
 
 /-- Two CSPs are equivalent if there exists a bijection between their solution sets.
     This generalizes to heterogeneous domains where CSPs can have different variable 
@@ -33,9 +29,7 @@ def equisatisfiable {VarIndex₁ VarIndex₂ : Type} {DomainType₁ : VarIndex�
     (csp₁ : CSP VarIndex₁ DomainType₁) (csp₂ : CSP VarIndex₂ DomainType₂) : Prop :=
   is_satisfiable csp₁ ↔ is_satisfiable csp₂
 
--- ============================================================================
--- Projection-based Equivalence (useful for heterogeneous domains)
--- ============================================================================
+/-! ### Projection-based Equivalence (useful for heterogeneous domains) -/
 
 /-- π-equivalence: CSP₂ is π-equivalent to CSP₁ if there exists a projection π
     that maps solutions of CSP₂ bijectively to solutions of CSP₁.
@@ -51,9 +45,7 @@ def pi_equivalent {VarIndex₁ VarIndex₂ : Type} {DomainType₁ : VarIndex₁ 
   (∀ sol₂ sol₂' : Assignment VarIndex₂ DomainType₂, is_solution csp₂ sol₂ → is_solution csp₂ sol₂' → 
     π sol₂ = π sol₂' → sol₂ = sol₂')
 
--- ============================================================================
--- Theorems about Equivalence Relations
--- ============================================================================
+/-! ### Theorems about Equivalence Relations -/
 
 /-- Equivalence implies equisatisfiability -/
 theorem equivalent_implies_equisatisfiable {VarIndex₁ VarIndex₂ : Type} {DomainType₁ : VarIndex₁ → Type} {DomainType₂ : VarIndex₂ → Type}
@@ -124,9 +116,7 @@ theorem pi_equivalent_implies_equivalent {VarIndex₁ VarIndex₂ : Type} {Domai
     simp only [f]
     exact Subtype.ext h_proj
 
--- ============================================================================
--- Equivalence Relations are Reflexive, Symmetric, and Transitive
--- ============================================================================
+/-! ### Equivalence Relations are Reflexive, Symmetric, and Transitive -/
 
 /-- Equivalence is reflexive -/
 theorem equivalent_refl {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarIndex]
@@ -187,9 +177,7 @@ theorem equisatisfiable_trans {VarIndex₁ VarIndex₂ VarIndex₃ : Type}
   intro h₁₂ h₂₃
   exact h₁₂.trans h₂₃
 
--- ============================================================================
--- Homogeneous Domain Equivalence (special case)
--- ============================================================================
+/-! ### Homogeneous Domain Equivalence (special case) -/
 
 /-- For CSPs with the same variable and domain types, we can define a simpler
     equivalence relation that directly compares solution sets -/
@@ -218,9 +206,7 @@ theorem homogeneous_equivalent_implies_equivalent {VarIndex : Type} {DomainType 
   · intro ⟨b, hb⟩
     use ⟨b, (h b).2 hb⟩
 
--- ============================================================================
--- Utility Lemmas
--- ============================================================================
+/-! ### Utility Lemmas -/
 
 /-- If two CSPs have the same solution set, they are equivalent -/
 theorem sol_set_eq_implies_equivalent {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarIndex]

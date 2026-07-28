@@ -39,9 +39,7 @@ Constraints: binary bounds, cell one-hot, row-value sum=1, col-value sum=1, box-
 Same projection/lifting as Latin Square. Box constraints add new proof obligations.
 -/
 
--- ============================================================================
--- Sudoku CSP Definitions
--- ============================================================================
+/-! ### Sudoku CSP Definitions -/
 
 section SudokuDefinitions
 
@@ -112,9 +110,7 @@ def sudoku_matrix : IntCSP :=
 
 end SudokuDefinitions
 
--- ============================================================================
--- Projection and Lifting (reuse Latin Square)
--- ============================================================================
+/-! ### Projection and Lifting (reuse Latin Square) -/
 
 /-- Sudoku projection = Latin Square projection -/
 def sudoku_π {b : ℕ} (x : IntAssignment (gridSize b * gridSize b * gridSize b)) :
@@ -126,9 +122,7 @@ def sudoku_lift {b : ℕ} (h_n : 0 < gridSize b) (a : IntAssignment (gridSize b 
     IntAssignment (gridSize b * gridSize b * gridSize b) :=
   ls_lift h_n a
 
--- ============================================================================
--- Box Indexing Arithmetic
--- ============================================================================
+/-! ### Box Indexing Arithmetic -/
 
 section BoxArithmetic
 
@@ -191,9 +185,7 @@ lemma boxCellIndex_injective (bi bj : Fin b) :
 
 end BoxArithmetic
 
--- ============================================================================
--- Infrastructure: Sudoku extends Latin Square
--- ============================================================================
+/-! ### Infrastructure: Sudoku extends Latin Square -/
 
 section SudokuInfrastructure
 
@@ -261,9 +253,7 @@ lemma sudoku_one_hot (x : IntAssignment (gridSize b * gridSize b * gridSize b))
 
 end SudokuInfrastructure
 
--- ============================================================================
--- Forward Direction: Expanded → Compact
--- ============================================================================
+/-! ### Forward Direction: Expanded → Compact -/
 
 section Forward
 
@@ -417,9 +407,7 @@ theorem sudoku_forward (sol₂ : IntAssignment (gridSize b * gridSize b * gridSi
 
 end Forward
 
--- ============================================================================
--- Backward Direction: Compact → Expanded
--- ============================================================================
+/-! ### Backward Direction: Compact → Expanded -/
 
 section Backward
 
@@ -611,9 +599,7 @@ theorem sudoku_backward (sol₁ : IntAssignment (gridSize b * gridSize b))
 
 end Backward
 
--- ============================================================================
--- Injectivity (direct from Latin Square)
--- ============================================================================
+/-! ### Injectivity (direct from Latin Square) -/
 
 section Injectivity
 
@@ -634,9 +620,7 @@ theorem sudoku_injective (sol₂ sol₂' : IntAssignment (gridSize b * gridSize 
 
 end Injectivity
 
--- ============================================================================
--- Main Theorems
--- ============================================================================
+/-! ### Main Theorems -/
 
 /-- Sudoku formulations are π-equivalent -/
 theorem sudoku_pi_equivalent (b : ℕ) (h_b : 0 < b) :

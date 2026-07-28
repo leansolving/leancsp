@@ -5,22 +5,15 @@ open CSP.L2S
 open CSP.L2S.IntCSP
 
 /-!
-# Circuit Equivalence Checking with Proper Circuit Structure
+# Circuit equivalence checking
 
-This example demonstrates equivalence checking using a proper Circuit data structure,
-following the same pattern as graph coloring where the graph (nodes, edges) is a
-separate structure passed as a parameter.
-
-## Approach
-1. Define Circuit structure (inputs, outputs, gates)
-2. Define two separate circuits
-3. Create equivalence CSP from the two circuit structures
-4. Verify: UNSATISFIABLE = equivalent, SATISFIABLE = different (with counterexample)
+Equivalence checking over an explicit `Circuit` structure (inputs, outputs, gates),
+passed as a parameter the same way the graph is for graph colouring.  Two circuits
+are compared by building an equivalence CSP from them: UNSAT means equivalent, SAT
+gives a distinguishing counterexample.
 -/
 
--- ============================================================================
--- Circuit Data Structure
--- ============================================================================
+/-! ### Circuit Data Structure -/
 
 /-- Types of logic gates in a circuit -/
 inductive GateType
@@ -45,9 +38,7 @@ structure Circuit where
   deriving Repr
 
 
--- ============================================================================
--- Constraint Generation from Circuit
--- ============================================================================
+/-! ### Constraint Generation from Circuit -/
 
 /-- Generate CSP constraints for a list of gates -/
 def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (IntConstraint num_nodes) :=
@@ -88,9 +79,7 @@ def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (IntConst
             else none
         | _ => none
 
--- ============================================================================
--- Single Circuit to CSP
--- ============================================================================
+/-! ### Single Circuit to CSP -/
 
 /--
 Convert a single circuit to a CSP.
@@ -99,9 +88,7 @@ All nodes have domain [0, 1] (Boolean values).
 def circuit_to_constraints (circuit : Circuit) (total_nodes : ℕ) : List (IntConstraint total_nodes) :=
   make_gate_constraints total_nodes circuit.gates
 
--- ============================================================================
--- Equivalence Checking: Compare Two Circuits
--- ============================================================================
+/-! ### Equivalence Checking: Compare Two Circuits -/
 
 /--
 Create an equivalence checking CSP for two circuits.
@@ -143,9 +130,7 @@ def circuits_equivalence_csp (circuit1 circuit2 : Circuit)
 
   ⟨total_nodes, bounds ++ circuit1_constrs ++ circuit2_constrs ++ equiv_constrs⟩
 
--- ============================================================================
--- Example: XOR Equivalence
--- ============================================================================
+/-! ### Example: XOR Equivalence -/
 
 /-
 Circuit 1: Direct XOR

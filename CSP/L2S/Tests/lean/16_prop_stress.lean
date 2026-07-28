@@ -6,30 +6,11 @@ import CSP.L2S.Symmetry
 open CSP.L2S
 
 /-!
-# Propagation Stress Test
+# Propagation stress test
 
-A simple model designed to stress-test constraint propagation with many linear
-inequalities. Tests the efficiency of propagation engines.
-
-## Problem Description
-- N variables with domain [0, N]
-- Chain of inequalities enforcing non-decreasing sequence
-- Additional inequalities from first variable
-
-## CSP Formulation
-- **Variables**: N variables (y[0]..y[N-1])
-- **Domain**: 0..N for all variables
-- **Constraints**:
-  1. Chain: y[i-1] ≤ y[i] for all i ∈ [1, N-1] (non-decreasing)
-  2. From y[0]: y[0] ≤ y[i] + C for all i ∈ [1, N-1]
-
-## Mathematical Form
-All constraints are linear inequalities:
-- y[i-1] - y[i] ≤ 0  (chain constraints)
-- y[0] - y[i] ≤ C    (constraints from y[0])
-
-## Source
-minizinc-benchmarks/prop_stress/prop_stress.mzn
+`N` variables `y[0]..y[N-1]` over `0..N`, subject to the non-decreasing chain
+`y[i-1] ≤ y[i]` and the extra inequalities `y[0] ≤ y[i] + C`.  All constraints are
+linear, so this stresses propagation rather than search.
 -/
 
 -- Helper to create chain inequality: y[i-1] - y[i] <= 0

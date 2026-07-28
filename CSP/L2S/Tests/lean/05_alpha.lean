@@ -6,21 +6,11 @@ import CSP.L2S.Symmetry
 open CSP.L2S
 
 /-!
-# Alphabet Music Puzzle
+# Alphabet music puzzle
 
-A cryptarithmetic puzzle where letters a-z are assigned numbers 1-26
-such that musical words sum to specific target values.
-
-## Problem Description
-- 26 variables (a through z), each assigned a unique number from 1 to 26
-- 20 equations like "ballet = b+a+l+l+e+t = 45"
-- All letters must have different values
-
-## General Pattern
-This generalizes to any alphametic/word puzzle where:
-- Letters are mapped to a range of numbers
-- Words (letter combinations) must sum to target values
-- All letters have distinct values
+Assign the 26 letters `a`–`z` distinct values in `1..26` so that 20 word equations
+(e.g. `ballet = b+a+l+l+e+t = 45`) all hold.  The generic alphametic pattern: letters
+map injectively into a value range, and words must sum to given targets.
 -/
 
 -- Helper to create uniform bounds for all letters

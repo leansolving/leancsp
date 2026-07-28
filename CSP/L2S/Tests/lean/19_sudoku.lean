@@ -6,32 +6,14 @@ import CSP.L2S.Symmetry
 open CSP.L2S
 
 /-!
-# Sudoku Puzzle
-CSPLib Problem 057
+# Sudoku
 
-## Problem Description
-Fill an n×n grid with digits 1..n such that:
-- Each row contains all digits 1..n
-- Each column contains all digits 1..n
-- Each s×s box contains all digits 1..n (where n = s²)
+Fill an `n×n` grid (`n = s²`) with digits `1..n` so every row, column and `s×s` box
+contains each digit once.  Variables are the `n²` cells, with `grid[r,c]` at index
+`n*r + c`, and one `alldifferent` per row, column and box.
 
-Standard Sudoku: n=9, s=3
-
-## CSP Formulation
-- **Variables**: n² variables (grid positions), domain [1, n]
-- **Variable Indexing**: grid[r,c] maps to variable index `n*r + c` where r,c ∈ [0,n-1]
-- **Constraints**:
-  1. Bounds: all variables in [1, n]
-  2. Row alldifferent: n constraints (one per row)
-  3. Column alldifferent: n constraints (one per column)
-  4. Box alldifferent: n constraints (one per s×s box)
-
-## Parametrized Design
-- `sudoku_csp(n, s)` - general formulation for any n×n grid with s×s boxes
-- `sudoku_9` - standard 9×9 Sudoku instance
-
-## Source
-CSPLib Problem 057 (standard 9×9 Sudoku)
+`sudoku_csp n s` is the general form; `sudoku_9` the standard instance.
+CSPLib problem 057.
 -/
 
 -- Helper function: get all variables in row i (for n×n grid)

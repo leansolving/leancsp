@@ -11,18 +11,14 @@ set_option linter.dupNamespace false
 
 open Vector
 
--- ============================================================================
--- Type-safe heterogeneous operations with fixed-length vectors
--- ============================================================================
+/-! ### Type-safe heterogeneous operations with fixed-length vectors -/
 
 /-- Values matching a scope: dependent function over vector indices -/
 def ScopeValues (VarIndex : Type) (DomainType : VarIndex → Type)
     (scope : Vector VarIndex n) : Type :=
   (i : Fin n) → DomainType (scope.get i)
 
--- ============================================================================
--- Core CSP Definitions with Heterogeneous Domains
--- ============================================================================
+/-! ### Core CSP Definitions with Heterogeneous Domains -/
 
 /-- Helper for Bool to Prop conversion -/
 @[simp] def sat (b : Bool) : Prop := b = true
@@ -82,9 +78,7 @@ def is_satisfiable {VarIndex : Type} {DomainType : VarIndex → Type} [Decidable
     (csp : CSP VarIndex DomainType) : Prop :=
   ∃ assignment, is_solution csp assignment
 
--- ============================================================================
--- Bool/Prop Bridge Lemmas
--- ============================================================================
+/-! ### Bool/Prop Bridge Lemmas -/
 
 section BoolPropBridge
 
@@ -101,9 +95,7 @@ section BoolPropBridge
 
 end BoolPropBridge
 
--- ============================================================================
--- Decidability Instances
--- ============================================================================
+/-! ### Decidability Instances -/
 
 section Decidability
 
@@ -123,9 +115,7 @@ instance decidable_satisfies_dynamic_constraint {VarIndex : Type} {DomainType : 
 
 end Decidability
 
--- ============================================================================
--- Constraint Constructors for Heterogeneous Domains
--- ============================================================================
+/-! ### Constraint Constructors for Heterogeneous Domains -/
 
 section ConstraintConstructors
 
@@ -197,9 +187,7 @@ def add_constraints {VarIndex : Type} {DomainType : VarIndex → Type}
 
 end ConstraintConstructors
 
--- ============================================================================
--- Utility Functions
--- ============================================================================
+/-! ### Utility Functions -/
 
 section UtilityFunctions
 
@@ -233,9 +221,7 @@ def satisfies_all_constraints {VarIndex : Type} {DomainType : VarIndex → Type}
 
 end UtilityFunctions
 
--- ============================================================================
--- Key Lemmas for Vector-based Operations
--- ============================================================================
+/-! ### Key Lemmas for Vector-based Operations -/
 
 section VectorLemmas
 

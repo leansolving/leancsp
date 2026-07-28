@@ -24,22 +24,17 @@ Value permutations preserve all alldifferent constraints via injectivity.
 3. General SBC wrapper
 4. Equisatisfiability of original and extended CSPs
 
-This is the `CSP/L2S` port of the `CSP/Int` proof: the satisfaction reasoning goes through
-`patternHolds`/`PatternBridges` and `satisfiesConstraintInt_iff_toDynamic` instead of the
-dynamic-constraint checker.
+Satisfaction reasoning goes through `patternHolds` / `PatternBridges` and
+`satisfiesConstraintInt_iff_toDynamic` rather than the dynamic-constraint checker.
 -/
 
--- ============================================================================
--- Value Swap Definition
--- ============================================================================
+/-! ### Value Swap Definition -/
 
 /-- Value swap: swaps value 0 with value v₀ -/
 def sudoku_value_swap (v₀ : ℤ) : Equiv.Perm IntDomain :=
   Equiv.swap 0 v₀
 
--- ============================================================================
--- General Lemma: Alldifferent preserved by domain permutation
--- ============================================================================
+/-! ### General Lemma: Alldifferent preserved by domain permutation -/
 
 /-- Alldifferent constraints are preserved by any domain permutation (via injectivity) -/
 lemma alldifferent_preserved_by_domain_perm {num_vars n : ℕ}
@@ -53,9 +48,7 @@ lemma alldifferent_preserved_by_domain_perm {num_vars n : ℕ}
   rw [← List.map_map]
   exact h_sat.map δ.injective
 
--- ============================================================================
--- Sudoku SB Section
--- ============================================================================
+/-! ### Sudoku SB Section -/
 
 section SudokuSB
 
@@ -75,9 +68,7 @@ def sudoku_sbc : IntConstraint (gridSize b * gridSize b) :=
 def sudoku_sb : IntCSP :=
   (sudoku_csp b).addConstraint (sudoku_sbc h_b)
 
--- ============================================================================
--- Auxiliary: Interval Preservation
--- ============================================================================
+/-! ### Auxiliary: Interval Preservation -/
 
 /-- Value swap preserves [0, gridSize b - 1] -/
 lemma intervalPreserving_sudoku_value_swap (v₀ : ℤ)
@@ -108,9 +99,7 @@ lemma intervalPreserving_sudoku_value_swap (v₀ : ℤ)
       · rw [Equiv.swap_apply_of_ne_of_ne h1 h2] at h_lb h_ub
         exact ⟨h_lb, h_ub⟩
 
--- ============================================================================
--- Result 1: Value swap is a domain symmetry
--- ============================================================================
+/-! ### Result 1: Value swap is a domain symmetry -/
 
 /-- Value swap is a domain symmetry for sudoku_csp -/
 theorem sudoku_value_swap_is_symmetry (v₀ : ℤ)
@@ -147,9 +136,7 @@ theorem sudoku_value_swap_is_symmetry (v₀ : ℤ)
     obtain ⟨bi, bj, rfl⟩ := h_box
     exact alldifferent_preserved_by_domain_perm (sudoku_value_swap v₀) (box_variables b bi bj)
 
--- ============================================================================
--- Result 2: SBC predicate
--- ============================================================================
+/-! ### Result 2: SBC predicate -/
 
 /-- The SBC is a domain symmetry breaking constraint -/
 theorem sudoku_sb_is_domain_symmetry_breaking :
@@ -191,9 +178,7 @@ theorem sudoku_sb_is_domain_symmetry_breaking :
         unfold DomainSymmetry at h_sym
         exact (h_sym assignment h_sol) tc h_orig
 
--- ============================================================================
--- Result 3: General SBC wrapper
--- ============================================================================
+/-! ### Result 3: General SBC wrapper -/
 
 /-- General symmetry breaking constraint -/
 theorem sudoku_sb_is_symmetry_breaking :
@@ -203,9 +188,7 @@ theorem sudoku_sb_is_symmetry_breaking :
   left
   exact sudoku_sb_is_domain_symmetry_breaking h_b
 
--- ============================================================================
--- Result 4: Equisatisfiability
--- ============================================================================
+/-! ### Result 4: Equisatisfiability -/
 
 /-- Equisatisfiability of original and extended CSPs -/
 theorem sudoku_sb_equisatisfiability :

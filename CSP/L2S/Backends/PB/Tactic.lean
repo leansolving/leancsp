@@ -7,39 +7,27 @@ namespace CSP.L2S.PB
 /-!
 # PB backend — the `csp_reflect_unsat` and `csp_decide` commands
 
-Two ways to register `name : VeriPB.Reflect.formulaUnsat cs` from a pseudo-Boolean
-UNSAT certificate, both discharging the kernel proof through PBLean's reflection
-checker (`checkProofBool`) with a hand-built `Lean.ofReduceBool` term and
-`checkProof_sound` (this is also the discharge `csp_unsat_file` now uses):
+Two ways to register `name : VeriPB.Reflect.formulaUnsat cs` from a PB UNSAT
+certificate, both discharging the kernel proof through PBLean's reflection
+checker with a hand-built `Lean.ofReduceBool` term:
 
-* **`csp_reflect_unsat name cs numVars "proof.pbp"`** (PLAN.md §9) reads a
-  *committed* VeriPB kernel proof file.  No external solver runs at build time, so
-  the result is **CI-reproducible** — this is the form used by every committed
-  end-to-end UNSAT theorem.
+* **`csp_reflect_unsat name cs numVars "proof.pbp"`** reads a *committed* kernel
+  proof file, so no external solver runs at build time.
+* **`csp_decide name cs numVars`** serializes `cs` to OPB at elaboration time and
+  shells out to RoundingSat and veripb to produce the proof.  **Not hermetic** —
+  use it interactively to generate a certificate, then commit the `.pbp`.
 
-* **`csp_decide name cs numVars`** is the *convenience* variant: it serializes `cs`
-  to OPB at elaboration time (via the untrusted `Serialize.toOPBString`, run with
-  `evalExpr`), shells out to **RoundingSat** (`--proof-log`) and **veripb**
-  (`--elaborate`) to produce the kernel proof, then reflects it.  Requires both
-  solvers on `PATH` at build time, so it is **not** hermetic — use it
-  interactively to *generate* a certificate, then commit the kernel `.pbp` and
-  switch to `csp_reflect_unsat` for reproducibility.
-
-The trust base is identical for both: PBLean's checker + Lean's kernel + the
-reflection axioms `Lean.ofReduceBool` / `Lean.trustCompiler`.  RoundingSat, veripb, the
-serializer, and the `.opb`/`.pbp` files stay **outside** it — a wrong certificate
-makes `checkProofBool` return `false` against the *Lean-side* `cs`, so the command
-fails to elaborate rather than producing an unsound theorem.
-
-Adapted from PBLean's `independent_set_reflect` / `independent_set_decide`. -/
+For committed theorems prefer `csp_unsat_file` (`GenericEncode.lean`), which
+derives `cs` from the CSP itself.  RoundingSat, veripb, the serializer and the
+`.opb`/`.pbp` files stay outside the trust base: a wrong certificate makes the
+check return `false`, so elaboration fails rather than producing a bad theorem. -/
 
 open Lean Lean.Elab Lean.Elab.Command Lean.Meta
 
-/-- Register `declName : VeriPB.Reflect.formulaUnsat csExpr` from a VeriPB kernel
-    proof string, checked by PBLean's reflection checker and discharged by a hand-built
-    `Lean.ofReduceBool` term.  Shared by both commands; the certificate `proofStr` is
-    untrusted (a wrong one makes the `checkProofBool` reduction `false`, so the
-    `Eq.refl` term fails to typecheck). -/
+/-- Register `declName : VeriPB.Reflect.formulaUnsat csExpr` from a kernel proof
+    string, discharged by a hand-built `Lean.ofReduceBool` term.  The certificate is
+    untrusted: a wrong one makes the reduction `false` and the `Eq.refl` term fails
+    to typecheck. -/
 private def registerFormulaUnsat (declName : Name) (csExpr numVarsExpr : Expr)
     (proofStr : String) : TermElabM Unit := do
   let proofStrExpr := mkStrLit proofStr
@@ -105,10 +93,8 @@ private unsafe def evalOPBUnsafe (csExpr numVarsExpr : Expr) : TermElabM String 
 private opaque evalOPB (csExpr numVarsExpr : Expr) : TermElabM String
 
 /-- `csp_decide name cs numVars` serializes `cs` to OPB, runs RoundingSat + veripb
-    at elaboration time, and registers `name : VeriPB.Reflect.formulaUnsat cs` from
-    the resulting kernel proof.  **Not hermetic** — needs `roundingsat` and
-    `veripb` on `PATH`.  See the module docstring; prefer `csp_reflect_unsat` for
-    committed theorems. -/
+    at elaboration time, and registers `name : VeriPB.Reflect.formulaUnsat cs`.
+    **Not hermetic** — needs `roundingsat` and `veripb` on `PATH`. -/
 elab "csp_decide " name:ident ppSpace cs:term:max ppSpace
     numVars:term:max : command => do
   let declName := (← getCurrNamespace) ++ name.getId

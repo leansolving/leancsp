@@ -22,18 +22,16 @@ proof; every theorem below is stated about the *plain* `schur_csp`:
 * upper bounds lift the certificate via `Schur.schur_unsat_of_value_precedence`.
 
 `S(2) = 4` and `S(3) = 13` are pinned exactly (both directions kernel-checked).  `S(4)`
-has its lower bound `≥ 44` kernel-checked here; its upper bound `< 45` is the hard case
-(the vp certificate is ~100 MB, far beyond the reach of the native reflection recheck) — see
-`experiments/schur_exact/README.md`.
+has its lower bound `≥ 44` kernel-checked here; its upper bound `< 45` needs a ~100 MB
+certificate that is too large to commit — regenerate it with
+`python3 experiments/run.py schur` (see `experiments/README.md`).
 -/
 
 open CSP.L2S
 
 namespace CSP.L2S.EndToEnd.SchurCertify
 
--- ============================================================================
--- Lower bounds (SAT): MiniZinc witness → kernel `decide` → lift via vp equisat
--- ============================================================================
+/-! ### Lower bounds (SAT): MiniZinc witness → kernel `decide` → lift via vp equisat -/
 
 /-- **`S(2) ≥ 4`.** -/
 theorem schur_2_lb : (Schur.schur_csp 4 2).isSatisfiableInt :=
@@ -54,9 +52,7 @@ theorem schur_4_lb : (Schur.schur_csp 44 4).isSatisfiableInt :=
     (csp_sat_file ((Schur.schur_csp 44 4).addConstraint (value_precedence 4))
       "CSP/L2S/EndToEnd/sols/schur_c4_n44.sol")
 
--- ============================================================================
--- Upper bounds (UNSAT): vp certificate → ofReduceBool reflection → lift via vp SBC
--- ============================================================================
+/-! ### Upper bounds (UNSAT): vp certificate → ofReduceBool reflection → lift via vp SBC -/
 
 /-- **`S(2) < 5`.** -/
 theorem schur_2_ub : ¬ (Schur.schur_csp 5 2).isSatisfiableInt :=
@@ -71,9 +67,7 @@ theorem schur_3_ub : ¬ (Schur.schur_csp 14 3).isSatisfiableInt :=
 -- `S(4) = 44` (`schur_4_ub`, `schur_4_exact`) is at the end of this file, commented out — its
 -- certificate is ~98 MB, too large to commit; enable it after generating the cert (see below).
 
--- ============================================================================
--- Exact values (both directions)
--- ============================================================================
+/-! ### Exact values (both directions) -/
 
 /-- **`S(2) = 4`.** -/
 theorem schur_2_exact :
@@ -85,12 +79,12 @@ theorem schur_3_exact :
     (Schur.schur_csp 13 3).isSatisfiableInt ∧ ¬ (Schur.schur_csp 14 3).isSatisfiableInt :=
   ⟨schur_3_lb, schur_3_ub⟩
 
--- ============================================================================
--- S(4) = 44 (disabled). The value-precedence certificate for n=45 is ~98 MB, too large to
--- commit. Generate it with `python experiments/run_schur_exact.py` (writes
--- `experiments/schur_exact/artifacts/schur_4_45_vp_kernel.pbp`), then remove the `/-` and `-/`
--- around the block below to enable `schur_4_ub` / `schur_4_exact`.
--- ============================================================================
+/-! ### S(4) = 44 (disabled)
+
+The value-precedence certificate for `n = 45` is ~98 MB, too large to commit.  Generate it
+with `python3 experiments/run.py schur` (which writes
+`experiments/schur_exact/artifacts/schur_4_45_vp_kernel.pbp`), then remove the `/-` and
+`-/` around the block below to enable `schur_4_ub` / `schur_4_exact`. -/
 
 /-
 def schur_4_45_vp : IntCSP := (Schur.schur_csp 45 4).addConstraint (value_precedence 4)

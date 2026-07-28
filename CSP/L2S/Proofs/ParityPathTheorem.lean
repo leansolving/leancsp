@@ -41,9 +41,7 @@ and require separate treatment (e.g., linear algebra over GF(2)).
 - **Pure literal rule**: CNF literal with single polarity can be fixed
 -/
 
--- ============================================================================
--- Gate Parity Classification
--- ============================================================================
+/-! ### Gate Parity Classification -/
 
 /-- Whether a gate type flips the parity (inverts the signal). -/
 def gate_parity_flip (gt : GateType) : Bool :=
@@ -57,9 +55,7 @@ def gate_parity_flip (gt : GateType) : Bool :=
 def circuit_is_monotone (c : Circuit) : Prop :=
   ∀ g ∈ c.gates, g.gate_type ≠ GateType.XOR
 
--- ============================================================================
--- Parity-Tracked Reachability
--- ============================================================================
+/-! ### Parity-Tracked Reachability -/
 
 /-- Direct edge with parity: src feeds into tgt via gate g with parity delta. -/
 def DirectParity (c : Circuit) (src tgt : ℕ) (delta : Bool) : Prop :=
@@ -77,9 +73,7 @@ inductive ParityReaches (c : Circuit) : ℕ → ℕ → Bool → Prop where
 def ParityReachesAny (c : Circuit) (src tgt : ℕ) : Prop :=
   ∃ p, ParityReaches c src tgt p
 
--- ============================================================================
--- Uniform Parity Definition
--- ============================================================================
+/-! ### Uniform Parity Definition -/
 
 /-- Uniform parity to a specific node: reachable, and ALL paths have parity p. -/
 def UniformParityTo (c : Circuit) (src tgt : ℕ) (p : Bool) : Prop :=
@@ -94,18 +88,14 @@ def UniformParity (c : Circuit) (i : ℕ) (p : Bool) : Prop :=
   parity_reaches_output c i ∧
   ∀ out, is_output c out → ∀ q, ParityReaches c i out q → q = p
 
--- ============================================================================
--- Monotonicity Predicate
--- ============================================================================
+/-! ### Monotonicity Predicate -/
 
 /-- Monotonicity relationship between two Boolean values given a parity. -/
 def is_monotone (val0 val1 : Bool) (parity : Bool) : Prop :=
   if parity then (val1 = true → val0 = true)
   else (val0 = true → val1 = true)
 
--- ============================================================================
--- Helper Lemmas
--- ============================================================================
+/-! ### Helper Lemmas -/
 
 lemma parity_refl_is_false (c : Circuit) (v : ℕ) :
     ParityReaches c v v false := ParityReaches.refl v
@@ -132,9 +122,7 @@ lemma not_gate_monotone (val0 val1 : Bool) (p : Bool)
   unfold is_monotone at *
   cases p <;> cases val0 <;> cases val1 <;> simp_all
 
--- ============================================================================
--- Per-Gate Monotonicity (Proven)
--- ============================================================================
+/-! ### Per-Gate Monotonicity (Proven) -/
 
 private lemma and_gate_monotone_false (inputs0 inputs1 : List Bool)
     (h_len : inputs0.length = inputs1.length)
@@ -240,9 +228,7 @@ lemma or_gate_monotone :
   | false => exact or_gate_monotone_false inputs0 inputs1 h_len h_mono
   | true => exact or_gate_monotone_true inputs0 inputs1 h_len h_mono
 
--- ============================================================================
--- Connecting Reaches to ParityReaches
--- ============================================================================
+/-! ### Connecting Reaches to ParityReaches -/
 
 lemma direct_parity_of_direct_dep (c : Circuit) (src tgt : ℕ)
     (h : DirectDependency c src tgt) :
@@ -267,9 +253,7 @@ lemma parity_reaches_any_of_reaches_or_eq (c : Circuit) (src tgt : ℕ)
   | inl h_eq => exact ⟨false, h_eq ▸ ParityReaches.refl src⟩
   | inr h_reaches => exact parity_reaches_any_of_reaches' c src tgt h_reaches
 
--- ============================================================================
--- Core Monotonicity Theorem (Proven)
--- ============================================================================
+/-! ### Core Monotonicity Theorem (Proven) -/
 
 /-- If i reaches tgt with uniform parity p, and src feeds tgt with parity delta,
     then i reaches src with uniform parity (xor p delta) (if reachable). -/
@@ -414,9 +398,7 @@ theorem value_monotone
   unfold eval_node
   exact value_monotone_fuel c h_valid.2 h_mono_circuit i h_i_input (total_nodes c) v p h_uniform
 
--- ============================================================================
--- Main Theorem: Pure Literal Rule for Circuits
--- ============================================================================
+/-! ### Main Theorem: Pure Literal Rule for Circuits -/
 
 lemma uniform_parity_to_output_exists (c : Circuit) (i out : ℕ) (p : Bool)
     (h_uniform : UniformParity c i p) (_h_out : is_output c out)
@@ -491,9 +473,7 @@ theorem uniform_parity_pure_literal
   · intro ⟨assignment, h_sat⟩
     exact ⟨Function.update assignment i (optimal_value p), h_sat⟩
 
--- ============================================================================
--- Corollaries
--- ============================================================================
+/-! ### Corollaries -/
 
 theorem uniform_parity_sat_equiv
     (c : Circuit) (h_valid : circuit_valid c) (h_mono_circuit : circuit_is_monotone c)

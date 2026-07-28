@@ -29,14 +29,11 @@ Constraints: For each valid triple (i,j,k), not all three have the same color (s
 3. SBC is a general symmetry breaking constraint
 4. Extended CSP is equisatisfiable with original
 
-This is the `CSP/L2S` port of the `CSP/Int` proof: the satisfaction reasoning goes
-through `patternHolds`/`PatternBridges` and `satisfiesConstraintInt_iff_toDynamic`
-instead of the dynamic-constraint checker.
+Satisfaction reasoning goes through `patternHolds` / `PatternBridges` and
+`satisfiesConstraintInt_iff_toDynamic` rather than the dynamic-constraint checker.
 -/
 
--- ============================================================================
--- CSP Definition (reuse from SchurEquivalence)
--- ============================================================================
+/-! ### CSP Definition (reuse from SchurEquivalence) -/
 
 /-- Bound constraints: each integer has a color in {0, ..., colors-1} -/
 def schur_bound_constraints (n : ℕ) (colors : ℕ) : List (IntConstraint n) :=
@@ -50,9 +47,7 @@ def schur_triple_constraints (n : ℕ) (triples : List (Fin n × Fin n × Fin n)
 def schur_csp_triples (n : ℕ) (colors : ℕ) (triples : List (Fin n × Fin n × Fin n)) : IntCSP :=
   ⟨n, schur_bound_constraints n colors ++ schur_triple_constraints n triples⟩
 
--- ============================================================================
--- Symmetry Breaking Constraint Definition
--- ============================================================================
+/-! ### Symmetry Breaking Constraint Definition -/
 
 /-- Symmetry breaking constraint: fix first integer to color 0 -/
 def schur_sbc (n : ℕ) (h_n : 0 < n) : IntConstraint n :=
@@ -62,17 +57,13 @@ def schur_sbc (n : ℕ) (h_n : 0 < n) : IntConstraint n :=
 def schur_sb_triples (n : ℕ) (h_n : 0 < n) (colors : ℕ) (triples : List (Fin n × Fin n × Fin n)) : IntCSP :=
   (schur_csp_triples n colors triples).addConstraint (schur_sbc n h_n)
 
--- ============================================================================
--- Symmetry Function
--- ============================================================================
+/-! ### Symmetry Function -/
 
 /-- Color swap: swaps color 0 with color c, leaves others unchanged -/
 def schur_color_swap (c : ℤ) : Equiv.Perm IntDomain :=
   Equiv.swap 0 c
 
--- ============================================================================
--- Auxiliary Lemmas
--- ============================================================================
+/-! ### Auxiliary Lemmas -/
 
 /-- Color swaps preserve the interval [0, colors-1] when c is in that interval -/
 lemma intervalPreserving_schur_color_swap (colors : ℕ) (c : ℤ)
@@ -115,9 +106,7 @@ lemma schur_triple_preserved_by_perm {num_vars : ℕ}
   · right; left; exact fun h_eq => h_ne (δ.injective h_eq)
   · right; right; exact fun h_eq => h_ne (δ.injective h_eq)
 
--- ============================================================================
--- Symmetry-Breaking Correctness
--- ============================================================================
+/-! ### Symmetry-Breaking Correctness -/
 
 /-- Result 1: Color swap is a domain symmetry for Schur CSP -/
 theorem schur_color_swap_is_symmetry (n colors : ℕ)
@@ -221,9 +210,7 @@ theorem schur_sb_equisatisfiability (n colors : ℕ)
   apply domainSymmetryBreaking_equisatisfiability
   exact schur_sbc_is_domain_symmetry_breaking n colors h_n h_colors triples
 
--- ============================================================================
--- Instantiated Versions (triples computed from n)
--- ============================================================================
+/-! ### Instantiated Versions (triples computed from n) -/
 
 /-- Schur CSP with triples computed from n -/
 def schur_csp (n colors : ℕ) : IntCSP :=

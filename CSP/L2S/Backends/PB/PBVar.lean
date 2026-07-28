@@ -6,10 +6,7 @@ namespace CSP.L2S.PB
 open CSPSig
 
 /-!
-# PB backend — typed variables `PBVar` and the `mkLeLit` constructor
-
-The typed propositional variable `PBVar S` and the smart threshold-literal
-constructor `mkLeLit`.
+# PB backend — typed variables and the threshold-literal constructor
 -/
 
 /-- Propositional variables of the PB (order-)encoding of a signature `S`:
@@ -28,9 +25,9 @@ inductive PBVar (S : CSPSig) where
   | aux  : Fin S.nAux → PBVar S
   deriving DecidableEq, Repr, Hashable
 
-/-- A literal-or-constant.  Paper-level "`xᵢ ≤ k`" thresholds may fall outside
-    the domain (k below the minimum, or k at/above the maximum); those have no
-    corresponding `thr` variable and collapse to a Boolean constant. -/
+/-- A literal-or-constant.  A threshold "`xᵢ ≤ k`" may fall outside the domain
+    (`k` below the minimum, or at/above the maximum); such thresholds have no
+    `thr` variable and collapse to a Boolean constant. -/
 inductive LitConst (V : Type) where
   | lit   : Lit V → LitConst V
   | const : Bool → LitConst V
@@ -44,13 +41,7 @@ variable (S : CSPSig)
 
   * `k ≥ max(Dᵢ)`  → `const true`   (no domain value exceeds `k`);
   * `k < min(Dᵢ)`  → `const false`  (the smallest value already exceeds `k`);
-  * otherwise      → the threshold variable for the largest domain value `≤ k`.
-
-  Implementation: `findIdx? (· > k)` returns the first index whose value
-  exceeds `k`.  `none` ⇒ all values `≤ k`; `some 0` ⇒ even the smallest exceeds
-  `k`; `some (j+1)` ⇒ index `j` is the largest with value `≤ k`, so threshold
-  `thr i j` (when `j < width i`; the boundary `j = width i` is `x ≤ max`, always
-  true). -/
+  * otherwise      → the threshold variable for the largest domain value `≤ k`. -/
 def mkLeLit (i : Fin S.nInt) (k : Int) : LitConst (PBVar S) :=
   match (S.values i).findIdx? (· > k) with
   | none        => .const true

@@ -6,7 +6,7 @@ namespace CSP.L2S.SMTLIB
 open CSP.L2S
 
 /-!
-# SMT-LIB Backend for L2M
+# SMT-LIB backend
 
 Translates IntCSP to SMT-LIB 2.6 format for SMT solvers (Z3, CVC5, etc.).
 
@@ -18,9 +18,7 @@ Translates IntCSP to SMT-LIB 2.6 format for SMT solvers (Z3, CVC5, etc.).
 
 -/
 
--- ============================================================================
--- Helper Functions
--- ============================================================================
+/-! ### Helper Functions -/
 
 /-- Format a variable as x{n} -/
 def varName (n : ℕ) : String := s!"x{n}"
@@ -43,9 +41,7 @@ def assertRel (op : RelOp) (lhs rhs : String) : String :=
   | RelOp.GT => s!"(> {lhs} {rhs})"
   | RelOp.GE => s!"(>= {lhs} {rhs})"
 
--- ============================================================================
--- Logic Inference
--- ============================================================================
+/-! ### Logic Inference -/
 
 /-- Infer SMT-LIB logic from constraint patterns (FIXED: was hardcoded) -/
 def inferLogic (csp : IntCSP) : String :=
@@ -58,9 +54,7 @@ def inferLogic (csp : IntCSP) : String :=
     | _ => false
   if hasNonlinear then "QF_NIA" else "QF_LIA"
 
--- ============================================================================
--- Pattern Translation
--- ============================================================================
+/-! ### Pattern Translation -/
 
 /-- Translate a single constraint pattern to SMT-LIB assertion -/
 def patternToSMTLIB {num_vars : ℕ} (opts : BackendOptions)
@@ -329,9 +323,7 @@ def patternToSMTLIB {num_vars : ℕ} (opts : BackendOptions)
   | IntConstraint.unknown _ scope =>
       .error ⟨s!"Unknown constraint on variables: {scope}"⟩
 
--- ============================================================================
--- Backend Instance
--- ============================================================================
+/-! ### Backend Instance -/
 
 /-- SMT-LIB backend instance -/
 def smtlibBackend : Backend where
@@ -362,9 +354,7 @@ def smtlibBackend : Backend where
     | IntConstraint.bound _ _ _ => true  -- Handled in domainAsserts
     | _ => false
 
--- ============================================================================
--- Public API
--- ============================================================================
+/-! ### Public API -/
 
 /-- Convenience wrapper (backward compatibility) -/
 def translateToSMTLIB (csp : IntCSP) : String :=

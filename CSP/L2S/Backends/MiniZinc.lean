@@ -6,7 +6,7 @@ namespace CSP.L2S.MiniZinc
 open CSP.L2S
 
 /-!
-# MiniZinc Backend for L2M
+# MiniZinc backend
 
 Translates IntCSP to MiniZinc constraint programming language.
 
@@ -17,9 +17,7 @@ Translates IntCSP to MiniZinc constraint programming language.
 - Support for 50+ constraint types
 -/
 
--- ============================================================================
--- Helper Functions
--- ============================================================================
+/-! ### Helper Functions -/
 
 /-- Convert RelOp to MiniZinc operator string -/
 def relOpToMzn (op : RelOp) : String :=
@@ -31,9 +29,7 @@ def relOpToMzn (op : RelOp) : String :=
   | RelOp.GT => ">"
   | RelOp.GE => ">="
 
--- ============================================================================
--- Pattern Translation
--- ============================================================================
+/-! ### Pattern Translation -/
 
 /-- Translate a single constraint pattern to MiniZinc constraint syntax -/
 def patternToMiniZinc {num_vars : ℕ} (opts : BackendOptions)
@@ -245,9 +241,7 @@ def patternToMiniZinc {num_vars : ℕ} (opts : BackendOptions)
   | IntConstraint.unknown _ scope =>
       .error ⟨s!"Unknown constraint on variables: {scope}"⟩
 
--- ============================================================================
--- Include Generation
--- ============================================================================
+/-! ### Include Generation -/
 
 /-- Get required MiniZinc include statements for the constraints -/
 def getRequiredIncludes (csp : IntCSP) : List String :=
@@ -269,9 +263,7 @@ def getRequiredIncludes (csp : IntCSP) : List String :=
   ) []
   includes.eraseDup.map (s!"include \"{·}.mzn\";")
 
--- ============================================================================
--- Backend Instance
--- ============================================================================
+/-! ### Backend Instance -/
 
 /-- MiniZinc backend instance -/
 def miniZincBackend : Backend where
@@ -298,9 +290,7 @@ def miniZincBackend : Backend where
     | IntConstraint.bound _ _ _ => true
     | _ => false
 
--- ============================================================================
--- Public API
--- ============================================================================
+/-! ### Public API -/
 
 /-- Convenience wrapper (backward compatibility) -/
 def translateToMiniZinc (csp : IntCSP) : String :=

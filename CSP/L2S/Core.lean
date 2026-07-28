@@ -8,25 +8,14 @@ import Mathlib.Data.Vector.Basic
 namespace CSP.L2S
 
 /-!
-# L2M (Lean-to-MiniZinc) Core
+# L2S core
 
-Unified CSP framework combining Homogeneous integer domains with Tagged constraints
-for direct MiniZinc translation. This eliminates the two-layer structure and provides
-a single `IntCSP` type that is both proof-ready and MiniZinc-translatable.
-
-## Design
-
-- **Single Structure**: One `IntCSP` type (not base + tagged)
-- **Dual Representation**: Each constraint has semantic pattern + dynamic checker
-- **Integer Domains**: All variables have type `ℤ` (unlimited range, negatives supported)
-- **Direct Translation**: MiniZinc generation without structure conversion
-
-
+A single `IntCSP` type that is both proof-ready and directly translatable to a
+solver.  All variables range over `ℤ`; each constraint carries a semantic pattern
+(its meaning, via `patternHolds`) alongside an executable checker.
 -/
 
--- ============================================================================
--- Type Aliases and Foundations
--- ============================================================================
+/-! ### Type Aliases and Foundations -/
 
 /-- Integer domain for all variables -/
 abbrev IntDomain := ℤ
@@ -45,9 +34,7 @@ abbrev IntDynConstraint (n : ℕ) :=
 abbrev IntAssignment (n : ℕ) :=
   VarType n → IntDomain
 
--- ============================================================================
--- Relational Operators (for sum and other constraints)
--- ============================================================================
+/-! ### Relational Operators (for sum and other constraints) -/
 
 /-- Relational operators for constraints -/
 inductive RelOp where
@@ -59,9 +46,7 @@ inductive RelOp where
   | GE  -- Greater than or equal
   deriving Repr, DecidableEq
 
--- ============================================================================
--- Constraint Patterns (Semantic Representation)
--- ============================================================================
+/-! ### Constraint Patterns (Semantic Representation) -/
 
 /--
 Semantic patterns for constraint types. These enable MiniZinc translation
@@ -143,17 +128,14 @@ inductive IntConstraint (num_vars : ℕ)
   | linear_rel_var (vars : List ℕ) (coeffs : List ℤ) (op : RelOp) (target_var : ℕ)  -- Σ(coeffs[i]*vars[i]) op target_var
   | product_rel_var (vars : List ℕ) (op : RelOp) (target_var : ℕ)  -- product(vars) op target_var
 
-  -- Symmetry-breaking: value (colour) precedence with `colors` interchangeable colours.
-  -- A colour `v ∈ [1, colors)` may first appear (scanning `x_0, x_1, …`) only after `v-1`
-  -- has: every positive in-domain colour at some position has its predecessor earlier.
-  -- This is the Law–Lee (2004) value-precedence constraint, sound for any CSP closed under
-  -- all permutations of the colour values (see `CSP/L2S/ValuePrecedence.lean`).
+  -- Value precedence (Law–Lee 2004): a colour `v ∈ [1, colors)` may first appear,
+  -- scanning `x_0, x_1, …`, only after `v-1` has.  Sound for any CSP closed under all
+  -- permutations of the colour values (see `CSP/L2S/ValuePrecedence.lean`).
   | value_precedence (colors : ℕ)
 
-  -- Symmetry-breaking: strict lexicographic reversal leader `x <_lex rev(x)`, where
-  -- `rev` is the variable-index reversal `i ↦ (num_vars-1)-i`.  A whole-CSP constraint
-  -- (no explicit scope; the scope is all variables in order).  Sound ONLY when the index
-  -- reversal is a symmetry of the CSP; the Schur cautionary example shows it is not.
+  -- Strict lexicographic reversal leader `x <_lex rev(x)`, for the index reversal
+  -- `i ↦ (num_vars-1)-i`.  A whole-CSP constraint.  Sound ONLY when that reversal is a
+  -- symmetry of the CSP; see `Proofs/SchurReversalCounterexample.lean`.
   | strictLexRevLeader
 
   -- Scheduling constraints
@@ -163,9 +145,7 @@ inductive IntConstraint (num_vars : ℕ)
   | unknown (arity : ℕ) (scope : List ℕ)
   deriving Repr, DecidableEq
 
--- ============================================================================
--- Pattern Semantics (meaning of a constraint from its `pattern`)
--- ============================================================================
+/-! ### Pattern Semantics (meaning of a constraint from its `pattern`) -/
 
 /-- Value of pattern variable `v` (a raw `ℕ` index) under assignment `a`;
     out-of-range indices default to `0` (they do not occur in well-formed CSPs). -/
@@ -181,10 +161,9 @@ def relHolds : RelOp → ℤ → ℤ → Prop
   | .GT, x, y => x > y
   | .GE, x, y => x ≥ y
 
-/-- The intended meaning of a constraint pattern as a predicate on assignments.
-    Mirrors each smart constructor's `dynamic` checker (see `Constraints.lean`); this
-    is what `satisfiesConstraintInt` is (to be) defined through, making a constraint's
-    meaning a function of its finite `pattern` rather than its opaque `dynamic` field. -/
+/-- The meaning of a constraint pattern as a predicate on assignments.
+    `satisfiesConstraintInt` is defined through this, making a constraint's meaning a
+    function of its finite `pattern` rather than its opaque `dynamic` field. -/
 def patternHolds {n : ℕ} : IntConstraint n → IntAssignment n → Prop
   | .alldifferent vars, a => (vars.map (valAt a)).Nodup
   | .alldifferentOffset vars offsets, a =>
@@ -283,17 +262,12 @@ def toDynamic {n : ℕ} (c : IntConstraint n) : IntDynConstraint n :=
     { scope := _root_.Vector.ofFn id
       check := fun vals => decide (patternHolds c (fun i => vals i)) }
 
--- ============================================================================
--- Unified IntCSP Structure
--- ============================================================================
+/-! ### Unified IntCSP Structure -/
 
-/--
-An integer CSP: a variable count plus a list of `IntConstraint`s — each one of the
-finite, available constraints (the `IntConstraint` inductive).  A constraint's meaning
-is given by `patternHolds`; `toDynamic` (see `Embedding`) maps it to the *real*
-underlying general `DynamicConstraint`, so the general framework is kept while the
-front-end stays a finite inductive.
--/
+/-- An integer CSP: a variable count plus a list of `IntConstraint`s.  A constraint's
+    meaning is given by `patternHolds`; `toDynamic` (see `Embedding`) maps it to the
+    underlying general `DynamicConstraint`, keeping the general framework while the
+    front-end stays a finite inductive. -/
 structure IntCSP where
   /-- Number of variables in the CSP -/
   num_vars : ℕ
@@ -302,9 +276,7 @@ structure IntCSP where
 
 namespace IntCSP
 
--- ============================================================================
--- Solution Checking
--- ============================================================================
+/-! ### Solution Checking -/
 
 /-- A constraint is satisfied by an assignment iff its pattern's meaning holds
     (`patternHolds`).  Equivalent to satisfying its real underlying general constraint
@@ -329,9 +301,7 @@ def isSolutionInt (csp : IntCSP) (assignment : IntAssignment csp.num_vars) : Pro
 def isSatisfiableInt (csp : IntCSP) : Prop :=
   ∃ assignment, isSolutionInt csp assignment
 
--- ============================================================================
--- Bound Extraction (for MiniZinc Variable Declarations)
--- ============================================================================
+/-! ### Bound Extraction (for MiniZinc Variable Declarations) -/
 
 /-- Extract bounds for a variable from bound constraint patterns -/
 def extractVariableBounds (csp : IntCSP)
@@ -352,18 +322,17 @@ def extractAllBounds (csp : IntCSP) :
     VarType csp.num_vars → (ℤ × ℤ) :=
   fun var => extractVariableBounds csp var
 
--- ============================================================================
--- The `bound`-prefix shape
--- ============================================================================
+/-! ### The `bound`-prefix shape -/
 
 /-!
-A CSP shaped `⟨n, (List.range n).map (fun x => bound x (lo x) (hi x)) ++ rest⟩` — one `bound` per
-variable, in order, then the problem constraints — reads its own bounds back, and so satisfies the
-`hbound` side-goal of `CSP.L2S.PB.csp_unsat` for every `n` at once.
+A CSP shaped `⟨n, (List.range n).map (fun x => bound x (lo x) (hi x)) ++ rest⟩` reads its
+own bounds back, satisfying the `hbound` side-goal of `CSP.L2S.PB.csp_unsat` for every `n`
+at once.
 
-Pass `hbound_of_range_prefix` rather than letting `csp_unsat`'s `by decide` default re-derive it per
-instance: deciding it makes the elaborator reduce the generator symbolically, which costs minutes
-and gigabytes on large instances. CSPs given as literal data decide cheaply and need neither.
+Pass `hbound_of_range_prefix` rather than letting `csp_unsat`'s `by decide` default
+re-derive it per instance: deciding it makes the elaborator reduce the generator
+symbolically, costing minutes and gigabytes on large instances.  CSPs given as literal
+data decide cheaply and need neither.
 -/
 
 /-- `List.range n` hits `i < n` exactly once, so a single-point `filterMap` over it is a singleton. -/
@@ -479,9 +448,7 @@ theorem hbound_of_cons_range_prefix₂ {n : ℕ} (c : IntConstraint n) (hc : Not
   rw [List.append_assoc]
   exact hbound_of_cons_range_prefix c hc lo hi (r₁ ++ r₂)
 
--- ============================================================================
--- CSP Construction
--- ============================================================================
+/-! ### CSP Construction -/
 
 /-- Create empty CSP with specified number of variables -/
 def mkEmpty (num_vars : ℕ) : IntCSP where
@@ -500,9 +467,7 @@ def addConstraints (csp : IntCSP)
 
 
 
--- ============================================================================
--- Utility Functions
--- ============================================================================
+/-! ### Utility Functions -/
 
 /-- Count constraints in a CSP -/
 def constraintCount (csp : IntCSP) : ℕ :=
@@ -530,9 +495,7 @@ def listToFinVector (inputs : List ℕ) (num_nodes : ℕ) :
 
 end IntCSP
 
--- ============================================================================
--- Extracting Constraints from Built CSPs
--- ============================================================================
+/-! ### Extracting Constraints from Built CSPs -/
 
 /-- Get all constraints from a CSP -/
 def getConstraints (csp : IntCSP) : List (IntConstraint csp.num_vars) :=
@@ -556,9 +519,7 @@ def countBoundConstraints (csp : IntCSP) : ℕ :=
 
 
 
--- ============================================================================
--- Basic Examples
--- ============================================================================
+/-! ### Basic Examples -/
 
 section Examples
 

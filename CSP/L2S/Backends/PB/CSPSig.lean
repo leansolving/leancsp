@@ -3,11 +3,10 @@ import Mathlib.Data.List.Basic
 namespace CSP.L2S.PB
 
 /-!
-# PB backend — the encoder's variable signature (`CSPSig`)
+# PB backend — the encoder's variable signature
 
-A PB encoding has a fixed set of integer variables (each with a per-variable
-finite integer domain given as a sorted list), Boolean variables, and auxiliary
-variables (for Tseitin/reification).  See PLAN.md §4.1.
+A PB encoding has integer variables (each with a finite, sorted integer domain),
+Boolean variables, and auxiliary variables.
 -/
 
 /-- Signature of a PB encoding: variable counts and per-variable domains. -/
@@ -20,9 +19,7 @@ structure CSPSig where
   nAux   : Nat
   /-- The finite domain of each integer variable, as a strictly sorted value list. -/
   values : Fin nInt → List Int
-  /-- Each domain is strictly increasing (hence duplicate-free and canonical).
-      `List.Pairwise (· < ·)` is the strictly-sorted predicate (Mathlib 4.30
-      removed the `List.Sorted` abbreviation in favour of `Pairwise`). -/
+  /-- Each domain is strictly increasing, hence duplicate-free and canonical. -/
   sorted : ∀ i, (values i).Pairwise (· < ·)
   /-- Each domain is nonempty. -/
   nonempty : ∀ i, 0 < (values i).length
@@ -39,11 +36,9 @@ def width (i : Fin S.nInt) : Nat := (S.values i).length - 1
 def valueAt (i : Fin S.nInt) (j : Fin (S.values i).length) : Int :=
   (S.values i).get j
 
-/-- The `k`-th domain value of integer variable `i` as a **total** function:
-    out-of-range indices default to `0`, but only in-range indices `k < |domain|`
-    are ever used.  The total form keeps the index arithmetic in
-    `intValue_mem_values` and the substitution theorem free of embedded
-    `Fin` bound proofs (we telescope over `Finset.range`). -/
+/-- The `k`-th domain value of integer variable `i`, total (out-of-range defaults
+    to `0`).  The total form keeps downstream index arithmetic free of embedded
+    `Fin` bound proofs. -/
 def nth (i : Fin S.nInt) (k : Nat) : Int := (S.values i).getD k 0
 
 /-- The `j`-th gap between adjacent domain values: `valuesᵢ[j+1] − valuesᵢ[j]`.

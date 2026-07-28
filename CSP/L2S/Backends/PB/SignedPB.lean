@@ -5,19 +5,15 @@ import Mathlib.Tactic.Linarith
 namespace CSP.L2S.PB
 
 /-!
-# PB backend — signed-coefficient intermediate constraints and normalization
+# PB backend — signed constraints and their normalization
 
-The per-constraint encoders naturally produce **signed** linear constraints
-`Σ aᵢ·⟦ℓᵢ⟧ ≥ rhs` (the substitution theorem's gap-weighted coefficients and the
-shifted right-hand side can be negative).  PBLean's kernel constraints
-(`PBConstr`, our mirror) use **non-negative** coefficients and a `Nat` degree.
-This file bridges the two: `normalize` rewrites a `SignedPBConstr` into an
-equivalent natural-coefficient `PBConstr` (`some`), or reports a tautology
-(`none`), via the identity `a·⟦ℓ⟧ = |a|·⟦¬ℓ⟧ + a` for `a < 0`.
+The per-constraint encoders produce **signed** linear constraints
+`Σ aᵢ·⟦ℓᵢ⟧ ≥ rhs`, while the kernel constraints (`PBConstr`) use non-negative
+coefficients and a `Nat` degree.  `normalize` bridges the two via the identity
+`a·⟦ℓ⟧ = |a|·⟦¬ℓ⟧ + a` for `a < 0`, returning `none` for a tautology.
 
-Like-term merging and complementary-pair cancellation (PBLean kernel
-normalizations) are intentionally *not* performed here — they are not needed for
-soundness; the PB solver consumes the un-merged form. -/
+Like-term merging and complementary-pair cancellation are intentionally not
+performed: they are not needed for soundness. -/
 
 variable {V : Type}
 

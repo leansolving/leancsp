@@ -6,19 +6,11 @@ import CSP.L2S.Symmetry
 open CSP.L2S
 
 /-!
-# Magic Sequence Problem (09_magicseq)
+# Magic sequence
 
-A magic sequence [x0, x1, ..., x_{n-1}] has the property:
-For each i, x_i equals the number of occurrences of value i in the sequence.
-
-## Problem Details
-- **Parameter**: n = 10 (sequence length)
-- **Variables**: 10 variables (x0..x9) with domain 0..10
-- **Constraints**: For each i in 0..9: count(all_vars, i, xi)
-
-
-## Source
-Ralph Becket, 2007
+A sequence `[x0, …, x_{n-1}]` where each `x_i` equals the number of occurrences of
+the value `i` in the sequence.  Here `n = 10`, domains `0..10`, with one `count`
+constraint per position.
 -/
 
 -- Helper to create bound constraints for all n variables

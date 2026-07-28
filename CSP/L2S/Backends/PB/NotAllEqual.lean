@@ -6,23 +6,19 @@ namespace CSP.L2S.PB
 open scoped BigOperators
 
 /-!
-# PB backend — the not-all-equal encoder (PLAN.md §6.8)
+# PB backend — the not-all-equal encoder (binary domains)
 
 `schur_triple` and its k-ary generalization say a tuple of variables is **not all
-equal** — the workhorse pattern behind the Schur / van der Waerden / Ramsey
-showcase UNSAT instances.  Over a list of literals this is exactly *"the literals
-are not all the same bit"*, encoded as two clauses:
+equal** — the pattern behind the Schur / van der Waerden / Ramsey instances.
+Over a list of literals this is "not all the same bit", encoded as two clauses:
 
 * `Σ ⟦ℓᵢ⟧ ≥ 1` — at least one literal is true, and
 * `Σ ⟦¬ℓᵢ⟧ ≥ 1` — at least one literal is false.
 
-`encodeNotAllEqual` (over an arbitrary variable type) is the reusable core, with
-soundness `encodeNotAllEqual_sound`.  For CSP **binary** integer variables (a
-shared two-element domain `[c0, c1]`, the case Ramsey/vdW/2-colour-Schur need),
-`intValue_binary` shows the bottom threshold bit recovers the value, and
-`encodeNotAllEqualBin_sound` lifts the core soundness to the recovered
-`intValue`s.  The multi-valued case (k>2 colours) needs reified disequality and
-is left to a follow-up.
+`encodeNotAllEqual` is the reusable core.  For binary integer variables (a shared
+two-element domain) `intValue_binary` shows the bottom threshold bit recovers the
+value, and `encodeNotAllEqualBin_sound` lifts the core soundness to the recovered
+values.  The `k > 2`-valued case is `encodeNotAllEqualMulti` in `AllDifferent.lean`.
 -/
 
 /-! ## The general literal-level primitive (over any variable type) -/

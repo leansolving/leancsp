@@ -2,24 +2,18 @@ import CSP.L2S.Core
 import Lean
 
 /-!
-# SAT backend — witness loader (untrusted producer, kernel-checked)
+# SAT witness loader (untrusted producer, kernel-checked)
 
-The satisfiability (lower-bound) analog of the verified UNSAT pipeline
-(`csp_unsat_file` in `Backends/PB/GenericEncode.lean`).
+The satisfiability analogue of `csp_unsat_file`.  An external solver is run outside
+Lean to produce a candidate assignment, written to a space-separated `.sol` file (one
+value per variable, in variable order).  At elaboration time `csp_sat_file` reads it,
+builds the `IntAssignment`, and proves `IntCSP.isSatisfiableInt` by kernel `decide`.
 
-An **external solver** (MiniZinc/Gecode, Z3, …) is run *outside* Lean to produce a
-candidate assignment, written to a space-separated `.sol` file (one value per variable,
-in variable order).  At elaboration time `csp_sat_file` reads that file, builds the
-`IntAssignment`, and proves `IntCSP.isSatisfiableInt` by **kernel `decide`** — the kernel
-re-evaluates every constraint on the concrete assignment.
+The solver is fully untrusted: a wrong witness simply fails `decide`, never yields an
+unsound theorem.  This path uses no `native_decide` / `ofReduceBool`, so
+witness-checked theorems stay axiom-clean.
 
-The solver is therefore **fully untrusted**: a wrong witness simply fails `decide` (a
-*failure to elaborate*), never an unsound theorem.  The trust base is exactly the Lean
-kernel — in particular this path uses no `native_decide`/`ofReduceBool`, so witness-checked
-theorems stay axiom-clean (`propext`, `Classical.choice`, `Quot.sound` only).
-
-Witness files store **non-negative** integer tokens (the typical finite-domain case:
-colours, 0/1 selectors, …); other tokens are skipped.
+Witness files store non-negative integer tokens; other tokens are skipped.
 -/
 
 namespace CSP.L2S

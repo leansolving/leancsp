@@ -5,16 +5,14 @@ import Mathlib.Order.Monotone.Basic
 namespace CSP.L2S.PB
 
 /-!
-# PB backend — the `PBVar → Nat` bridge (PLAN.md §8)
+# PB backend — the `PBVar → Nat` bridge
 
-The encoder builds constraints over the typed variable `PBVar S`; PBLean's kernel
-(`Sat.PB.Constr`) is monomorphic over `Nat`.  This file injects `PBVar S` into
-`Nat` with a flat layout `[ Boolean vars | thresholds (by variable) | aux ]`,
-proves the injection is injective (the load-bearing offset arithmetic), maps a
-typed `PBConstr (PBVar S)` to a `Sat.PB.Constr`, and proves the bridge: if the
-`Nat`-mapped constraints are `formulaUnsat`, then no typed valuation satisfies
-all the typed constraints.  This is the generic analogue of PBLean's per-problem
-`no_X_of_unsat` lemmas.
+The encoder builds constraints over the typed `PBVar S`; PBLean's kernel
+constraint type is monomorphic over `Nat`.  This file injects `PBVar S` into `Nat`
+with a flat layout `[ Boolean vars | thresholds (by variable) | aux ]`, proves the
+injection injective, maps `PBConstr (PBVar S)` to `Sat.PB.Constr`, and proves the
+bridge: if the `Nat`-mapped constraints are `formulaUnsat`, no typed valuation
+satisfies all the typed constraints.
 -/
 
 variable {S : CSPSig}

@@ -4,30 +4,15 @@ import CSP.L2S.Constraints
 open CSP.L2S
 
 /-!
-# Van der Waerden Numbers W(2,3)
+# Van der Waerden numbers W(2,3)
 
-## Problem Description
-The van der Waerden number W(r,k) is the smallest n such that every r-colouring
-of {1,…,n} contains a monochromatic arithmetic progression of length k.
-W(2,3) = 9: every 2-colouring of {1,…,9} has a monochromatic 3-term AP, while
-{1,…,8} can be coloured avoiding one.
+`W(r,k)` is the least `n` such that every `r`-colouring of `{1,…,n}` contains a
+monochromatic `k`-term arithmetic progression.  `W(2,3) = 9`.
 
-## CSP Formulation
-- **Variables**: one per integer 1..n (0-indexed: variable `i` is integer `i+1`).
-- **Domain**: {0,1} (the two colours).
-- **Constraint**: for each 3-term AP (a, a+d, a+2d) with a+2d ≤ n,
-  the three colours are **not all equal** — exactly the `schur_triple` pattern
-  (¬(x = y ∧ y = z)) applied to the AP's three variables.
+One variable per integer (variable `i` is integer `i+1`) over `{0,1}`, with a
+`schur_triple` not-all-equal constraint on each 3-term AP `(a, a+d, a+2d)`.
 
-## Instances
-- `vdw_2_3_8` : {1,…,8}, 2 colours — **SAT** (witness RRBBRRBB).
-- `vdw_2_3_9` : {1,…,9}, 2 colours — **UNSAT** (this is W(2,3) = 9).
-
-## Showcase
-PBLean / veripb benchmark `vdw9` (the W(2,3) upper-bound certificate).
-
-## Constraint families
-`bound`, `schur_triple` (3-ary not-all-equal).
+Instances: `vdw_2_3_8` is SAT (witness `RRBBRRBB`), `vdw_2_3_9` is UNSAT.
 -/
 
 -- Each integer 1..n gets a Boolean colour variable (domain {0,1}).

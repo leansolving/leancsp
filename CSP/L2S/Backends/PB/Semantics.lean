@@ -11,11 +11,10 @@ open scoped BigOperators
 /-!
 # PB backend — semantics of the order encoding
 
-Recovers the integer value of each CSP variable from a Boolean valuation of the
+Recovers each CSP variable's integer value from a Boolean valuation of the
 threshold variables (`intValue`), states the monotonicity ("staircase")
-constraints that make the threshold bits order-consistent, and proves the
-foundational lemma that an order-consistent valuation always recovers a value
-inside the declared finite domain (`intValue_mem_values`).
+constraints, and proves that an order-consistent valuation always recovers a
+value inside the declared domain (`intValue_mem_values`).
 -/
 
 variable {S : CSPSig}
@@ -26,16 +25,13 @@ abbrev Valuation (S : CSPSig) := PBVar S → Bool
 namespace Valuation
 
 /-- The integer value recovered for variable `i` under valuation `v`:
-    `maxVal i − Σⱼ gapⱼ · ⟦thr i j⟧`.  Under order consistency the true
-    thresholds form an up-set, the gap-weighted sum telescopes, and this lands
-    on a declared domain value (`intValue_mem_values`). -/
+    `maxVal i − Σⱼ gapⱼ · ⟦thr i j⟧`. -/
 def intValue (v : Valuation S) (i : Fin S.nInt) : Int :=
   S.maxVal i - ∑ j : Fin (S.width i), S.gap i j * (if v (.thr i j) then 1 else 0)
 
-/-- Order consistency (adjacency form): along each integer variable, a true
-    threshold forces the next threshold true (`thr i j` ⇒ `thr i (j+1)`).
-    Equivalent to satisfying `S.monotonicity` — see
-    `orderConsistent_of_monotonicity`. -/
+/-- Order consistency (adjacency form): a true threshold forces the next one
+    true (`thr i j` ⇒ `thr i (j+1)`).  Equivalent to satisfying
+    `S.monotonicity`. -/
 def orderConsistent (v : Valuation S) : Prop :=
   ∀ (i : Fin S.nInt) (j j' : Fin (S.width i)),
     j'.val = j.val + 1 → v (.thr i j) = true → v (.thr i j') = true
@@ -93,12 +89,10 @@ private theorem exists_switch (t : ℕ → Bool) (w : ℕ)
     | base => exact Nat.find_spec hex
     | succ n _ ih => exact hmono n ih
 
-/-- **Switch-point characterization of the order encoding.** Under order
-    consistency, variable `i`'s recovered value is `nth i m` for a switch point
-    `m ≤ width i`, and each threshold bit reads off `m`: `thr i j` is set iff
-    `m ≤ j`.  (Internally, the gap-weighted sum telescopes to `nth (width) − nth m`,
-    which is what yields the value.)  The per-bit reading is the extra fact the
-    `alldifferent` value-indicator encoding needs. -/
+/-- **Switch-point characterization.** Under order consistency, variable `i`'s
+    recovered value is `nth i m` for a switch point `m ≤ width i`, and `thr i j`
+    is set iff `m ≤ j`.  The per-bit reading is what the `alldifferent`
+    value-indicator encoding needs. -/
 theorem intValue_switch (i : Fin S.nInt) (v : Valuation S)
     (hv : v.orderConsistent) :
     ∃ m, m ≤ S.width i ∧ v.intValue i = S.nth i m ∧

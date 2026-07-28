@@ -6,28 +6,14 @@ import CSP.L2S.Symmetry
 open CSP.L2S
 
 /-!
-# Rods Puzzle (04_rods)
+# Rods puzzle
 
-This puzzle involves finding 5 digit positions (1..9) such that:
-1. The sum of rods at those positions equals 12
-2. A cryptarithmetic equation holds
-3. All positions are different
+Pick 5 digit positions `M1..M5` in `1..9`, all different, whose rod values
+`rods[Mi] = Vi` (with `rods = [1,2,3,4,5,2,3,4,5]`) sum to 12, while the
+cryptarithmetic equation `10·M1 + 1000·M2 + M3 − 1000·M4 − 10·M5 = −2982` holds.
 
-## Problem Details
-- **Variables**: 10 variables total
-  - M1..M5 (indices 0-4): Position variables with domain 1..9
-  - V1..V5 (indices 5-9): Result variables with domain 1..5 (values in rods array)
-- **Array**: rods[1..9] = [1,2,3,4,5,2,3,4,5]
-- **Constraints**:
-  1. Element: rods[Mi] = Vi for i=1..5
-  2. Sum: V1 + V2 + V3 + V4 + V5 = 12
-  3. Linear equation: 2303 + M1*10 + 980 + M2*1000 + M3 = 301 + M4*1000 + M5*10
-     Simplified: 10*M1 + 1000*M2 + 1*M3 - 1000*M4 - 10*M5 = -2982
-  4. Alldifferent: M1, M2, M3, M4, M5 all different
-
-## MiniZinc Translation Note
-In MiniZinc, `rods[M1]` is automatically expanded to an element constraint.
-In L2M, we must explicitly model this using auxiliary variables V1..V5.
+MiniZinc expands `rods[M1]` into an element constraint automatically; here the
+auxiliary variables `V1..V5` model it explicitly.  10 variables in total.
 -/
 
 -- The rods array (1-based indexing in MiniZinc corresponds to 0-based list in Lean)

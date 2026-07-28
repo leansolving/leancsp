@@ -4,39 +4,15 @@ import CSP.L2S.Constraints
 open CSP.L2S
 
 /-!
-# Schur Number Problem
+# Schur numbers
 
-## Problem Description
-The Schur number S(k) is the largest integer n such that the set {1, 2, ..., n}
-can be partitioned into k sum-free subsets, where a subset is sum-free if it
-contains no triple {x, y, z} where x + y = z.
+`S(k)` is the largest `n` for which `{1,…,n}` splits into `k` sum-free parts — no
+part containing `x, y, z` with `x + y = z`.  Equivalently, colour `1..n` with `c`
+colours so no triple `(i, j, i+j)` (including `i = j`) is monochromatic; that is the
+`schur_triple` not-all-equal pattern.
 
-Equivalently: Color the integers 1..n with k colors such that no color contains
-a sum triple {x, y, z} where x + y = z.
-
-## CSP Formulation
-- **Variables**: n balls, each assigned to one of c boxes (colors)
-- **Domain**: Each variable ranges from 1..c
-- **Constraint**: For each triple (i, j, i+j) where 1 ≤ i ≤ j and i+j ≤ n
-  (including the diagonal i = j, i.e. x+x=2x such as 1+1=2, 2+2=4):
-  - Not all three variables have the same value
-  - Translates to: box[i] ≠ box[j] ∨ box[i] ≠ box[i+j] ∨ box[j] ≠ box[i+j]
-
-## Known Schur Numbers
-- S(1) = 1
-- S(2) = 4
-- S(3) = 13
-- S(4) = 44
-- S(5) = 160 (proven in 2017)
-
-## Examples
-- n=4, c=2: Solvable (S(2) = 4)
-  Solution: [1,1,2,2] → Sets {1,2} and {3,4} both sum-free
-- n=5, c=2: Unsolvable (exceeds S(2))
-- n=13, c=3: Solvable (S(3) = 13)
-
-## Source
-CSPLib Problem #015
+Known values: `S(1) = 1`, `S(2) = 4`, `S(3) = 13`, `S(4) = 44`, `S(5) = 160`.
+CSPLib problem 015.
 -/
 
 -- Create bound constraints for n variables with domain 1..c

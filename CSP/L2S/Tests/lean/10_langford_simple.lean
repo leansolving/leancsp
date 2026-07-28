@@ -4,30 +4,14 @@ import CSP.L2S.Constraints
 open CSP.L2S
 
 /-!
-# Langford's Problem L(m,n)
+# Langford's problem L(m,n)
 
-Place m copies of each digit 1..n such that for any digit d,
-consecutive copies of d are separated by exactly d positions.
+Place `m` copies of each digit `1..n` so that consecutive copies of digit `d` are
+exactly `d` positions apart.  Variables are the `n×m` positions (one per
+`(digit, copy)`, flattened as `(d-1)*m + (c-1)`) over `1..n*m`, constrained by
+`alldifferent` plus `x[d,c+1] = x[d,c] + d + 1`.
 
-## Problem Description
-- **Parameters**: n (number of digits), m (copies per digit)
-- **Variables**: n×m positions, each with domain 1..n×m
-- **Constraint 1**: All positions must be different (alldifferent)
-- **Constraint 2**: For digit d and copy c, c+1: x[d,c+1] = x[d,c] + d + 1
-
-## Example L(2,3)
-Known solution: [3,1,2,1,3,2]
-- Digit 1: positions 2,4 (separated by 1 position) ✓
-- Digit 2: positions 3,6 (separated by 2 positions) ✓
-- Digit 3: positions 1,5 (separated by 3 positions) ✓
-
-## Mathematical Structure
-Variables represent positions where each (digit, copy) pair is placed:
-- x[d,c] = position where copy c of digit d is placed
-- Flattened to 1D: variable index = (d-1)*m + (c-1)
-
-## Source
-CSPLib Problem #024
+A known L(2,3) solution is `[3,1,2,1,3,2]`.  CSPLib problem 024.
 -/
 
 def langford_var_index (d c m : ℕ) : ℕ := (d - 1) * m + (c - 1)

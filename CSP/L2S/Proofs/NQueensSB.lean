@@ -19,9 +19,7 @@ Domains: Rows of the corresponding queens
 Constraints: Different queens must be in different rows, columns and diagonals
 -/
 
--- ============================================================================
--- CSP Definition
--- ============================================================================
+/-! ### CSP Definition -/
 
 /- Bound constraints -/
 def bound_constraints (n : ℕ) : List (IntConstraint n) :=
@@ -47,9 +45,7 @@ def nqueens_csp (n : ℕ) : IntCSP :=
     [diagonal_constraint n] ++
     [antidiagonal_constraint n] ⟩
 
--- ============================================================================
--- Symmetry Breaking Constraint Definition
--- ============================================================================
+/-! ### Symmetry Breaking Constraint Definition -/
 
 /- Our candidate to symmetry breaking constraint: first queen must be placed
 on the first half of the first column -/
@@ -60,9 +56,7 @@ def nqueens_sbc (n : ℕ) (h_n : 0 < n) : IntConstraint n :=
 def nqueens_sb (n : ℕ) (h_n : 0 < n) : IntCSP :=
   (nqueens_csp n).addConstraint (nqueens_sbc n h_n)
 
--- ============================================================================
--- Symmetry Function
--- ============================================================================
+/-! ### Symmetry Function -/
 
 /-- Horizontal reflection: maps row i to row (n-1) - i
     This is an involution (self-inverse permutation) -/
@@ -72,9 +66,7 @@ def horizontal_reflection (n : ℕ) : Equiv.Perm IntDomain where
   left_inv := fun d => by ring
   right_inv := fun d => by ring
 
--- ============================================================================
--- Auxiliary Lemmas
--- ============================================================================
+/-! ### Auxiliary Lemmas -/
 
 /-- Horizontal reflection preserves the interval [0, n-1] -/
 lemma intervalPreserving_horizontal_reflection (n : ℕ) :
@@ -182,9 +174,7 @@ lemma diagonal_constraints_swap (n : ℕ)
     rw [h_map_ofFn]
     exact affine_transform_preserves_nodup (List.ofFn fun i : Fin n => assignment i + ↑i.val) (↑n - 1) h_pos_nodup
 
--- ============================================================================
--- Symmetry-Breaking Correctness
--- ============================================================================
+/-! ### Symmetry-Breaking Correctness -/
 
 /-- Result 1: Horizontal reflection is a domain symmetry for N-Queens -/
 theorem horizontal_reflection_is_symmetry (n : ℕ) :
@@ -345,9 +335,7 @@ theorem nqueens_equisatisfiability (n : ℕ) (h_n : 0 < n) :
   apply domainSymmetryBreaking_equisatisfiability
   exact nqueens_sbc_is_domain_symmetry_breaking n h_n
 
--- ============================================================================
--- Solver translation
--- ============================================================================
+/-! ### Solver translation -/
 
 
 def main : IO Unit := do

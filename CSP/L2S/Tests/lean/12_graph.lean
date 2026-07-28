@@ -6,14 +6,12 @@ import CSP.L2S.Symmetry
 open CSP.L2S
 
 /-!
-# Strange Graph Numbering Problem
+# Strange graph numbering
 
-## Problem Description
-Label the vertices of a specific graph with integers 1..8 such that:
-1. Each number is used exactly once (alldifferent)
-2. Adjacent vertices differ by at least 2 in absolute value
+Label the 8 vertices `a..h` (variables `x0..x7`) of a fixed 17-edge graph with the
+integers `1..8`, each used once (`alldifferent`), so that adjacent labels differ by
+at least 2 in absolute value.
 
-## Graph Structure
 ```
   b-e
  /|*|\
@@ -21,32 +19,6 @@ a-c-f-h
  \|*|/
   d-g
 ```
-
-Where vertices are labeled a through h (8 vertices total).
-
-## CSP Formulation
-- **Variables**: 8 vertices (a, b, c, d, e, f, g, h) mapped to indices 0..7
-- **Domain**: Each variable ranges from 1..8
-- **Constraint 1**: All different (each number 1..8 used exactly once)
-- **Constraint 2**: For each edge (u,v): |u - v| >= 2
-
-## Vertex Mapping
-- a = x0, b = x1, c = x2, d = x3
-- e = x4, f = x5, g = x6, h = x7
-
-## Graph Edges (17 edges)
-From visualization:
-- a(0) connects to: b(1), c(2), d(3)
-- b(1) connects to: a(0), c(2), e(4), f(5)
-- c(2) connects to: a(0), b(1), d(3), e(4), f(5), g(6)
-- d(3) connects to: a(0), c(2), f(5), g(6)
-- e(4) connects to: b(1), c(2), f(5), h(7)
-- f(5) connects to: b(1), c(2), d(3), e(4), g(6), h(7)
-- g(6) connects to: c(2), d(3), f(5), h(7)
-- h(7) connects to: e(4), f(5), g(6)
-
-## Source
-MiniZinc examples - graph.mzn
 -/
 
 -- Create bound constraints for n variables with domain 1..n

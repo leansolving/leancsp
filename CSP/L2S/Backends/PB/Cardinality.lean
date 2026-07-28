@@ -6,20 +6,16 @@ namespace CSP.L2S.PB
 open scoped BigOperators
 
 /-!
-# PB backend — cardinality constraints (PLAN.md §6.6)
+# PB backend — cardinality constraints
 
-`at_most_k` / `at_least_k` / `exactly_k` over a list of **Boolean** CSP variables
-are *native* pseudo-Boolean constraints — no order-encoding overhead:
+`at_most_k` / `at_least_k` / `exactly_k` over Boolean CSP variables are native
+pseudo-Boolean constraints — no order-encoding overhead:
 
 * `Σ bᵢ ≥ k`            for `at_least_k`,
 * `Σ ¬bᵢ ≥ n − k`       for `at_most_k`  (equivalent to `Σ bᵢ ≤ k`),
 * both                  for `exactly_k`.
 
-`boolCount v vars` is the number of true Booleans under `v`; each soundness lemma
-says "the CSP cardinality fact on `boolCount` ⇒ the encoded PB constraint holds",
-the forward direction the UNSAT pipeline needs.  These encoders use no auxiliary
-variables, so (like `NotAllEqual.lean`) soundness is stated over an arbitrary
-valuation `v`.
+Aux-free, so soundness is stated over an arbitrary valuation `v`.
 -/
 
 variable {S : CSPSig}

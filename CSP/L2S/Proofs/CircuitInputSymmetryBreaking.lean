@@ -15,36 +15,21 @@ open IntCSP
 open CSP.L2S.PB
 
 /-!
-# Circuit Input Symmetry Breaking Proof
+# Circuit input symmetry breaking
 
-This module proves the correctness of symmetry-breaking constraints for circuits
-where multiple inputs have identical fanout structure.
+Correctness of symmetry-breaking constraints for circuits whose inputs share an
+identical fanout structure.
 
-## Problem Statement
+The question "must at least `k` inputs be true to satisfy this circuit?" is posed as a
+counterexample search: all variables in `[0,1]`, the gate constraints, `output = 1`, and
+the negated cardinality `sum(inputs) ≤ k-1`.  UNSAT means `≥ k` inputs are needed; SAT
+yields a counterexample.
 
-**Verification Question**: Is it necessary to set at least k inputs to true to satisfy a circuit?
+Main theorem: if all circuit inputs fan out to exactly the same gates, then requiring
+them non-decreasing (`increasing`) is a valid symmetry-breaking constraint, so it
+preserves equisatisfiability. -/
 
-**CSP Formulation** (counterexample search):
-- Bounds: All variables ∈ [0,1]
-- Circuit gates: Gate constraints from Circuit structure
-- Satisfiability: output = 1 (circuit MUST output true)
-- Negated cardinality: sum(inputs) ≤ k-1 (at most k-1 inputs true)
-- **Symmetry Breaking**: increasing(symmetric_inputs) - inputs in non-decreasing order
-
-**Result**:
-- UNSAT → need ≥k inputs true (property proven)
-- SAT → counterexample with <k inputs (property violated)
-
-## Key Theorem
-
-If all circuit inputs have identical fanout structure (fan out to exactly the same gates),
-then imposing lexicographic ordering on them is a valid symmetry-breaking constraint that
-preserves equisatisfiability.
--/
-
--- ============================================================================
--- Circuit Data Structure (copied from example 32)
--- ============================================================================
+/-! ### Circuit Data Structure (copied from example 32) -/
 
 /-- Types of logic gates in a circuit -/
 inductive GateType
@@ -82,9 +67,7 @@ def circuit_well_formed (circuit : Circuit) : Prop :=
   (∀ gate ∈ circuit.gates,
     (∀ a ∈ gate.inputs, a < circuit.num_inputs) ∨ (∀ a ∈ gate.inputs, circuit.num_inputs ≤ a))
 
--- ============================================================================
--- Constraint Generation from Circuit (copied from example 32)
--- ============================================================================
+/-! ### Constraint Generation from Circuit (copied from example 32) -/
 
 /-- Generate CSP constraints for a list of gates -/
 def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (IntConstraint num_nodes) :=
@@ -125,9 +108,7 @@ def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (IntConst
 def circuit_to_constraints (circuit : Circuit) (total_nodes : ℕ) : List (IntConstraint total_nodes) :=
   make_gate_constraints total_nodes circuit.gates
 
--- ============================================================================
--- Symmetric Input Detection
--- ============================================================================
+/-! ### Symmetric Input Detection -/
 
 /-- Check if two inputs have identical fanout structure.
     Two inputs are symmetric if they appear in exactly the same gates. -/
@@ -142,9 +123,7 @@ def get_circuit_inputs (circuit : Circuit) : List ℕ :=
 def all_inputs_symmetric (circuit : Circuit) (inputs : List ℕ) : Prop :=
   ∀ i ∈ inputs, ∀ j ∈ inputs, inputs_have_identical_fanout circuit i j
 
--- ============================================================================
--- Helper Lemmas
--- ============================================================================
+/-! ### Helper Lemmas -/
 
 /-- Folding max over a list preserves the initial value as a lower bound -/
 lemma foldl_max_ge_init (gates : List Gate) (init : ℕ) :
@@ -166,9 +145,7 @@ lemma total_nodes_gt_num_inputs (circuit : Circuit) :
   have h := foldl_max_ge_init circuit.gates circuit.num_inputs
   omega
 
--- ============================================================================
--- CSP Definitions
--- ============================================================================
+/-! ### CSP Definitions -/
 
 /-- Base CSP: circuit + satisfiability + negated cardinality (WITHOUT symmetry breaking) -/
 def circuit_requires_k_inputs_base_csp (circuit : Circuit) (k : ℕ) : IntCSP :=
@@ -215,9 +192,7 @@ def circuit_requires_k_inputs_extended_csp (circuit : Circuit) (k : ℕ) (h : ci
   let base := circuit_requires_k_inputs_base_csp circuit k
   base.addConstraint (input_ordering_constraint circuit h)
 
--- ============================================================================
--- Symmetry Functions
--- ============================================================================
+/-! ### Symmetry Functions -/
 
 /-- Swap two variable indices -/
 def variable_swap (i j : ℕ) (n : ℕ) : Equiv.Perm (Fin n) :=
@@ -227,9 +202,7 @@ def variable_swap (i j : ℕ) (n : ℕ) : Equiv.Perm (Fin n) :=
     else Equiv.refl _
   else Equiv.refl _
 
--- ============================================================================
--- Example: 3-Input OR Gate
--- ============================================================================
+/-! ### Example: 3-Input OR Gate -/
 
 /-- 3-input OR gate: all inputs are symmetric (same fanout to single OR gate) -/
 def three_input_or : Circuit := {
@@ -252,9 +225,7 @@ def or3_requires_1_input_base : IntCSP :=
 def or3_requires_1_input_extended : IntCSP :=
   circuit_requires_k_inputs_extended_csp three_input_or 1 three_input_or_has_inputs
 
--- ============================================================================
--- Input Permutation Extension
--- ============================================================================
+/-! ### Input Permutation Extension -/
 
 /-- Extend a permutation on circuit inputs to all variables.
     Apply the permutation to input variables (0 to num_inputs-1) and
@@ -319,9 +290,7 @@ def extend_input_permutation (circuit : Circuit) (k : ℕ)
         simp only [h, dite_false]
   }
 
--- ============================================================================
--- Helper Lemmas for Circuit Well-formedness
--- ============================================================================
+/-! ### Helper Lemmas for Circuit Well-formedness -/
 
 /-- Helper lemma: foldl max preserves lower bounds -/
 lemma foldl_max_ge {α : Type*} (l : List α) (f : α → ℕ) (init n : ℕ)
@@ -368,9 +337,7 @@ lemma output_node_not_input (circuit : Circuit)
     rw [h]
     exact List.mem_cons_of_mem first_gate h_g_mem
 
--- ============================================================================
--- Helper Lemmas for Gate Constraint Preservation
--- ============================================================================
+/-! ### Helper Lemmas for Gate Constraint Preservation -/
 
 /-- β fixes variables that are gate outputs (≥ num_inputs) -/
 lemma beta_fixes_gate_output (circuit : Circuit) (k : ℕ)
@@ -410,9 +377,7 @@ lemma gate_uses_all_or_none_inputs
     push Not at h_exists
     exact h_exists i h_i_lt
 
--- ============================================================================
--- Auxiliary Lemmas for Gate Constraint Preservation
--- ============================================================================
+/-! ### Auxiliary Lemmas for Gate Constraint Preservation -/
 
 /-- extractValues of map_assignment on appended vectors equals the concatenation -/
 lemma extractValues_map_assignment_append {num_vars m n : ℕ}
@@ -687,9 +652,7 @@ lemma gate_inputs_perm_range_when_all
   exact List.perm_of_nodup_nodup_toFinset_eq h_nodup_gate h_nodup_range h_finset_eq'
 
 
--- ============================================================================
--- Gate-Specific Constraint Preservation Lemmas
--- ============================================================================
+/-! ### Gate-Specific Constraint Preservation Lemmas -/
 
 /-- Helper: foldl with if-min computes the same result on permuted lists -/
 lemma foldl_if_min_perm (l1 l2 : List ℤ) (init : ℤ) (h_perm : List.Perm l1 l2) :
@@ -1064,9 +1027,7 @@ lemma gate_input_values_perm
       rw [hbx]
     exact key ▸ List.Perm.refl _
 
--- ============================================================================
--- Result 1: Input Permutation is a Variable Symmetry
--- ============================================================================
+/-! ### Result 1: Input Permutation is a Variable Symmetry -/
 
 /-- When all circuit inputs have identical fanout, any permutation of inputs
     is a variable symmetry of the base CSP. -/
@@ -1283,16 +1244,10 @@ theorem input_permutation_is_variable_symmetry
       · contradiction
 
     · -- NOT case
-        -- NOT gate: out = 1 - in
-        -- Generated constraint (if valid): not_gate ⟨in1, h1⟩ ⟨gate.output, h2⟩
-        --
-        -- Key insight: NOT gates take a single input.
-        -- Under all_inputs_symmetric, if the gate uses any circuit input,
-        -- it must use ALL circuit inputs. But NOT only takes 1 input, so:
-        -- - If num_inputs > 1: gate cannot use circuit inputs (uses gate outputs only)
-        -- - If num_inputs = 1: gate might use input 0, but σ : Equiv.Perm (Fin 1)
-        --   must be the identity, so β also acts as identity
-        -- In both cases, β fixes all relevant variables, preserving the constraint.
+        -- NOT takes a single input, so under `all_inputs_symmetric` either
+        -- `num_inputs > 1` (the gate cannot use a circuit input) or `num_inputs = 1`
+        -- (σ : Equiv.Perm (Fin 1) is the identity).  Either way β fixes every relevant
+        -- variable, preserving the constraint.
 
         -- Now h_constraint_eq is simplified to just the NOT branch
         -- For NOT gates, constraint is generated only if gate.inputs = [in1]
@@ -1582,18 +1537,14 @@ theorem input_permutation_is_variable_symmetry
         exact at_most_k_preserved_under_input_permutation input_vec (k - 1) assignment β
           h_perm_vals (h_sol _ h_mem)
 
--- ============================================================================
--- Result 2: Input Ordering is a Variable Symmetry Breaking Constraint
--- ============================================================================
+/-! ### Result 2: Input Ordering is a Variable Symmetry Breaking Constraint -/
 
-/-- The increasing constraint on circuit inputs is a valid symmetry breaking constraint.
+/-- The `increasing` constraint on circuit inputs is a valid symmetry-breaking constraint.
 
-    Key idea: When all circuit inputs have identical fanout structure, any permutation
-    of the input variables preserves all circuit constraints. Therefore, for any solution,
-    we can find a permutation that sorts the input values while maintaining satisfiability.
-
-    This proof uses the lex-leader approach: among all equivalent solutions (related by
-    input permutations), we pick the lexicographically smallest one (sorted inputs). -/
+    With identical fanout structure, any permutation of the input variables preserves every
+    circuit constraint, so for any solution we can find a permutation sorting the input
+    values while staying satisfiable.  The proof takes the lex leader: among all solutions
+    related by input permutations, the lexicographically smallest has sorted inputs. -/
 theorem input_ordering_is_variable_symmetry_breaking
     (circuit : Circuit) (k : ℕ) (h_inputs : circuit.num_inputs > 0)
     (h_wf : circuit_well_formed circuit)
@@ -1688,9 +1639,7 @@ theorem input_ordering_is_variable_symmetry_breaking
       have h_sym := input_permutation_is_variable_symmetry circuit k σ h_wf h_all_sym
       exact h_sym assignment h_sol tc h_orig
 
--- ============================================================================
--- Result 3: General Symmetry Breaking Constraint
--- ============================================================================
+/-! ### Result 3: General Symmetry Breaking Constraint -/
 
 /-- Wrap as general symmetry breaking constraint -/
 theorem input_ordering_is_symmetry_breaking
@@ -1704,9 +1653,7 @@ theorem input_ordering_is_symmetry_breaking
   right  -- Choose variable symmetry breaking
   exact input_ordering_is_variable_symmetry_breaking circuit k h_inputs h_wf h_all_sym
 
--- ============================================================================
--- Result 4: Equisatisfiability
--- ============================================================================
+/-! ### Result 4: Equisatisfiability -/
 
 /-- The base and extended CSPs are equisatisfiable -/
 theorem circuit_symmetry_breaking_equisatisfiable
@@ -1719,9 +1666,7 @@ theorem circuit_symmetry_breaking_equisatisfiable
   apply variableSymmetryBreaking_equisatisfiability
   exact input_ordering_is_variable_symmetry_breaking circuit k h_inputs h_wf h_all_sym
 
--- ============================================================================
--- Main Function for Testing
--- ============================================================================
+/-! ### Main Function for Testing -/
 
 def main : IO Unit := do
   IO.println "Saving circuit symmetry breaking CSPs..."

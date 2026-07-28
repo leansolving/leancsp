@@ -17,9 +17,7 @@ Domains: Colors (integers 0..k-1)
 Constraints: Adjacent nodes have different colors (ne constraints)
 -/
 
--- ============================================================================
--- CSP Definition
--- ============================================================================
+/-! ### CSP Definition -/
 
 /- Bound constraints -/
 def bound_constraints (nodes : ℕ) (colors : ℕ) : List (IntConstraint nodes) :=
@@ -35,9 +33,7 @@ def graph_coloring_csp (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) (co
     bound_constraints nodes colors ++ edge_constraints nodes edges ⟩
 
 
--- ============================================================================
--- Symmetry Breaking Constraint Definition
--- ============================================================================
+/-! ### Symmetry Breaking Constraint Definition -/
 
 /- Our candidate to symmetry breaking constraint (fix the color of node 0 to 0)-/
 def graph_coloring_sbc (nodes : ℕ) (h_nodes : 0 < nodes) : IntConstraint nodes :=
@@ -48,17 +44,13 @@ def graph_coloring_sb (nodes : ℕ) (h_nodes : 0 < nodes) (edges : List (Fin nod
   (graph_coloring_csp nodes edges colors).addConstraint (graph_coloring_sbc nodes h_nodes)
 
 
--- ============================================================================
--- Symmetry Function
--- ============================================================================
+/-! ### Symmetry Function -/
 
 /-- Color swap: swaps color 0 with color c, leaves others unchanged -/
 def color_swap (c : ℤ) : Equiv.Perm IntDomain :=
   Equiv.swap 0 c
 
--- ============================================================================
--- Auxiliary Lemmas
--- ============================================================================
+/-! ### Auxiliary Lemmas -/
 
 /-- Color swaps preserve the interval [0, colors-1] when c is in that interval -/
 lemma intervalPreserving_color_swap (colors : ℕ) (c : ℤ)
@@ -99,9 +91,7 @@ lemma not_equal_preserved_by_swap {num_vars : ℕ}
   intro h_eq
   exact h_sat (δ.injective h_eq)
 
--- ============================================================================
--- Symmetry-Breaking Correctness
--- ============================================================================
+/-! ### Symmetry-Breaking Correctness -/
 
 /-- Result 1: Color swap is a domain symmetry for graph coloring -/
 theorem color_swap_is_symmetry (nodes colors : ℕ)
@@ -205,26 +195,11 @@ theorem graph_coloring_equisatisfiability (nodes colors : ℕ)
   apply domainSymmetryBreaking_equisatisfiability
   exact graph_coloring_sbc_is_domain_symmetry_breaking nodes colors h_nodes h_colors edges
 
--- ============================================================================
--- Solver conversion
--- ============================================================================
+/-! ### Solver conversion -/
 
-/-- Generate a k-colorable graph by partitioning n nodes into k independent sets
-    and adding random edges only between different sets.
-
-    Parameters:
-    - n: number of nodes
-    - k: number of colors (and independent sets)
-    - p_num, p_den: edge probability p = p_num/p_den for inter-set edges
-    - seed: random seed for reproducibility
-
-    Returns: List of edges (guaranteed k-colorable)
-
-    Algorithm:
-    - Node i belongs to independent set (i % k)
-    - Edges are only added between nodes in DIFFERENT independent sets
-    - This guarantees k-colorability: assign color (i % k) to each node
--/
+/-- Generate a `k`-colourable graph on `n` nodes: node `i` joins independent set `i % k`,
+    and edges are added (with probability `p_num/p_den`, from `seed`) only between nodes in
+    *different* sets.  Colouring node `i` with `i % k` is then always valid. -/
 def kColorableGraphEdges (n k : ℕ) (p_num p_den : ℕ) (seed : ℕ) : List (Fin n × Fin n) :=
   if k = 0 then [] else
   let m := 2147483648  -- 2^31

@@ -9,10 +9,9 @@ Connects the Schur CSP (`Schur.schur_csp n c`) to the textbook statement
 math statement, so a kernel-checked witness (`csp_sat_file`) yields a clean
 `SchurColorable n c` lower bound, and a verified PB-UNSAT yields `¬ SchurColorable (n+1) c`.
 
-This is the `CSP/L2S` port of the `CSP/Int` proof in the sibling project: the only change
-is that constraint satisfaction is read through `patternHolds` (leancsp's `satisfiesConstraintInt`)
-instead of the dynamic-constraint checker.  The two leaf lemmas (`bound_sat_iff`,
-`schur_triple_sat_iff`) are re-proved accordingly; everything else ports unchanged because
+Constraint satisfaction is read through `patternHolds` (i.e. `satisfiesConstraintInt`)
+rather than the dynamic-constraint checker; the leaf lemmas `bound_sat_iff` and
+`schur_triple_sat_iff` are stated accordingly, and the rest is independent of that choice because
 `schurTriples`/`schur_csp_triples` are defined identically in both projects.
 -/
 
@@ -20,9 +19,7 @@ open CSP.L2S
 
 namespace Schur
 
--- ============================================================================
--- Mathematical Definition
--- ============================================================================
+/-! ### Mathematical Definition -/
 
 /-- A `c`-colouring of `{1,…,n}` is sum-free if no monochromatic `x + y = z`.
     Uses 0-indexing: variable `i` represents integer `i+1`,
@@ -39,9 +36,7 @@ instance decidableSchurColorable (n c : ℕ) : Decidable (SchurColorable n c) :=
     ⟨fun ⟨χ, h⟩ => ⟨χ, fun i j k => h ⟨i, j, k⟩⟩,
      fun ⟨χ, h⟩ => ⟨χ, fun ⟨i, j, k⟩ => h i j k⟩⟩
 
--- ============================================================================
--- Leaf lemmas (patternHolds idiom)
--- ============================================================================
+/-! ### Leaf lemmas (patternHolds idiom) -/
 
 section Bridge
 
@@ -61,9 +56,7 @@ lemma schur_triple_sat_iff {n : ℕ} (v1 v2 v3 : Fin n) (a : IntAssignment n) :
     (a v1 ≠ a v2 ∨ a v1 ≠ a v3 ∨ a v2 ≠ a v3) := by
   simp only [IntCSP.satisfiesConstraintInt, schur_triple, patternHolds, valAt_fin]
 
--- ============================================================================
--- Membership helpers
--- ============================================================================
+/-! ### Membership helpers -/
 
 /-- Membership in `schurTriples`. -/
 lemma schurTriples_mem {n : ℕ} (i j : Fin n) (h_le : i.val ≤ j.val)
@@ -119,9 +112,7 @@ lemma schur_csp_triple {n c : ℕ} (a : IntAssignment n)
     exact ⟨(i, j, k), h_triple, rfl⟩
   exact (schur_triple_sat_iff i j k a).mp (h_sol _ h_mem)
 
--- ============================================================================
--- Bridge theorem
--- ============================================================================
+/-! ### Bridge theorem -/
 
 /-- **Bridge:** the Schur CSP is satisfiable iff `{1,…,n}` is `c`-colourable sum-free. -/
 theorem schur_csp_iff_colorable (n c : ℕ) :

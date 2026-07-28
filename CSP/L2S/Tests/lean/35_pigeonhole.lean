@@ -4,30 +4,14 @@ import CSP.L2S.Constraints
 open CSP.L2S
 
 /-!
-# Pigeonhole Principle PHP(p,h)
+# Pigeonhole principle PHP(p,h)
 
-## Problem Description
-Placing `p` pigeons into `h` holes with no two pigeons sharing a hole is
-impossible whenever `p > h`. This is the canonical hard instance for resolution
-and a standard pseudo-Boolean benchmark.
+Placing `p` pigeons into `h` holes with no two sharing a hole is impossible when
+`p > h` — the standard hard instance for resolution.
 
-## CSP Formulation
-- **Variables**: one per pigeon (1..p, 0-indexed).
-- **Domain**: {1,…,h} (the hole each pigeon occupies).
-- **Constraint**: `alldifferent` over all pigeon variables (no shared hole).
+One variable per pigeon over `{1,…,h}`, with a single `alldifferent` over them all.
 
-When `p > h` the `alldifferent` over a domain of size `h < p` is unsatisfiable —
-the pigeonhole principle in its most direct CSP form. (veripb's `php32`
-benchmark uses the one-hot pseudo-Boolean encoding of the same fact.)
-
-## Instances
-- `php_3_2` : 3 pigeons, 2 holes — **UNSAT**.
-- `php_5_4` : 5 pigeons, 4 holes — **UNSAT**.
-- `php_7_6` : 7 pigeons, 6 holes — **UNSAT**.
-- `php_9_8` : 9 pigeons, 8 holes — **UNSAT**.
-
-## Constraint families
-`bound`, `alldifferent`.
+Instances: `php_3_2`, `php_5_4`, `php_7_6`, `php_9_8`, all UNSAT.
 -/
 
 -- Pigeon `i` lives in some hole in {1,…,holes}.

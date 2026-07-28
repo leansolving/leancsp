@@ -5,32 +5,26 @@ import CSP.L2S.EndToEnd.Schur
 /-!
 # End-to-end exact Schur numbers — both directions, fully kernel-checked
 
-This module closes the loop on the Schur problem by combining the project's two
-independent verification pipelines:
+Combines the project's two verification pipelines:
 
-* **Lower bounds** (`S(c) ≥ n`) come from an *external solver witness*: a colouring is
-  found outside Lean, committed to `sols/*.sol`, and re-checked in the **Lean kernel** by
-  `csp_sat_file` (`Witness.lean`) → equisatisfiability (`schur_sb_equisatisfiability'`) →
-  the math bridge (`schur_csp_iff_colorable`).  The solver is untrusted; this direction
-  uses no `native_decide`, so the lower-bound theorems are **axiom-clean**.
+* **Lower bounds** (`S(c) ≥ n`) come from an external solver witness: a colouring found
+  outside Lean, committed to `sols/*.sol`, re-checked in the kernel by `csp_sat_file`,
+  then pushed through equisatisfiability and `schur_csp_iff_colorable`.  This direction
+  uses no `native_decide`, so the lower-bound theorems are axiom-clean.
 
-* **Upper bounds** (`S(c) < n+1`, i.e. `¬ SchurColorable (n+1) c`) come from the verified
-  **PB-UNSAT** pipeline (`EndToEnd/Schur.lean`'s `schur_2_5_unsat` / `schur_3_14_unsat`,
-  kernel-checked pseudo-Boolean certificates) pushed through the same bridge.
+* **Upper bounds** (`S(c) < n+1`) come from the verified PB-UNSAT pipeline, pushed
+  through the same bridge.
 
-Together they pin the **exact** values `S(2) = 4` and `S(3) = 13` (weak-Schur convention,
-`x + y = z` with `x = y` allowed): `{1,…,n}` is colourable but `{1,…,n+1}` is not.
-`S(4) ≥ 44` is included as a lower-bound-only demo (no PB-UNSAT for `S(4) < 45` exists
-here — that instance is far too large to certify).
+Together they pin `S(2) = 4` and `S(3) = 13` exactly (weak-Schur convention, `x + y = z`
+with `x = y` allowed).  `S(4) ≥ 44` is lower-bound only: the `S(4) < 45` certificate is
+too large to commit.
 -/
 
 open CSP.L2S
 
 namespace CSP.L2S.EndToEnd.SchurExact
 
--- ============================================================================
--- Lower bounds (external witness, kernel `decide`)
--- ============================================================================
+/-! ### Lower bounds (external witness, kernel `decide`) -/
 
 /-- **`S(2) ≥ 4`.** `{1,2,3,4}` is 2-colourable sum-free. -/
 theorem S2_ge_4 : _root_.Schur.SchurColorable 4 2 :=
@@ -54,9 +48,7 @@ theorem S4_ge_44 : _root_.Schur.SchurColorable 44 4 :=
       (csp_sat_file (_root_.Schur.schur_sb 44 (by decide) 4)
         "CSP/L2S/EndToEnd/sols/schur_c4_n44.sol"))
 
--- ============================================================================
--- Upper bounds (verified PB-UNSAT, via the same bridge)
--- ============================================================================
+/-! ### Upper bounds (verified PB-UNSAT, via the same bridge) -/
 
 /-- **`S(2) < 5`.** `{1,…,5}` is *not* 2-colourable sum-free (from PB-UNSAT). -/
 theorem not_S5_2 : ¬ _root_.Schur.SchurColorable 5 2 :=
@@ -68,9 +60,7 @@ theorem not_S14_3 : ¬ _root_.Schur.SchurColorable 14 3 :=
   mt (_root_.Schur.schur_csp_iff_colorable 14 3).mpr
     CSP.L2S.EndToEnd.Schur.schur_3_14_unsat
 
--- ============================================================================
--- Exact Schur numbers (both directions combined)
--- ============================================================================
+/-! ### Exact Schur numbers (both directions combined) -/
 
 /-- **`S(2) = 4`.** `{1,2,3,4}` is 2-colourable sum-free, but `{1,…,5}` is not. -/
 theorem S2_eq_4 : _root_.Schur.SchurColorable 4 2 ∧ ¬ _root_.Schur.SchurColorable 5 2 :=

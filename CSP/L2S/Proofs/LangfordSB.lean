@@ -6,16 +6,13 @@ import Mathlib.Tactic
 /-!
 # Parametric symmetry breaking for Langford's problem `L(2,n)`
 
-`gen_langford n` places `1,1,…,n,n` in `2n` positions so the two copies of digit `d` are `d+2`
-apart, encoded with one position variable per `(digit, copy)`.  Its only non-trivial symmetry is
-the **sequence reversal** `p ↦ 2n+1-p`, which on the variables is the *composite* of a value
-reflection and the copy-swap (the reversed first copy is the old second copy).  It is therefore
-neither a pure domain nor a pure variable symmetry, so we prove **equisatisfiability directly**:
-`langRev` maps every solution to a solution, and the break `x₀ ≥ n` (the upper-half representative)
-is satisfied by a solution or its reversal.  `langford_unsat_of_rev` bridges UNSAT of the extended
-CSP to UNSAT of the base.  The equivalent lower-half break `x₀ ≤ n-1` (the mirror image, `langford_sbc'`)
-is proved by the primed lemmas (`langford_sbc_break'`, `langford_equisat'`, `langford_unsat_of_rev'`).
-Parametric in `n`.
+`gen_langford n` places `1,1,…,n,n` in `2n` positions so the two copies of digit `d` are
+`d+2` apart, with one position variable per `(digit, copy)`.  Its only non-trivial symmetry
+is the sequence reversal `p ↦ 2n+1-p`, which on the variables composes a value reflection
+with the copy-swap — so it is neither a pure domain nor a pure variable symmetry, and we
+prove equisatisfiability directly: `langRev` maps solutions to solutions, and the break
+`x₀ ≥ n` is satisfied by a solution or its reversal.  `langford_unsat_of_rev` transports
+UNSAT.  The mirror break `x₀ ≤ n-1` is handled by the primed lemmas.  Parametric in `n`.
 -/
 
 namespace CSP.L2S.PB.LangfordSB

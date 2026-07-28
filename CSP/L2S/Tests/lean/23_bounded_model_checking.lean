@@ -4,16 +4,12 @@ import CSP.L2S.Constraints
 open CSP.L2S
 
 /-!
-# Bounded Model Checking
+# Bounded model checking
 
-Traffic light controller: RED(0) → GREEN(2) → YELLOW(1) → RED(0)
-
-Natural encoding using reified implications:
-- Variables: state[0], state[1], ..., state[k-1] ∈ {0,1,2}
-- Transitions: if state[t] = s then state[t+1] = next(s)
-- Safety check: Can we reach state[1]=RED and state[2]=YELLOW?
-
-If UNSAT: transition relation prevents RED→YELLOW. If SAT: bug found.
+A traffic light controller cycling `RED(0) → GREEN(2) → YELLOW(1) → RED(0)`, with
+one state variable per time step over `{0,1,2}` and reified implications for the
+transitions.  Asking whether `state[1] = RED` and `state[2] = YELLOW` are reachable:
+UNSAT means the transition relation forbids `RED → YELLOW`; SAT exhibits a bug.
 -/
 
 -- General BMC formulation parameterized by number of time steps

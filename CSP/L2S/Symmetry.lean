@@ -9,28 +9,18 @@ import Mathlib.Tactic.Ring
 namespace CSP.L2S
 
 /-!
-# L2M Symmetry Theory
+# L2S symmetry theory
 
-Symmetry-breaking theory for L2M IntCSPs with integer domains.
-
-## Symmetry Types
-
-1. **Domain Symmetry**: Permutation of ℤ preserving all constraints
-2. **Variable Symmetry**: Permutation of variables preserving all constraints
-3. **Symmetry Breaking**: Constraint that when added, preserves equisatisfiability
-
-## Main Results
-
-- `domain_symmetry_preserves_solutions`: Domain symmetries preserve solution sets
-- `variable_symmetry_preserves_solutions`: Variable symmetries preserve solution sets
-- `symmetry_breaking_preserves_equisatisfiability`: Adding symmetry-breaking constraints preserves satisfiability
+Three notions: a **domain symmetry** is a permutation of `ℤ` preserving all
+constraints, a **variable symmetry** a permutation of the variables doing the same,
+and a **symmetry-breaking constraint** one whose addition preserves
+equisatisfiability.  The main results are that symmetries preserve solution sets and
+that symmetry breaking preserves satisfiability.
 -/
 
 open IntCSP
 
--- ============================================================================
--- Core Symmetry Definitions
--- ============================================================================
+/-! ### Core Symmetry Definitions -/
 
 /-- Domain symmetry: a permutation of ℤ that preserves all constraints -/
 def DomainSymmetry (csp : IntCSP) (δ : Equiv.Perm IntDomain) : Prop :=
@@ -45,9 +35,7 @@ def VariableSymmetry (csp : IntCSP)
   isSolutionInt csp assignment →
   isSolutionInt csp (assignment ∘ β)
 
--- ============================================================================
--- Common Domain Symmetries
--- ============================================================================
+/-! ### Common Domain Symmetries -/
 
 namespace DomainSymmetry
 
@@ -81,9 +69,7 @@ theorem identity_is_symmetry (csp : IntCSP) :
 
 end DomainSymmetry
 
--- ============================================================================
--- Common Variable Symmetries
--- ============================================================================
+/-! ### Common Variable Symmetries -/
 
 namespace VariableSymmetry
 
@@ -104,9 +90,7 @@ theorem identity_is_symmetry (csp : IntCSP) :
 
 end VariableSymmetry
 
--- ============================================================================
--- Constraint Symmetry Properties
--- ============================================================================
+/-! ### Constraint Symmetry Properties -/
 
 /-- A dynamic constraint is domain symmetric if it's invariant under domain permutations -/
 def constraintDomainSymmetric {num_vars : ℕ}
@@ -136,9 +120,7 @@ def taggedConstraintVariableSymmetric {num_vars : ℕ}
     (β : Equiv.Perm (VarType num_vars)) : Prop :=
   constraintVariableSymmetric (toDynamic tc) β
 
--- ============================================================================
--- Symmetry Preservation Theorems
--- ============================================================================
+/-! ### Symmetry Preservation Theorems -/
 
 /-- Domain symmetries preserve solutions when all constraints are symmetric -/
 theorem domain_symmetry_preserves_solutions (csp : IntCSP)
@@ -164,9 +146,7 @@ theorem variable_symmetry_preserves_solutions (csp : IntCSP)
   exact h_symmetric assignment
     ((IntCSP.satisfiesConstraintInt_iff_toDynamic tc assignment).mp (h_solution tc h_tc_mem))
 
--- ============================================================================
--- Symmetry Breaking Constraints
--- ============================================================================
+/-! ### Symmetry Breaking Constraints -/
 
 /-- A domain symmetry breaking constraint: for every solution, there exists a domain
     symmetry transforming it to a solution of the extended CSP -/
@@ -194,9 +174,7 @@ def symmetryBreakingConstraint (csp : IntCSP)
   domainSymmetryBreakingConstraint csp c ∨
   variableSymmetryBreakingConstraint csp c
 
--- ============================================================================
--- Soundness Theorems
--- ============================================================================
+/-! ### Soundness Theorems -/
 
 /-- Domain symmetry breaking constraints preserve satisfiability -/
 theorem domainSymmetryBreaking_preserves_satisfiability
@@ -229,9 +207,7 @@ theorem symmetryBreaking_preserves_satisfiability
   · exact domainSymmetryBreaking_preserves_satisfiability csp c h_satisfiable h_domain
   · exact variableSymmetryBreaking_preserves_satisfiability csp c h_satisfiable h_variable
 
--- ============================================================================
--- Equisatisfiability Results
--- ============================================================================
+/-! ### Equisatisfiability Results -/
 
 /-- Domain symmetry breaking implies equisatisfiability -/
 theorem domainSymmetryBreaking_equisatisfiability
@@ -281,16 +257,12 @@ theorem symmetryBreaking_equisatisfiability
   · exact domainSymmetryBreaking_equisatisfiability csp c h_domain
   · exact variableSymmetryBreaking_equisatisfiability csp c h_variable
 
--- ============================================================================
--- End-to-end glue: SBC correctness + extended-CSP UNSAT ⇒ original UNSAT
--- ============================================================================
+/-! ### End-to-end glue: SBC correctness + extended-CSP UNSAT ⇒ original UNSAT -/
 
-/-- **End-to-end composition.** If `c` is a (verified) symmetry-breaking constraint for `csp`
-    and the extended CSP `csp.addConstraint c` is UNSAT (e.g. via a kernel-checked PB
-    certificate from `csp_unsat_file`), then the *original* `csp` is UNSAT.
-
-    This is the single bridge between the symmetry-breaking correctness proofs
-    (`*SB.lean`) and the verified PB UNSAT backend. -/
+/-- **End-to-end composition.** If `c` is a verified symmetry-breaking constraint for
+    `csp` and `csp.addConstraint c` is UNSAT (e.g. by a certificate from
+    `csp_unsat_file`), then the original `csp` is UNSAT.  The bridge between the
+    `*SB.lean` correctness proofs and the verified PB backend. -/
 theorem unsat_of_sbc (csp : IntCSP) (c : IntConstraint csp.num_vars)
     (h_sbc : symmetryBreakingConstraint csp c)
     (h_unsat : ¬ isSatisfiableInt (csp.addConstraint c)) :
@@ -311,9 +283,7 @@ theorem unsat_of_variable_sbc (csp : IntCSP) (c : IntConstraint csp.num_vars)
     ¬ isSatisfiableInt csp :=
   unsat_of_sbc csp c (Or.inr h_sbc) h_unsat
 
--- ============================================================================
--- Compatibility with Heterogeneous Framework
--- ============================================================================
+/-! ### Compatibility with Heterogeneous Framework -/
 
 /-- Domain symmetry breaking preserves heterogeneous equisatisfiability via embedding -/
 theorem domainSymmetryBreaking_heterogeneous_equisatisfiability
@@ -324,12 +294,12 @@ theorem domainSymmetryBreaking_heterogeneous_equisatisfiability
   rw [CSP.equisatisfiable]
   constructor
   · intro h_sat
-    have h_sat_L2M := (embedding_preserves_satisfiability csp).mpr h_sat
-    have h_sat' := h_native.1 h_sat_L2M
+    have h_sat_emb := (embedding_preserves_satisfiability csp).mpr h_sat
+    have h_sat' := h_native.1 h_sat_emb
     exact (embedding_preserves_satisfiability (csp.addConstraint c)).mp h_sat'
   · intro h_sat'
-    have h_sat'_L2M := (embedding_preserves_satisfiability (csp.addConstraint c)).mpr h_sat'
-    have h_sat := h_native.2 h_sat'_L2M
+    have h_sat'_emb := (embedding_preserves_satisfiability (csp.addConstraint c)).mpr h_sat'
+    have h_sat := h_native.2 h_sat'_emb
     exact (embedding_preserves_satisfiability csp).mp h_sat
 
 /-- Variable symmetry breaking preserves heterogeneous equisatisfiability via embedding -/
@@ -341,12 +311,12 @@ theorem variableSymmetryBreaking_heterogeneous_equisatisfiability
   rw [CSP.equisatisfiable]
   constructor
   · intro h_sat
-    have h_sat_L2M := (embedding_preserves_satisfiability csp).mpr h_sat
-    have h_sat' := h_native.1 h_sat_L2M
+    have h_sat_emb := (embedding_preserves_satisfiability csp).mpr h_sat
+    have h_sat' := h_native.1 h_sat_emb
     exact (embedding_preserves_satisfiability (csp.addConstraint c)).mp h_sat'
   · intro h_sat'
-    have h_sat'_L2M := (embedding_preserves_satisfiability (csp.addConstraint c)).mpr h_sat'
-    have h_sat := h_native.2 h_sat'_L2M
+    have h_sat'_emb := (embedding_preserves_satisfiability (csp.addConstraint c)).mpr h_sat'
+    have h_sat := h_native.2 h_sat'_emb
     exact (embedding_preserves_satisfiability csp).mp h_sat
 
 /-- General symmetry breaking preserves heterogeneous equisatisfiability via embedding -/
@@ -359,21 +329,9 @@ theorem symmetryBreaking_heterogeneous_equisatisfiability
   · exact domainSymmetryBreaking_heterogeneous_equisatisfiability csp c h_domain
   · exact variableSymmetryBreaking_heterogeneous_equisatisfiability csp c h_variable
 
--- ============================================================================
--- Bound Constraint Preservation
--- ============================================================================
+/-! ### Bound Constraint Preservation -/
 
-/-!
-### Bound Constraint Preservation Under Symmetries
-
-This section proves that bound constraints are preserved under domain and variable symmetries.
-
-**Key Theorems:**
-1. **intervalPreserving_preserves_bound**: Interval-preserving domain perms preserve bounds
-2. **domainSymmetry_preserves_bounds**: Domain symmetry preserves bound constraint lists
-3. **variableSymmetry_preserves_bounds**: Variable symmetry preserves bounds (always)
-
--/
+/-! ### Bound-constraint preservation under symmetries -/
 
 /-- Check if a permutation preserves an interval [lb, ub] ⊆ ℤ -/
 def intervalPreserving (δ : Equiv.Perm ℤ) (lb ub : ℤ) : Prop :=
@@ -426,9 +384,7 @@ theorem variableSymmetry_preserves_bound {num_vars : ℕ}
   simp only [IntCSP.satisfiesConstraintInt, bound, patternHolds, valAt, Fin.is_lt, dif_pos,
     Fin.eta, Function.comp_apply, Equiv.symm_apply_apply]
 
--- ============================================================================
--- Utility Functions
--- ============================================================================
+/-! ### Utility Functions -/
 
 /-- Composition of domain symmetries is a domain symmetry -/
 theorem domainSymmetry_comp (csp : IntCSP)

@@ -5,33 +5,21 @@ namespace CSP.L2S.PB
 open CSPSig
 
 /-!
-# PB backend — composable per-constraint soundness (`EncConstr`) and the general
-  `CSP-SAT ⇒ PB-SAT` composition theorem
+# PB backend — composable per-constraint soundness (`EncConstr`)
 
-`Extend.lean`'s `csp_unsat_generic` leaves the central soundness obligation
-(`hsound`) as a hypothesis that each instance discharges by hand.  This file packages
-that obligation **per constraint** and composes a list of them into a single
-assumption-free theorem.
+`csp_unsat_generic` leaves the central soundness obligation as a hypothesis to be
+discharged by hand.  This file packages it **per constraint** and composes a list
+of them into a single assumption-free theorem.
 
 * `EncConstr S` bundles, for one encoded constraint: the PB constraints it
-  contributes (`constrs`), its arithmetic precondition on the integer assignment
-  (`pre`), the auxiliary variables it owns and how to set them (`setsAux`), and a
-  `sound` proof that — in-domain, with its precondition and its own aux indices set
-  correctly — every contributed constraint holds on `extend`.  Aux-free constraints
-  use `setsAux _ = []`; their `sound` ignores the (vacuous) frame hypothesis.
-* `csp_unsat_of_enc` — the general spine: given a list of `EncConstr`, a global
-  `auxOf` agreeing with each entry's `setsAux`, and a `formulaUnsat` certificate over
-  the combined formula, no in-domain assignment satisfies all the preconditions.
-  This is the assumption-free `CSP-SAT ⇒ PB-SAT` theorem.
-* `csp_unsat_of_encfree` — the aux-free convenience wrapper (`auxOf := false`).
-* `globalAuxOf` / `csp_unsat_of_enc_alloc` — the **aux allocator**: with pairwise
-  distinct owned aux indices, the global `auxOf` is built automatically (by lookup),
-  so arbitrarily many aux-using constraints compose.  The disjointness obligation is
-  `decide`-able when the owned indices are static.
-
-The trust base is unchanged: every `sound` reuses already-verified `extend_sat_*`
-lemmas, and the certificate still rides through PBLean's checker, discharged by a
-`Lean.ofReduceBool` term.
+  contributes (`constrs`), its arithmetic precondition (`pre`), the aux variables
+  it owns and how to set them (`setsAux`), and a `sound` proof that every
+  contributed constraint holds on `extend`.  Aux-free entries use `setsAux _ = []`;
+* `csp_unsat_of_enc` — the general spine, the assumption-free `CSP-SAT ⇒ PB-SAT`;
+* `csp_unsat_of_encfree` — the aux-free wrapper (`auxOf := false`);
+* `globalAuxOf` / `csp_unsat_of_enc_alloc` — the aux allocator: with pairwise
+  distinct owned indices the global `auxOf` is built automatically, so arbitrarily
+  many aux-using constraints compose.
 -/
 
 variable {S : CSPSig}
@@ -57,10 +45,10 @@ structure EncConstr (S : CSPSig) where
 def EncConstr.combine (es : List (EncConstr S)) : List (PBConstr (PBVar S)) :=
   es.flatMap (·.constrs)
 
-/-- **General composition (`CSP-SAT ⇒ PB-SAT`).**  Given a list of encoded
-    constraints, a global aux assignment `auxOf` agreeing with every entry's
-    `setsAux`, and a `formulaUnsat` certificate over the order-encoding staircase plus
-    the combined constraints, no in-domain assignment satisfies all the preconditions. -/
+/-- **General composition (`CSP-SAT ⇒ PB-SAT`).**  Given encoded constraints, a
+    global `auxOf` agreeing with every entry's `setsAux`, and a `formulaUnsat`
+    certificate over the staircase plus the combined constraints, no in-domain
+    assignment satisfies all the preconditions. -/
 theorem csp_unsat_of_enc (S : CSPSig) (es : List (EncConstr S))
     (auxOf : (Fin S.nInt → Int) → (Fin S.nBool → Bool) → (Fin S.nAux → Bool))
     (haux : ∀ a bA, ∀ e ∈ es, ∀ p ∈ e.setsAux a, auxOf a bA p.1 = p.2)
@@ -115,10 +103,9 @@ def globalAuxOf (es : List (EncConstr S))
     (a : Fin S.nInt → Int) (_bA : Fin S.nBool → Bool) : Fin S.nAux → Bool :=
   fun s => ((es.flatMap (·.setsAux a)).lookup s).getD false
 
-/-- **Aux allocator composition.**  If across all entries the owned aux indices are
-    pairwise distinct, the global `auxOf` is constructed automatically, so no manual
-    aux-setter is needed.  The disjointness hypothesis is `decide`-able when the owned
-    indices are static (independent of `a`), which is the case for every encoder. -/
+/-- **Aux allocator composition.**  If the owned aux indices are pairwise distinct
+    across all entries, the global `auxOf` is built automatically, so no manual
+    aux-setter is needed. -/
 theorem csp_unsat_of_enc_alloc (S : CSPSig) (es : List (EncConstr S))
     (hnd : ∀ a, ((es.flatMap (·.setsAux a)).map Prod.fst).Nodup)
     (hunsat : VeriPB.Reflect.formulaUnsat

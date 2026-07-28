@@ -6,31 +6,11 @@ import CSP.L2S.Symmetry
 open CSP.L2S
 
 /-!
-# 0-1 Knapsack Problem
-CSPLib Problem 133
+# 0-1 knapsack (satisfaction form)
 
-## Problem Description
-Given items with weights and values, select a subset that fits in a knapsack
-of limited capacity while staying within the weight limit and achieving a
-target value threshold.
-
-This is a satisfaction version of the classic optimization problem:
-Can we achieve a certain value while respecting the capacity constraint?
-
-## CSP Formulation
-- **Variables**: n binary variables (take item or not)
-- **Domain**: 0..1 for all variables
-- **Constraints**:
-  1. Weight capacity: Σ(weights[i] * take[i]) ≤ capacity
-  2. Value target: Σ(values[i] * take[i]) ≥ target
-
-## Mathematical Form
-Two weighted sum constraints with relational operators:
-- Weight: w₀*x₀ + w₁*x₁ + ... + wₙ₋₁*xₙ₋₁ ≤ capacity
-- Value:  v₀*x₀ + v₁*x₁ + ... + vₙ₋₁*xₙ₋₁ ≥ target
-
-## Source
-CSPLib Problem 133, classic combinatorial optimization problem
+Given item weights and values, choose a subset — one binary variable per item —
+with `Σ weightᵢ·xᵢ ≤ capacity` and `Σ valueᵢ·xᵢ ≥ target`.  Two weighted-sum
+constraints.  CSPLib problem 133.
 -/
 
 -- Helper to create variable scope for all n variables

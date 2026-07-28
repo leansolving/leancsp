@@ -4,11 +4,11 @@ import CSP.L2S.Proofs.GraphColoringSB
 import CSP.L2S.Proofs.SchurSB
 
 /-!
-# Parametric CSP generators for the SBC scaling study (v2)
+# Parametric CSP generators for the symmetry-breaking scaling study
 
-Computable `IntCSP` generators (no proofs) for the *critical* UNSAT instances, scaled by the
-hardness parameter.  "Not all equal" over a tuple is expressed with existing encodable patterns:
-`schur_triple` (3-ary, any domain) or `at_least_k`/`at_most_k` (binary domain).
+Computable `IntCSP` generators (no proofs) for the critical UNSAT instances, scaled by
+the hardness parameter.  "Not all equal" over a tuple is expressed with existing
+encodable patterns: `schur_triple` (any domain) or `at_least_k`/`at_most_k` (binary).
 -/
 
 open CSP.L2S
@@ -24,9 +24,7 @@ def combinations : ℕ → List ℕ → List (List ℕ)
 /-- Edge index of `{i, j}` (i<j) in `Kₙ`, row-major over the strict upper triangle. -/
 def edgeIdx (n i j : ℕ) : ℕ := i * n - i * (i + 1) / 2 + (j - i - 1)
 
--- ============================================================================
--- Van der Waerden:  r colours on {1..n}, no monochromatic k-term AP
--- ============================================================================
+/-! ### Van der Waerden:  r colours on {1..n}, no monochromatic k-term AP -/
 
 /-- All `k`-term APs `(a, a+d, …, a+(k-1)d)` inside `0..n-1`. -/
 def vdwAPs (n k : ℕ) : List (List ℕ) :=
@@ -62,15 +60,13 @@ def vdwTriples (n : ℕ) : List (Fin n × Fin n × Fin n) :=
       else none
     | _ => none
 
-/-- Van der Waerden `W(r,3)` CSP built *via* the verified `schur_csp_triples` (bounds `0..r-1` + a
-    `schur_triple` per 3-term AP), so `schur_unsat_of_value_precedence` covers its value-precedence
-    SBC for *any* number of colours `r` — no new proof. -/
+/-- Van der Waerden `W(r,3)`, built via `schur_csp_triples` (bounds `0..r-1` plus a
+    `schur_triple` per 3-term AP), so `schur_unsat_of_value_precedence` already covers its
+    value-precedence SBC for any number of colours. -/
 def gen_vdw3 (r n : ℕ) : IntCSP :=
   Schur.schur_csp_triples n r (vdwTriples n)
 
--- ============================================================================
--- Ramsey:  2-colour edges of Kₙ, no mono K_s in colour 0, no mono K_t in colour 1
--- ============================================================================
+/-! ### Ramsey:  2-colour edges of Kₙ, no mono K_s in colour 0, no mono K_t in colour 1 -/
 
 /-- Edges (as variable indices) of the clique on vertex set `vs`. -/
 def cliqueEdges (n : ℕ) (vs : List ℕ) : List ℕ :=
@@ -91,16 +87,15 @@ def gen_ramsey (s t n : ℕ) : IntCSP :=
       IntConstraint.at_most_k es (es.length - 1)
   ⟨m, bounds ++ noMono0 ++ noMono1⟩
 
--- ============================================================================
--- Mutilated chessboard:  2k×2k board minus two opposite (same-colour) corners,
--- tiled by dominoes.  REGULAR indexing over every potential domino of the N×N grid
--- (N = 2k): horizontals `h(r,c) = r*(N-1)+c` (c<N-1) in `[0, N(N-1))`, then verticals
--- `v(r,c) = N(N-1) + r*N + c` (r<N-1) in `[N(N-1), 2N(N-1))`.  Dominoes incident to a
--- removed corner are forced to 0 (`bound x 0 0`); present cells get an exactly-one.
--- The diagonal reflection `(r,c)↦(c,r)` is then a CLOSED-FORM arithmetic involution
--- (`h(r,c) ↔ v(c,r)`), enabling a PARAMETRIC variable-symmetry proof (see `MutilatedSB`).
--- UNSAT by colour counting (exponentially hard for resolution, Alekhnovich).
--- ============================================================================
+/-! ### Mutilated chessboard
+
+A `2k×2k` board minus two opposite (same-colour) corners, tiled by dominoes.  Regular
+indexing over every potential domino of the `N×N` grid (`N = 2k`): horizontals
+`h(r,c) = r*(N-1)+c` for `c < N-1`, then verticals `v(r,c) = N(N-1) + r*N + c` for
+`r < N-1`.  Dominoes incident to a removed corner are forced to 0; present cells get an
+exactly-one.  The diagonal reflection `(r,c) ↦ (c,r)` is then a closed-form involution
+`h(r,c) ↔ v(c,r)`, enabling a parametric variable-symmetry proof (see `MutilatedSB`).
+UNSAT by colour counting; exponentially hard for resolution. -/
 
 /-- Is `(r,c)` a removed (opposite-corner) cell of the `N×N` board? -/
 def mutRemoved (N r c : ℕ) : Bool := (r == 0 && c == 0) || (r == N - 1 && c == N - 1)
@@ -135,17 +130,16 @@ def gen_mutilated (k : ℕ) : IntCSP :=
       if mutRemoved N r c then none else some (IntConstraint.exactly_k (mutIncident k r c) 1)
   ⟨nplace, bounds ++ cells⟩
 
--- ============================================================================
--- Perfect-matching / parity principle:  K_{2m+1} has no perfect matching.
--- One {0,1} var per edge; per-vertex exactly-one over its incident edges.
--- Huge variable symmetry S_{2m+1}; exponentially hard for resolution (Razborov).
--- ============================================================================
+/-! ### Perfect matching / parity principle
 
-/-- Perfect matching on `Kₙ` (`n = 2m+1`) via the n×n adjacency encoding: variable `x_{ij} = i*n+j`
-    in `{0,1}` (diagonal forced to 0), symmetric (`x_{ij} = x_{ji}`), each row summing to 1.  The
-    vertex transposition `(0 1)` is then a closed-form index involution (`matchSwap`), enabling a
-    PARAMETRIC variable-symmetry proof (see `MatchingSB`).  Odd `n` ⇒ no perfect matching ⇒ UNSAT
-    (the parity principle, exponentially hard for resolution). -/
+`K_{2m+1}` has no perfect matching.  One `{0,1}` variable per edge, with a per-vertex
+exactly-one over its incident edges.  Variable symmetry group `S_{2m+1}`; exponentially
+hard for resolution. -/
+
+/-- Perfect matching on `Kₙ` (`n = 2m+1`) via the `n×n` adjacency encoding: `x_{ij} = i*n+j`
+    in `{0,1}`, diagonal forced to 0, symmetric, each row summing to 1.  The vertex
+    transposition `(0 1)` is a closed-form index involution (`matchSwap`), enabling a
+    parametric variable-symmetry proof (see `MatchingSB`). -/
 def gen_matching (m : ℕ) : IntCSP :=
   let n := 2 * m + 1
   let bounds := (List.range (n * n)).map
@@ -167,9 +161,7 @@ def matchSwap (m x : ℕ) : ℕ :=
 def matching_sbc (m : ℕ) : IntConstraint ((2 * m + 1) * (2 * m + 1)) :=
   IntConstraint.le 2 (matchSwap m 2)
 
--- ============================================================================
--- Variable symmetry-breaking constraints for the geometric families.
--- ============================================================================
+/-! ### Variable symmetry-breaking constraints for the geometric families. -/
 
 /-- The diagonal reflection `(r,c)↦(c,r)` on placement indices: a closed-form involution
     swapping horizontal `h(r,c)` with vertical `v(c,r)` (`N = 2k`, `nH = N(N-1)`). -/
@@ -184,11 +176,11 @@ def mutRefl (k x : ℕ) : ℕ :=
 def mutilated_sbc (k : ℕ) : IntConstraint (2 * (2 * k) * (2 * k - 1)) :=
   IntConstraint.le 1 (mutRefl k 1)
 
--- ============================================================================
--- Langford L(2,n):  place 1,1,2,2,…,n,n so the two copies of d are d+1 apart.
--- Mirrors `Tests/lean/10_langford_simple.lean langford_2n_csp`.  UNSAT iff
--- n ≡ 1,2 (mod 4).  Reversal (order-2) variable symmetry; SBC = `x₀ ≥ n` (see `langford_sbc`).
--- ============================================================================
+/-! ### Langford L(2,n)
+
+Place `1,1,2,2,…,n,n` so the two copies of `d` are `d+1` apart.  Mirrors
+`Tests/lean/10_langford_simple.lean`.  UNSAT iff `n ≡ 1,2 (mod 4)`.  Order-2 reversal
+variable symmetry; the SBC is `x₀ ≥ n` (see `langford_sbc`). -/
 
 /-- `L(2,n)` CSP: `2n` position variables (domain `1..2n`), `alldifferent`, and a
     spacing equation `x[2d+1] − x[2d] = d+2` per digit. -/
@@ -208,10 +200,9 @@ def gen_langford (n : ℕ) : IntCSP :=
   let alldiff : IntConstraint nv := alldifferent (_root_.Vector.ofFn id)
   ⟨nv, bounds ++ spacing ++ [alldiff]⟩
 
-/-- Variable SBC for Langford: digit-0's first copy lies in the **second** half (`x₀ ≥ n`), the
-    upper-half representative of the sequence reversal `p ↦ 2n+1-p`.  Sound for all `n` (non-trivial
-    for `n ≥ 1`); verified in `Proofs/LangfordSB.lean`.  The equivalent lower-half form `x₀ ≤ n-1`
-    (its mirror image under the reversal) is kept as `langford_sbc'`. -/
+/-- Variable SBC for Langford: digit-0's first copy lies in the second half (`x₀ ≥ n`), the
+    upper-half representative of the reversal `p ↦ 2n+1-p`.  Verified in
+    `Proofs/LangfordSB.lean`; the mirror form `x₀ ≤ n-1` is `langford_sbc'`. -/
 def langford_sbc (n : ℕ) : IntConstraint (n * 2) :=
   IntConstraint.ge_const 0 (n : ℤ)
 
@@ -221,13 +212,12 @@ def langford_sbc (n : ℕ) : IntConstraint (n * 2) :=
 def langford_sbc' (n : ℕ) : IntConstraint (n * 2) :=
   IntConstraint.le_const 0 ((n : ℤ) - 1)
 
--- ============================================================================
--- Clique-colouring / chromatic family:  Mycielskian graphs Mⱼ are triangle-free
--- yet χ(Mⱼ) = j+2, so colouring with χ−1 = j+1 colours is UNSAT.  Unlike Kₙ the
--- chromatic number exceeds the clique number — the genuine clique-colouring
--- spirit — and for j ≥ 2 there are ≥3 interchangeable colours, so value
--- precedence is non-trivial here.  M₂ = Grötzsch graph (11 vtx, χ4).
--- ============================================================================
+/-! ### Clique-colouring / chromatic family
+
+Mycielskian graphs `Mⱼ` are triangle-free yet `χ(Mⱼ) = j+2`, so colouring with `j+1`
+colours is UNSAT.  Unlike `Kₙ`, the chromatic number exceeds the clique number, and for
+`j ≥ 2` there are at least three interchangeable colours, so value precedence is
+non-trivial.  `M₂` is the Grötzsch graph (11 vertices, `χ = 4`). -/
 
 /-- One Mycielski step: doubles the vertex set (shadows) and adds an apex; raises
     the chromatic number by 1.  Vertices `0..v-1` originals, `v..2v-1` shadows,

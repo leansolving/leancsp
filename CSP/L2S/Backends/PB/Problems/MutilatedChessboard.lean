@@ -6,34 +6,25 @@ namespace CSP.L2S.PB.MutilatedChessboard
 open CSP.L2S CSP.L2S.PB
 
 /-!
-# PB backend — end-to-end verified UNSAT for the mutilated chessboard
+# PB backend — verified UNSAT for the mutilated chessboard
 
-Remove two **opposite (same-colour) corners** from a `4 × 4` board and ask whether the
-remaining `14` cells can be tiled by dominoes.  Colour the board like a chessboard: each
-domino covers exactly one black and one white cell, so a tiling needs equally many of
-each.  But the two removed corners `(0,0)` and `(3,3)` are both black, leaving `6` black
-and `8` white cells — an imbalance of `2`.  No tiling exists.  This is the classic
-**mutilated-chessboard** parity/counting argument, and it is *provably* UNSAT (no probing
-needed).  Unlike the degenerate `2 × n` cases, every remaining cell here has degree `≥ 2`,
-so the impossibility is the genuine colour count, not mere unit propagation.
+Remove two opposite (same-colour) corners from a `4 × 4` board: can the remaining `14`
+cells be tiled by dominoes?  Each domino covers one black and one white cell, but the
+removed corners `(0,0)` and `(3,3)` are both black, leaving `6` black and `8` white cells.
+No tiling exists.
 
-## Encoding (exact cover)
+Encoding (exact cover): one `{0,1}` variable per legal domino placement — a pair of
+orthogonally adjacent remaining cells, `20` in all — plus an exactly-one constraint
+`Σ placements covering the cell = 1` for each of the `14` cells.  A solution is a perfect
+tiling.
 
-`mutilatedChessboard` is modelled directly (it is not a pre-existing corpus problem):
-one Boolean `{0,1}` variable per legal **domino placement** (a pair of orthogonally
-adjacent remaining cells) — `20` placements in all — and, for each of the `14` remaining
-cells, an exactly-one constraint `Σ placements covering the cell = 1` (`sum_eq`).  A
-solution is a perfect domino tiling.
+Every constraint is linear over `{0,1}`, so there are no auxiliary variables and no
+order-encoding monotonicity.  The cutting-planes certificate is the colour count itself:
+summing the `≤ 1` halves over the `6` black cells bounds the placed dominoes by `6`, while
+summing the `≥ 1` halves over the `8` white cells forces `≥ 8`.
 
-Every constraint is linear over `{0,1}`: each `sum_eq … = 1` splits into the two `≤`
-halves `Σ ≤ 1` and `Σ ≥ 1`, so the proof rides the clean `unsat_of_pb` spine
-(`Adapter.lean`) — no auxiliary variables, no order-encoding monotonicity (every domain is
-width-1).  The cutting-planes certificate is the colour count itself: summing the `≤ 1`
-halves over the `6` black cells bounds the placed dominoes by `6`, while summing the `≥ 1`
-halves over the `8` white cells forces `≥ 8` — a one-line contradiction.
-
-Cells are taken in row-major order over the `14` remaining squares; placement variables
-`0 .. 19` are the orthogonally-adjacent cell pairs, in row-major scan order.
+Cells are taken in row-major order; placement variables `0 .. 19` are the adjacent cell
+pairs, also in row-major scan order.
 -/
 
 /-! ### The CSP -/
