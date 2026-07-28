@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 REPO = Path(__file__).resolve().parent.parent.parent
 RES = REPO / "experiments" / "scaling" / "results"
 
-# family → (panel title, x-axis label, log-x?)  — matching the paper's fig:scaling
+# family → (panel title, x-axis label, log-x?)
 PROBLEMS = {
     "php":       ("Pigeonhole", r"$n$", False),
     "mutilated": ("Mutilated chessboard", r"$k$ (board $2k\times2k$)", False),
@@ -79,7 +79,7 @@ def main():
     rows = list(csv.DictReader(open(RES / f"scaling{suffix}.csv")))
     fams = [f for f in PROBLEMS if any(r["family"] == f for r in rows)]
 
-    # combined 3-panel figure (the paper's fig:scaling)
+    # combined figure, one panel per family
     fig, axs = plt.subplots(1, len(fams), figsize=(4.6 * len(fams), 3.6))
     if len(fams) == 1:
         axs = [axs]

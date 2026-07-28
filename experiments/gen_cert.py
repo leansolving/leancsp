@@ -2,8 +2,8 @@
 """Regenerate a VeriPB kernel certificate for one CSP against the *canonical* generic
 encoder (`encodeCSP`), and commit it under CSP/L2S/Backends/PB/Problems/certs/<out>.pbp.
 
-Python port of the former scripts/gen_cert.sh; reuses experiments/lib/harness.py for the
-roundingsat + veripb runners (so tool resolution/timeouts match the rest of the experiments).
+Reuses experiments/lib/harness.py for the roundingsat + veripb runners, so tool
+resolution and timeouts match the rest of the experiments.
 
 Usage: python experiments/gen_cert.py <Module> <cspExpr> <out>
   <Module>   module defining the CSP, e.g. CSP.L2S.Backends.PB.Problems.Sudoku

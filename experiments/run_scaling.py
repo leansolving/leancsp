@@ -25,7 +25,7 @@ def main():
     scaling_sweep.main()
 
     if "--no-plot" not in flags:
-        print("\n== [3/3] paper figures (proof length: VeriPB vs DRAT) ==", flush=True)
+        print("\n== [3/3] figures (proof length: VeriPB vs DRAT) ==", flush=True)
         try:
             import scaling_plot          # matplotlib only needed here
             sys.argv = ["scaling_plot", *smoke_arg]

@@ -27,7 +27,8 @@ def main():
     aggregate.main()
 
     tag = " (smoke -> *.smoke.csv)" if smoke else ""
-    print(f"\nDone{tag}. Results in experiments/sbc/results/; regenerate the table with paper_table.py.", flush=True)
+    print(f"\nDone{tag}. Results in experiments/sbc/results/; "
+          "render the LaTeX table with experiments/lib/latex_table.py.", flush=True)
 
 
 if __name__ == "__main__":

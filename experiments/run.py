@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Single entry point for the LeanCSP experiments.
 
-    python experiments/run.py preflight                 # check tools + build checkbench + veripb
-    python experiments/run.py sbc     [--smoke] [fam...] # SBC speedup + checking-cost study
-    python experiments/run.py scaling [--smoke]          # cutting-planes vs resolution proof size
-    python experiments/run.py schur                      # Schur S(2)/S(3)/S(4) both pipelines, timed
-    python experiments/run.py all     [--smoke]          # everything
+    python3 experiments/run.py preflight                 # check tools + build checkbench + veripb
+    python3 experiments/run.py sbc     [--smoke] [fam...] # SBC speedup + checking-cost study
+    python3 experiments/run.py scaling [--smoke]          # cutting-planes vs resolution proof size
+    python3 experiments/run.py schur                      # Schur S(2)/S(3)/S(4) both pipelines, timed
+    python3 experiments/run.py all     [--smoke]          # everything
 
 Each subcommand runs a `preflight` first (tool check, builds the native `checkbench` exe and the
 PBLean dependency). The SBC study additionally times the *in-Lean* checking cost via `lake build`,
@@ -68,7 +68,7 @@ def preflight(need_inlean: bool = True) -> None:
               "     In-Lean checking times will be INTERPRETED (~10-20x slower) and NOT\n"
               "     representative of the precompiled pipeline. PBLean ships the precompiled\n"
               "     VeriPBReflect lib from v0.3.1 — check the `require veripb` pin in\n"
-              "     lakefile.lean. See docs/PRECOMPILE_AND_TRUST.md.\n", flush=True)
+              "     lakefile.lean.\n", flush=True)
     else:
         print("  OK   PBLean precompiled — in-Lean checking runs native" if need_inlean else "",
               flush=True)

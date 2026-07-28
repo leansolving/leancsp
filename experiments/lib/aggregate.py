@@ -53,9 +53,8 @@ def _fmt(v, sig=3):
 
 
 def _p(v):
-    """Store a value with full precision (exact integer, else many sig figs) so the paper table
-    can display the true speedup rather than a rounded-looking one; display rounding is done in
-    paper_table.py."""
+    """Store a value at full precision (exact integer, else many sig figs) so the true speedup
+    survives; display rounding happens in latex_table.py."""
     if v is None:
         return ""
     if v == int(v):
@@ -97,8 +96,8 @@ def aggregate(rows):
         wall_none, wall_sbc, wall_spd, n_pairs = paired_geo("roundingsat_time_s", WALL_FLOOR)
         det_none, det_sbc, det_spd, _ = paired_geo("rsat_det_time")
 
-        # value at the largest instance of the range (per the paper's "largest" columns); blank if
-        # that regime was censored (timed out) there, so the ratio reads as a lower bound.
+        # value at the largest instance of the range; blank if that regime was censored (timed
+        # out) there, so the ratio reads as a lower bound.
         hi = sizes[-1] if sizes else None
 
         def at_hi(regime, col):

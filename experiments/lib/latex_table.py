@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Render experiments/sbc/results/sbc_table.csv as a LaTeX table on stdout."""
 from __future__ import annotations
 
 import csv
@@ -118,10 +119,13 @@ def main():
 Family & SBC & det & wall\,(s) & det & wall\,(s) & det & wall & det & wall & w/o & w/ & w/o & w/ \\
 \midrule""")
     print(body)
-    # ends at \end{tabular}} — the \caption, \label and \end{table*} live outside the
-    # auto-generated markers in the paper, so re-splicing never overwrites the caption.
     print(r"""\bottomrule
-\end{tabular}}""")
+\end{tabular}}
+\caption{Symmetry breaking on the PB pipeline: RoundingSat cost with and without
+the symmetry-breaking constraint, and the cost of checking the resulting
+certificate natively and inside Lean.}
+\label{tab:sbc}
+\end{table*}""")
 
 
 if __name__ == "__main__":
