@@ -10,7 +10,6 @@ import Mathlib.Data.Fin.Tuple.Sort
 import Mathlib.Data.List.Nodup
 import Mathlib.Data.List.Sort
 import Mathlib.Tactic.Linarith
-import Canonical
 
 open CSP.L2S
 
@@ -22,9 +21,7 @@ Domains: 0..(n-1)
 Constraints: No repeated values per row/column
 -/
 
--- ============================================================================
--- Local pattern-satisfaction helpers (port to `patternHolds` semantics)
--- ============================================================================
+/-! ### Local pattern-satisfaction helpers (port to `patternHolds` semantics) -/
 
 /-- Local port helper: a vector scope mapped through an assignment equals the
     `List.ofFn`/`Vector.get` form this file's index arithmetic is phrased in. -/
@@ -50,9 +47,7 @@ private lemma increasing_get_holds_iff {N k : ℕ} (vec : _root_.Vector (VarType
     List.Pairwise (· ≤ ·) (List.ofFn fun j => a (vec.get j)) := by
   rw [increasing_holds_iff, toList_map_eq_ofFn_get]
 
--- ============================================================================
--- CSP Definition
--- ============================================================================
+/-! ### CSP Definition -/
 
 /- Bound constraints -/
 def bound_constraints (n : ℕ) : List (IntConstraint (n*n)) :=
@@ -93,9 +88,7 @@ def latin_square_csp (n : ℕ) : IntCSP :=
     row_constraints n ++
     col_constraints n ⟩
 
--- ============================================================================
--- Column Permutation Symmetry
--- ============================================================================
+/-! ### Column Permutation Symmetry -/
 
 /-- Column permutation: applies permutation σ to column indices.
     A cell at position (i, j) with index k = i*n + j
@@ -246,9 +239,7 @@ def column_permutation (n : ℕ) (h_n : 0 < n) (σ : Equiv.Perm (Fin n)) :
 def sorting_permutation (n : ℕ) (first_row : Fin n → ℤ) : Equiv.Perm (Fin n) :=
   Tuple.sort first_row
 
--- ============================================================================
--- Symmetry Breaking Constraint Definition
--- ============================================================================
+/-! ### Symmetry Breaking Constraint Definition -/
 
 /- Symmetry breaking constraint: first row must be in non-decreasing order.
    Uses the new `increasing` constraint. -/
@@ -259,9 +250,7 @@ def latin_square_sbc (n : ℕ) (h_n : 0 < n) : IntConstraint (n*n) :=
 def latin_square_sb (n : ℕ) (h_n : 0 < n) : IntCSP :=
   (latin_square_csp n).addConstraint (latin_square_sbc n h_n)
 
--- ============================================================================
--- Symmetry-Breaking Correctness
--- ============================================================================
+/-! ### Symmetry-Breaking Correctness -/
 
 /-- Helper lemma: column_permutation only changes the column index -/
 lemma column_permutation_structure (n : ℕ) (h_n : 0 < n) (σ : Equiv.Perm (Fin n)) (v : VarType (n*n)) :
@@ -466,9 +455,7 @@ theorem latin_square_equisatisfiability (n : ℕ) (h_n : 0 < n) :
   apply variableSymmetryBreaking_equisatisfiability
   exact latin_square_sbc_is_variable_symmetry_breaking n h_n
 
--- ============================================================================
--- Solver translation
--- ============================================================================
+/-! ### Solver translation -/
 
 def main : IO Unit := do
   let lb := 10
