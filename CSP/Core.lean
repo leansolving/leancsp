@@ -55,23 +55,15 @@ def satisfies_dynamic_constraint {VarIndex : Type} {DomainType : VarIndex → Ty
   match dc with
   | DynamicConstraint.mk _ c => satisfies_constraint c assignment
 
-/-- A CSP with heterogeneous domains and dynamic constraints -/
-structure CSP (VarIndex : Type) (DomainType : VarIndex → Type) where
-  domain : (v : VarIndex) → Set (DomainType v)
-  constraints : List (DynamicConstraint VarIndex DomainType)
+/-- A CSP with heterogeneous domains: a list of dynamic constraints -/
+abbrev CSP (VarIndex : Type) (DomainType : VarIndex → Type) :=
+  List (DynamicConstraint VarIndex DomainType)
 
-/-- An assignment is valid if it respects domain restrictions for each variable -/
-def valid_assignment {VarIndex : Type} {DomainType : VarIndex → Type}
-    (csp : CSP VarIndex DomainType)
-    (assignment : Assignment VarIndex DomainType) : Prop :=
-  ∀ v : VarIndex, assignment v ∈ csp.domain v
-
-/-- An assignment is a solution if it's valid and satisfies all constraints -/
+/-- An assignment is a solution if it satisfies all constraints -/
 def is_solution {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarIndex]
     (csp : CSP VarIndex DomainType)
     (assignment : Assignment VarIndex DomainType) : Prop :=
-  valid_assignment csp assignment ∧
-  ∀ c ∈ csp.constraints, satisfies_dynamic_constraint c assignment
+  ∀ c ∈ csp, satisfies_dynamic_constraint c assignment
 
 /-- A CSP is satisfiable if it has at least one solution -/
 def is_satisfiable {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarIndex]
@@ -168,22 +160,20 @@ def nary_dynamic_constraint {VarIndex : Type} {DomainType : VarIndex → Type}
   DynamicConstraint.mk n (nary_constraint scope p)
 
 /-- Create an empty CSP with no constraints -/
-def empty_csp {VarIndex : Type} {DomainType : VarIndex → Type}
-    (domain : (v : VarIndex) → Set (DomainType v)) : CSP VarIndex DomainType where
-  domain := domain
-  constraints := []
+def empty_csp {VarIndex : Type} {DomainType : VarIndex → Type} : CSP VarIndex DomainType :=
+  []
 
 /-- Add a single dynamic constraint to a CSP -/
 def add_constraint {VarIndex : Type} {DomainType : VarIndex → Type}
     (csp : CSP VarIndex DomainType) (c : DynamicConstraint VarIndex DomainType) :
     CSP VarIndex DomainType :=
-  ⟨csp.domain, c :: csp.constraints⟩
+  c :: csp
 
 /-- Add multiple dynamic constraints to a CSP -/
 def add_constraints {VarIndex : Type} {DomainType : VarIndex → Type}
     (csp : CSP VarIndex DomainType) (cs : List (DynamicConstraint VarIndex DomainType)) :
     CSP VarIndex DomainType :=
-  ⟨csp.domain, cs ++ csp.constraints⟩
+  cs ++ csp
 
 end ConstraintConstructors
 
@@ -206,18 +196,13 @@ def dynamic_constraint_uses_var {VarIndex : Type} {DomainType : VarIndex → Typ
 /-- Get all variables used in a CSP -/
 def csp_variables {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarIndex]
     (csp : CSP VarIndex DomainType) : List VarIndex :=
-  (csp.constraints.map (fun dc => match dc with
+  (csp.map (fun dc => match dc with
     | DynamicConstraint.mk _ c => c.scope.toList)).flatten.eraseDup
 
 /-- Count constraints in a CSP -/
 def constraint_count {VarIndex : Type} {DomainType : VarIndex → Type}
     (csp : CSP VarIndex DomainType) : ℕ :=
-  csp.constraints.length
-
-/-- Check if assignment satisfies all constraints (without domain check) -/
-def satisfies_all_constraints {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarIndex]
-    (csp : CSP VarIndex DomainType) (assignment : Assignment VarIndex DomainType) : Prop :=
-  ∀ c ∈ csp.constraints, satisfies_dynamic_constraint c assignment
+  csp.length
 
 end UtilityFunctions
 

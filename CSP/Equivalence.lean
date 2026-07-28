@@ -18,7 +18,7 @@ def sol_set {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarI
 def equivalent {VarIndex₁ VarIndex₂ : Type} {DomainType₁ : VarIndex₁ → Type} {DomainType₂ : VarIndex₂ → Type}
     [DecidableEq VarIndex₁] [DecidableEq VarIndex₂] 
     (csp₁ : CSP VarIndex₁ DomainType₁) (csp₂ : CSP VarIndex₂ DomainType₂) : Prop :=
-  ∃ f : {x // x ∈ sol_set csp₁} → {x // x ∈ sol_set csp₂}, Function.Bijective f
+  ∃ f : sol_set csp₁ → sol_set csp₂, Function.Bijective f
 
 /-- Two CSPs are equisatisfiable if one is satisfiable iff the other is.
     This is a weaker notion than equivalence that only preserves satisfiability.
@@ -115,6 +115,52 @@ theorem pi_equivalent_implies_equivalent {VarIndex₁ VarIndex₂ : Type} {Domai
     -- Show f maps this sol₂ to sol₁
     simp only [f]
     exact Subtype.ext h_proj
+
+/-- Converse of `pi_equivalent_implies_equivalent`, under the assumption that the
+    assignment type is nonempty: the projection is built from the bijection, sending
+    non-solutions to an arbitrary default. -/
+theorem equivalent_implies_pi_equivalent {VarIndex₁ VarIndex₂ : Type}
+    {DomainType₁ : VarIndex₁ → Type} {DomainType₂ : VarIndex₂ → Type}
+    [DecidableEq VarIndex₁] [DecidableEq VarIndex₂]
+    (csp₁ : CSP VarIndex₁ DomainType₁) (csp₂ : CSP VarIndex₂ DomainType₂)
+    [Nonempty (Assignment VarIndex₁ DomainType₁)] :
+    equivalent csp₂ csp₁ → ∃ π, pi_equivalent csp₁ csp₂ π := by
+  classical
+  intro h
+  obtain ⟨f, hf_bij⟩ := h
+  let default₁ : Assignment VarIndex₁ DomainType₁ := Classical.arbitrary _
+  let π : Assignment VarIndex₂ DomainType₂ → Assignment VarIndex₁ DomainType₁ :=
+    fun a₂ => if h : is_solution csp₂ a₂ then (f ⟨a₂, h⟩).val else default₁
+  use π
+  refine ⟨?_, ?_, ?_⟩
+  · intro sol₂ h_sol₂
+    have h_unfold : π sol₂ = (f ⟨sol₂, h_sol₂⟩).val := dif_pos h_sol₂
+    rw [h_unfold]
+    exact (f ⟨sol₂, h_sol₂⟩).property
+  · intro sol₁ h_sol₁
+    obtain ⟨⟨sol₂, h_sol₂⟩, h_eq⟩ := hf_bij.2 ⟨sol₁, h_sol₁⟩
+    use sol₂, h_sol₂
+    have h_unfold : π sol₂ = (f ⟨sol₂, h_sol₂⟩).val := dif_pos h_sol₂
+    rw [h_unfold]
+    exact Subtype.mk_eq_mk.mp h_eq
+  · intro sol₂ sol₂' h_sol₂ h_sol₂' h_proj_eq
+    have h1 : π sol₂ = (f ⟨sol₂, h_sol₂⟩).val := dif_pos h_sol₂
+    have h2 : π sol₂' = (f ⟨sol₂', h_sol₂'⟩).val := dif_pos h_sol₂'
+    have h_val_eq : (f ⟨sol₂, h_sol₂⟩).val = (f ⟨sol₂', h_sol₂'⟩).val := by
+      rw [← h1, ← h2]; exact h_proj_eq
+    exact Subtype.mk_eq_mk.mp (hf_bij.1 (Subtype.ext h_val_eq))
+
+/-- Equivalence is exactly the existence of a π-equivalence -/
+theorem equivalent_iff_pi_equivalent {VarIndex₁ VarIndex₂ : Type}
+    {DomainType₁ : VarIndex₁ → Type} {DomainType₂ : VarIndex₂ → Type}
+    [DecidableEq VarIndex₁] [DecidableEq VarIndex₂]
+    (csp₁ : CSP VarIndex₁ DomainType₁) (csp₂ : CSP VarIndex₂ DomainType₂)
+    [Nonempty (Assignment VarIndex₁ DomainType₁)] :
+    equivalent csp₂ csp₁ ↔ ∃ π, pi_equivalent csp₁ csp₂ π := by
+  constructor
+  · exact equivalent_implies_pi_equivalent csp₁ csp₂
+  · intro ⟨π, hπ⟩
+    exact pi_equivalent_implies_equivalent csp₁ csp₂ π hπ
 
 /-! ### Equivalence Relations are Reflexive, Symmetric, and Transitive -/
 

@@ -50,9 +50,25 @@ checked by the Lean kernel rather than taken on the solver's word.
   planes against resolution, the effect of symmetry breaking on solving and checking cost,
   and the exact Schur numbers. See `experiments/README.md`.
 - Four more example problems, bringing `CSP/L2S/Tests/lean/` to 36.
+- `equivalent_iff_pi_equivalent`: equivalence is exactly the existence of a π-equivalence,
+  assuming the assignment type is nonempty. Only the `if` direction was available before.
 
 ### Changed
 
+- A CSP is a list of constraints, `abbrev CSP VarIndex DomainType := List
+  (DynamicConstraint VarIndex DomainType)`, replacing the structure that paired a `domain`
+  field with a constraint list. A domain restriction is itself a unary constraint, so the
+  field duplicated what the list already expresses. `is_solution` loses its
+  `valid_assignment` conjunct, and `empty_csp`, `add_constraint` and `add_constraints`
+  become `[]`, `cons` and `append`. This is a breaking change for existing models.
+- Symmetries are defined at the level of solutions: `DomainSymmetry` and `VariableSymmetry`
+  say that a transformation maps solutions to solutions, and per-constraint invariance
+  becomes a sufficient condition for them rather than part of the definition.
+  `DomainSymmetryFamily` is now `DomainEquivFamily`, a dependent function assigning each
+  variable a permutation of its domain type, and the two symmetry-breaking predicates are
+  `domainSymmetryBreakingConstraint` and `variableSymmetryBreakingConstraint`.
+- `toHeterogeneous` is folded into `embed`, now the list map `csp.constraints.map
+  toDynamic`, so the embedding is a list map rather than a record with a `Set.univ` field.
 - `HomogeneousCSP` is now `IntCSP`, and constraint satisfaction is pattern-determined:
   `satisfiesConstraintInt c a := patternHolds c a`. A constraint's meaning is a function of
   its finite pattern rather than an opaque checker, which is what makes a single generic
@@ -64,6 +80,11 @@ checked by the Lean kernel rather than taken on the solver's word.
 
 - The `Canonical` dependency, which was imported but never used.
 - `CircuitTwinSymmetryBreaking.lean` and `ParityPathCSP.lean`.
+- `CSP/Transport.lean`. Its cast-transport lemmas served only the domain-membership step of
+  the old variable-symmetry proof.
+- `valid_assignment`, `satisfies_all_constraints`, the domain-compatibility predicates
+  `domain_symmetry` and `variable_symmetry`, `general_symmetry_breaking_constraint`, and the
+  group structure on domain symmetry families, all made vacuous or unused by the above.
 - The older benchmarking harness under `CSP/L2S/Proofs/Experiments/`, replaced by
   `experiments/`.
 

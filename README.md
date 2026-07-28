@@ -140,7 +140,6 @@ CSP/
 ├── Symmetry.lean             # General symmetry theory
 ├── Equivalence.lean          # General equivalence theory
 ├── GlobalConstraints.lean    # Predefined constraints
-├── Transport.lean            # Type casting utilities
 │
 └── L2S/                      # LeanToSolver framework
     ├── Core.lean             # IntCSP foundations
