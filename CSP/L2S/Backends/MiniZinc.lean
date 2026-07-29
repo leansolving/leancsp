@@ -6,9 +6,9 @@ namespace CSP.L2S.MiniZinc
 open CSP.L2S
 
 /-!
-# MiniZinc Backend for L2M
+# MiniZinc backend
 
-Translates HomogeneousCSP to MiniZinc constraint programming language.
+Translates IntCSP to MiniZinc constraint programming language.
 
 ## Features
 - Pattern-based constraint translation
@@ -17,9 +17,7 @@ Translates HomogeneousCSP to MiniZinc constraint programming language.
 - Support for 50+ constraint types
 -/
 
--- ============================================================================
--- Helper Functions
--- ============================================================================
+/-! ### Helper Functions -/
 
 /-- Convert RelOp to MiniZinc operator string -/
 def relOpToMzn (op : RelOp) : String :=
@@ -31,188 +29,191 @@ def relOpToMzn (op : RelOp) : String :=
   | RelOp.GT => ">"
   | RelOp.GE => ">="
 
--- ============================================================================
--- Pattern Translation
--- ============================================================================
+/-! ### Pattern Translation -/
 
 /-- Translate a single constraint pattern to MiniZinc constraint syntax -/
 def patternToMiniZinc {num_vars : ℕ} (opts : BackendOptions)
-    (pattern : ConstraintPattern num_vars) : Except TranslatorError (List String) :=
+    (pattern : IntConstraint num_vars) : Except TranslatorError (List String) :=
   match pattern with
-  | ConstraintPattern.alldifferent vars =>
+  | IntConstraint.alldifferent vars =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       .ok [s!"constraint alldifferent([{varList}]);"]
 
-  | ConstraintPattern.alldifferentOffset vars offsets =>
+  | IntConstraint.alldifferentOffset vars offsets =>
       let terms := (vars.zip offsets).map fun (v, off) =>
         if off ≥ 0 then s!"x{v} + {off}" else s!"x{v} - {-off}"
       let termList := String.intercalate ", " terms
       .ok [s!"constraint alldifferent([{termList}]);"]
 
-  | ConstraintPattern.increasing vars =>
+  | IntConstraint.increasing vars =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       .ok [s!"constraint increasing([{varList}]);"]
 
-  | ConstraintPattern.sum vars op target =>
+  | IntConstraint.value_precedence _colors =>
+      -- Staircase relaxation of value precedence (`x_j ≤ j`), matching the verified PB
+      -- backend's encoding.  (MiniZinc's exact form is `seq_precede_chain`.)
+      .ok ((List.range num_vars).map (fun j => s!"constraint x{j} <= {j};"))
+
+  | IntConstraint.sum vars op target =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       let opStr := relOpToMzn op
       .ok [s!"constraint sum([{varList}]) {opStr} {target};"]
 
-  | ConstraintPattern.linear vars coeffs op target =>
+  | IntConstraint.linear vars coeffs op target =>
       let terms := (vars.zip coeffs).map fun (v, c) => s!"({c})*x{v}"
       let exprStr := String.intercalate " + " terms
       let opStr := relOpToMzn op
       .ok [s!"constraint {exprStr} {opStr} {target};"]
 
-  | ConstraintPattern.count vars value n =>
+  | IntConstraint.count vars value n =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       .ok [s!"constraint count([{varList}], {value}, {n});"]
 
-  | ConstraintPattern.count_var vars value count_var =>
+  | IntConstraint.count_var vars value count_var =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       .ok [s!"constraint count([{varList}], {value}, x{count_var});"]
 
-  | ConstraintPattern.element index array result =>
+  | IntConstraint.element index array result =>
       let arrayStr := array.map toString |> String.intercalate ", "
       .ok [s!"constraint element(x{index}, [{arrayStr}], x{result});"]
 
-  | ConstraintPattern.maximum vars maxVar =>
+  | IntConstraint.maximum vars maxVar =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       .ok [s!"constraint maximum(x{maxVar}, [{varList}]);"]
 
-  | ConstraintPattern.minimum vars minVar =>
+  | IntConstraint.minimum vars minVar =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       .ok [s!"constraint minimum(x{minVar}, [{varList}]);"]
 
-  | ConstraintPattern.bound var lb ub =>
+  | IntConstraint.bound var lb ub =>
       .ok [s!"% Bound constraint x{var} ∈ [{lb}, {ub}] handled in variable declaration"]
 
   -- Binary comparison constraints
-  | ConstraintPattern.eq var1 var2 =>
+  | IntConstraint.eq var1 var2 =>
       .ok [s!"constraint x{var1} = x{var2};"]
 
-  | ConstraintPattern.ne var1 var2 =>
+  | IntConstraint.ne var1 var2 =>
       .ok [s!"constraint x{var1} != x{var2};"]
 
-  | ConstraintPattern.lt var1 var2 =>
+  | IntConstraint.lt var1 var2 =>
       .ok [s!"constraint x{var1} < x{var2};"]
 
-  | ConstraintPattern.le var1 var2 =>
+  | IntConstraint.le var1 var2 =>
       .ok [s!"constraint x{var1} <= x{var2};"]
 
-  | ConstraintPattern.gt var1 var2 =>
+  | IntConstraint.gt var1 var2 =>
       .ok [s!"constraint x{var1} > x{var2};"]
 
-  | ConstraintPattern.ge var1 var2 =>
+  | IntConstraint.ge var1 var2 =>
       .ok [s!"constraint x{var1} >= x{var2};"]
 
   -- Unary comparison constraints
-  | ConstraintPattern.eq_const var value =>
+  | IntConstraint.eq_const var value =>
       .ok [s!"constraint x{var} = {value};"]
 
-  | ConstraintPattern.ne_const var value =>
+  | IntConstraint.ne_const var value =>
       .ok [s!"constraint x{var} != {value};"]
 
-  | ConstraintPattern.lt_const var value =>
+  | IntConstraint.lt_const var value =>
       .ok [s!"constraint x{var} < {value};"]
 
-  | ConstraintPattern.le_const var value =>
+  | IntConstraint.le_const var value =>
       .ok [s!"constraint x{var} <= {value};"]
 
-  | ConstraintPattern.gt_const var value =>
+  | IntConstraint.gt_const var value =>
       .ok [s!"constraint x{var} > {value};"]
 
-  | ConstraintPattern.ge_const var value =>
+  | IntConstraint.ge_const var value =>
       .ok [s!"constraint x{var} >= {value};"]
 
   -- Logical/Disjunctive constraints
-  | ConstraintPattern.schur_triple var1 var2 var3 =>
+  | IntConstraint.schur_triple var1 var2 var3 =>
       .ok [s!"constraint x{var1} != x{var2} \\/ x{var1} != x{var3} \\/ x{var2} != x{var3};"]
 
   -- Absolute value constraints
-  | ConstraintPattern.abs_diff_rel var1 var2 op target =>
+  | IntConstraint.abs_diff_rel var1 var2 op target =>
       let opStr := relOpToMzn op
       .ok [s!"constraint abs(x{var1} - x{var2}) {opStr} {target};"]
 
-  | ConstraintPattern.abs_diff_var var1 var2 result =>
+  | IntConstraint.abs_diff_var var1 var2 result =>
       .ok [s!"constraint x{result} = abs(x{var1} - x{var2});"]
 
   -- Modulo constraints
-  | ConstraintPattern.modulo var n k =>
+  | IntConstraint.modulo var n k =>
       .ok [s!"constraint x{var} mod {n} = {k};"]
 
   -- Sliding window constraints
-  | ConstraintPattern.sliding_sum vars window_size op target =>
+  | IntConstraint.sliding_sum vars window_size op target =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       let opStr := relOpToMzn op
       .ok [s!"constraint forall(i in 1..{vars.length - window_size + 1}) (sum([{varList}][i..i+{window_size}-1]) {opStr} {target});"]
 
   -- Boolean gate constraints
-  | ConstraintPattern.not_gate in1 out =>
+  | IntConstraint.not_gate in1 out =>
       .ok [s!"constraint x{out} = 1 - x{in1};"]
 
-  | ConstraintPattern.and_gate in1 in2 out =>
+  | IntConstraint.and_gate in1 in2 out =>
       .ok [s!"constraint x{out} = min(x{in1}, x{in2});"]
 
-  | ConstraintPattern.or_gate in1 in2 out =>
+  | IntConstraint.or_gate in1 in2 out =>
       .ok [s!"constraint x{out} = max(x{in1}, x{in2});"]
 
-  | ConstraintPattern.xor_gate in1 in2 out =>
+  | IntConstraint.xor_gate in1 in2 out =>
       .ok [s!"constraint (x{in1} + x{in2}) mod 2 = x{out};"]
 
-  | ConstraintPattern.nand_gate in1 in2 out =>
+  | IntConstraint.nand_gate in1 in2 out =>
       .ok [s!"constraint x{out} >= 1 - x{in1} /\\ x{out} >= 1 - x{in2} /\\ x{out} <= 2 - x{in1} - x{in2};"]
 
-  | ConstraintPattern.nor_gate in1 in2 out =>
+  | IntConstraint.nor_gate in1 in2 out =>
       .ok [s!"constraint x{out} <= 1 - x{in1} /\\ x{out} <= 1 - x{in2} /\\ x{out} >= 1 - x{in1} - x{in2};"]
 
   -- Multi-input logical operations
-  | ConstraintPattern.and_all vars result =>
+  | IntConstraint.and_all vars result =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       .ok [s!"constraint x{result} = min([{varList}]);"]
 
-  | ConstraintPattern.or_all vars result =>
+  | IntConstraint.or_all vars result =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       .ok [s!"constraint x{result} = max([{varList}]);"]
 
-  | ConstraintPattern.xor_all vars result =>
+  | IntConstraint.xor_all vars result =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       .ok [s!"constraint sum([{varList}]) mod 2 = x{result};"]
 
   -- Implication and equivalence
-  | ConstraintPattern.implies premise conclusion =>
+  | IntConstraint.implies premise conclusion =>
       .ok [s!"constraint x{conclusion} >= x{premise};"]
 
-  | ConstraintPattern.iff var1 var2 =>
+  | IntConstraint.iff var1 var2 =>
       .ok [s!"constraint x{var1} = x{var2};"]
 
-  | ConstraintPattern.if_then var value next_var next_value =>
+  | IntConstraint.if_then var value next_var next_value =>
       .ok [s!"constraint (x{var} = {value}) -> (x{next_var} = {next_value});"]
 
-  | ConstraintPattern.if_then_or var value next_var allowed_values =>
+  | IntConstraint.if_then_or var value next_var allowed_values =>
       let set_literal := "{" ++ String.intercalate ", " (allowed_values.map toString) ++ "}"
       .ok [s!"constraint (x{var} = {value}) -> (x{next_var} in {set_literal});"]
 
   -- Cardinality constraints
-  | ConstraintPattern.at_least_k vars k =>
+  | IntConstraint.at_least_k vars k =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       .ok [s!"constraint sum([{varList}]) >= {k};"]
 
-  | ConstraintPattern.at_most_k vars k =>
+  | IntConstraint.at_most_k vars k =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       .ok [s!"constraint sum([{varList}]) <= {k};"]
 
-  | ConstraintPattern.exactly_k vars k =>
+  | IntConstraint.exactly_k vars k =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       .ok [s!"constraint sum([{varList}]) = {k};"]
 
   -- Arithmetic constraints with variable targets
-  | ConstraintPattern.product_rel_var vars op target_var =>
+  | IntConstraint.product_rel_var vars op target_var =>
       let productTerms := vars.map (s!"x{·}") |> String.intercalate " * "
       let opStr := relOpToMzn op
       .ok [s!"constraint ({productTerms}) {opStr} x{target_var};"]
 
-  | ConstraintPattern.linear_rel_var vars coeffs op target_var =>
+  | IntConstraint.linear_rel_var vars coeffs op target_var =>
       let terms := List.zip vars coeffs |>
         List.map (fun (v, c) =>
           if c = 1 then s!"x{v}"
@@ -222,45 +223,47 @@ def patternToMiniZinc {num_vars : ℕ} (opts : BackendOptions)
       let opStr := relOpToMzn op
       .ok [s!"constraint ({terms}) {opStr} x{target_var};"]
 
-  | ConstraintPattern.sum_rel_var vars op target_var =>
+  | IntConstraint.sum_rel_var vars op target_var =>
       let varList := vars.map (s!"x{·}") |> String.intercalate ", "
       let opStr := relOpToMzn op
       .ok [s!"constraint sum([{varList}]) {opStr} x{target_var};"]
 
-  | ConstraintPattern.disjunctive tasks durs =>
+  | IntConstraint.disjunctive tasks durs =>
       let task_vars := "[" ++ String.intercalate ", " (tasks.map (s!"x{·}")) ++ "]"
       let dur_vals := "[" ++ String.intercalate ", " (durs.map toString) ++ "]"
       .ok [s!"constraint disjunctive({task_vars}, {dur_vals});"]
 
-  | ConstraintPattern.unknown _ scope =>
+  | IntConstraint.strictLexRevLeader =>
+      let fwd := (List.range num_vars).map (s!"x{·}") |> String.intercalate ", "
+      let rev := (List.range num_vars).reverse.map (s!"x{·}") |> String.intercalate ", "
+      .ok [s!"constraint lex_less([{fwd}], [{rev}]);"]
+
+  | IntConstraint.unknown _ scope =>
       .error ⟨s!"Unknown constraint on variables: {scope}"⟩
 
--- ============================================================================
--- Include Generation
--- ============================================================================
+/-! ### Include Generation -/
 
 /-- Get required MiniZinc include statements for the constraints -/
-def getRequiredIncludes (csp : HomogeneousCSP) : List String :=
-  let patterns := csp.constraints.map (·.pattern)
+def getRequiredIncludes (csp : IntCSP) : List String :=
+  let patterns := csp.constraints
   let includes := patterns.foldl (fun acc p =>
     match p with
-    | ConstraintPattern.alldifferent _ => "alldifferent" :: acc
-    | ConstraintPattern.alldifferentOffset _ _ => "alldifferent" :: acc
-    | ConstraintPattern.increasing _ => "globals" :: acc
-    | ConstraintPattern.count _ _ _ => "count" :: acc
-    | ConstraintPattern.count_var _ _ _ => "count" :: acc
-    | ConstraintPattern.element _ _ _ => "element" :: acc
-    | ConstraintPattern.maximum _ _ => "maximum" :: acc
-    | ConstraintPattern.minimum _ _ => "minimum" :: acc
-    | ConstraintPattern.disjunctive _ _ => "disjunctive" :: acc
-    | ConstraintPattern.bound _ _ _ => acc
+    | IntConstraint.alldifferent _ => "alldifferent" :: acc
+    | IntConstraint.alldifferentOffset _ _ => "alldifferent" :: acc
+    | IntConstraint.increasing _ => "globals" :: acc
+    | IntConstraint.count _ _ _ => "count" :: acc
+    | IntConstraint.count_var _ _ _ => "count" :: acc
+    | IntConstraint.element _ _ _ => "element" :: acc
+    | IntConstraint.maximum _ _ => "maximum" :: acc
+    | IntConstraint.minimum _ _ => "minimum" :: acc
+    | IntConstraint.disjunctive _ _ => "disjunctive" :: acc
+    | IntConstraint.strictLexRevLeader => "lex_less" :: acc
+    | IntConstraint.bound _ _ _ => acc
     | _ => acc
   ) []
   includes.eraseDup.map (s!"include \"{·}.mzn\";")
 
--- ============================================================================
--- Backend Instance
--- ============================================================================
+/-! ### Backend Instance -/
 
 /-- MiniZinc backend instance -/
 def miniZincBackend : Backend where
@@ -284,21 +287,19 @@ def miniZincBackend : Backend where
 
   skipInConstraints := fun pattern =>
     match pattern with
-    | ConstraintPattern.bound _ _ _ => true
+    | IntConstraint.bound _ _ _ => true
     | _ => false
 
--- ============================================================================
--- Public API
--- ============================================================================
+/-! ### Public API -/
 
 /-- Convenience wrapper (backward compatibility) -/
-def translateToMiniZinc (csp : HomogeneousCSP) : String :=
+def translateToMiniZinc (csp : IntCSP) : String :=
   match translateWith miniZincBackend default csp with
   | .ok s => s
   | .error e => s!"% Error: {e.msg}"
 
 /-- Convenience wrapper with options -/
-def translateToMiniZincStrict (csp : HomogeneousCSP) : Except TranslatorError String :=
+def translateToMiniZincStrict (csp : IntCSP) : Except TranslatorError String :=
   translateWith miniZincBackend { strict := true } csp
 
 end CSP.L2S.MiniZinc

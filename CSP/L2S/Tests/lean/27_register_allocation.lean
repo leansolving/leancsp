@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Register Allocation
@@ -19,11 +17,11 @@ Constraints: Pre-coloring + interference (graph coloring)
 -/
 
 -- Helper to create all variables scope
-def allVars6 : _root_.Vector (HomogeneousVarIndex 6) 6 :=
+def allVars6 : _root_.Vector (VarType 6) 6 :=
   _root_.Vector.ofFn id
 
 -- Register allocation CSP (6 virtual registers, 3 physical registers)
-def register_allocation : HomogeneousCSP :=
+def register_allocation : IntCSP :=
   let nvars := 6
   let nregs := 3  -- Physical registers r0, r1, r2
 
@@ -62,6 +60,3 @@ def register_allocation : HomogeneousCSP :=
   -- (in practice, this is implicitly handled by interference graph)
 
   ⟨nvars, bounds_list ++ precolor ++ interferences⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed register_allocation

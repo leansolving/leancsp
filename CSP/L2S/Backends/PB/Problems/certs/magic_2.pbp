@@ -1,0 +1,8 @@
+pseudo-Boolean proof version 3.0
+f 60;
+rup >= 0 : ~ ;
+rup 3344290 ~x20 3344290 ~x19 3344290 ~x21 3344290 ~x22 3344290 ~x23 3344290 ~x24 >= 0 : ~;
+pol 61 51 1000000000000000 * + 56 1000000000000000 * + 60 1000000000000000 * + 62 + 3725291 d;
+output NONE ;
+conclusion UNSAT : 63;
+end pseudo-Boolean proof;

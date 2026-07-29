@@ -1,28 +1,21 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
-# Mutual Exclusion Verification
+# Mutual exclusion verification
 
-Two processes compete for a critical section.
-States: 0=idle, 1=trying, 2=critical
+Two processes with states `0 = idle`, `1 = trying`, `2 = critical` and
+non-deterministic transitions (`idle → {idle, trying}`, `trying → {trying,
+critical}`, `critical → {idle}`).
 
-Non-deterministic state transitions (for each process):
-- IDLE (0) → {IDLE, TRYING} (may stay idle or request critical section)
-- TRYING (1) → {TRYING, CRITICAL} (may wait or enter critical section)
-- CRITICAL (2) → {IDLE} (must exit to idle)
-
-Safety property: Both processes can't be in critical section simultaneously.
-
-If UNSAT: mutual exclusion holds. If SAT: safety violation found.
+The safety property is that both processes are never critical at once: UNSAT means
+mutual exclusion holds, SAT exhibits a violation.
 -/
 
 -- Parameterized mutual exclusion verification
-def peterson_mutex_k (k : ℕ) (h_k : k ≥ 2) : HomogeneousCSP :=
+def peterson_mutex_k (k : ℕ) (h_k : k ≥ 2) : IntCSP :=
   let nprocesses := 2
   let nvars := nprocesses * k
 
@@ -62,8 +55,5 @@ def peterson_mutex_k (k : ℕ) (h_k : k ≥ 2) : HomogeneousCSP :=
   ⟨nvars, bounds ++ initial ++ p0_transitions ++ p1_transitions ++ safety_violation⟩
 
 -- Instantiate with k=3 time steps
-def peterson_mutex : HomogeneousCSP :=
+def peterson_mutex : IntCSP :=
   peterson_mutex_k 3 (by decide)
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed peterson_mutex

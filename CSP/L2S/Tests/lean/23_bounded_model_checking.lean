@@ -1,25 +1,19 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
-# Bounded Model Checking
+# Bounded model checking
 
-Traffic light controller: RED(0) → GREEN(2) → YELLOW(1) → RED(0)
-
-Natural encoding using reified implications:
-- Variables: state[0], state[1], ..., state[k-1] ∈ {0,1,2}
-- Transitions: if state[t] = s then state[t+1] = next(s)
-- Safety check: Can we reach state[1]=RED and state[2]=YELLOW?
-
-If UNSAT: transition relation prevents RED→YELLOW. If SAT: bug found.
+A traffic light controller cycling `RED(0) → GREEN(2) → YELLOW(1) → RED(0)`, with
+one state variable per time step over `{0,1,2}` and reified implications for the
+transitions.  Asking whether `state[1] = RED` and `state[2] = YELLOW` are reachable:
+UNSAT means the transition relation forbids `RED → YELLOW`; SAT exhibits a bug.
 -/
 
 -- General BMC formulation parameterized by number of time steps
-def bounded_model_checking_k (k : ℕ) (h_k : k ≥ 3) : HomogeneousCSP :=
+def bounded_model_checking_k (k : ℕ) (h_k : k ≥ 3) : IntCSP :=
   let nvars := k
 
   -- All state variables have domain {0,1,2}
@@ -45,8 +39,5 @@ def bounded_model_checking_k (k : ℕ) (h_k : k ≥ 3) : HomogeneousCSP :=
   ⟨nvars, bounds ++ initial ++ transitions ++ safety_violation⟩
 
 -- Instantiate with k=5 time steps
-def bounded_model_checking : HomogeneousCSP :=
+def bounded_model_checking : IntCSP :=
   bounded_model_checking_k 5 (by decide)
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed bounded_model_checking

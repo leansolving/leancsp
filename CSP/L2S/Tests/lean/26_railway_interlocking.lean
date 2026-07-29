@@ -1,32 +1,20 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
-# Railway Interlocking
+# Railway interlocking
 
-Verify safety of railway track switching system.
+Two conflicting routes share segments `S0, S1`: route A runs `S0 → S1 → S2`
+(point normal), route B runs `S0 → S1 → S3` (point reverse).
 
-Two conflicting routes share segments S0, S1:
-- Route A: S0 → S1 → S2 (straight, point=0)
-- Route B: S0 → S1 → S3 (diverge, point=1)
-
-Variable layout:
-- v0: route_A active (Boolean)
-- v1: route_B active (Boolean)
-- v2: segment_S0 reserved (Boolean)
-- v3: segment_S1 reserved (Boolean)
-- v4: segment_S2 reserved (Boolean)
-- v5: segment_S3 reserved (Boolean)
-- v6: point_P1 position (0=normal/straight, 1=reverse/diverge)
-
-Constraints: Route mutex, segment reservation implications, point consistency
+Variables: `v0,v1` route A/B active; `v2..v5` segments `S0..S3` reserved; `v6` the
+position of point `P1` (`0` straight, `1` diverge).  Constraints cover route
+mutual exclusion, segment reservation, and point consistency.
 -/
 
-def railway_interlocking : HomogeneousCSP :=
+def railway_interlocking : IntCSP :=
   let nvars := 7
 
   -- All variables are Boolean: 0 or 1
@@ -76,6 +64,3 @@ def railway_interlocking : HomogeneousCSP :=
 
   ⟨nvars, bounds ++ route_mutex ++ route_a_segments ++ route_b_segments ++
           point_constraints ++ operational⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed railway_interlocking

@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Airport Traffic Control
@@ -18,7 +16,7 @@ Constraints: Initial positions, movement rules, collision avoidance, goal (reach
 -/
 
 -- Airport ground traffic control CSP (2 aircraft, 5 time steps)
-def airport_traffic : HomogeneousCSP :=
+def airport_traffic : IntCSP :=
   let naircraft := 2
   let nsteps := 5
   let nvars := naircraft * nsteps  -- 10 variables
@@ -89,6 +87,3 @@ def airport_traffic : HomogeneousCSP :=
 
   ⟨nvars, bounds_list ++ initial_state ++ movement_constraints ++
           collision_avoidance ++ goal_constraints⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed airport_traffic

@@ -3,13 +3,13 @@ import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
 import CSP.L2S.Translate
+import CSP.L2S.Proofs.PatternBridges
 import Mathlib.GroupTheory.Perm.Basic
 import Mathlib.Data.List.FinRange
 import Mathlib.Data.Fin.Tuple.Sort
 import Mathlib.Data.List.Nodup
 import Mathlib.Data.List.Sort
 import Mathlib.Tactic.Linarith
-import Canonical
 
 open CSP.L2S
 
@@ -21,16 +21,40 @@ Domains: 0..(n-1)
 Constraints: No repeated values per row/column
 -/
 
--- ============================================================================
--- CSP Definition
--- ============================================================================
+/-! ### Local pattern-satisfaction helpers (port to `patternHolds` semantics) -/
+
+/-- Local port helper: a vector scope mapped through an assignment equals the
+    `List.ofFn`/`Vector.get` form this file's index arithmetic is phrased in. -/
+private lemma toList_map_eq_ofFn_get {N k : ℕ} (vec : _root_.Vector (VarType N) k)
+    (a : IntAssignment N) :
+    vec.toList.map a = List.ofFn fun j => a (vec.get j) := by
+  apply List.ext_getElem
+  · simp
+  · intro i h1 h2
+    simp [_root_.Vector.get]
+
+/-- Local port helper: `alldifferent` over a vector scope, values in `.get` form. -/
+private lemma alldifferent_get_holds_iff {N k : ℕ} (vec : _root_.Vector (VarType N) k)
+    (a : IntAssignment N) :
+    IntCSP.satisfiesConstraintInt (alldifferent vec) a ↔
+    (List.ofFn fun j => a (vec.get j)).Nodup := by
+  rw [alldifferent_holds_iff, toList_map_eq_ofFn_get]
+
+/-- Local port helper: `increasing` over a vector scope, values in `.get` form. -/
+private lemma increasing_get_holds_iff {N k : ℕ} (vec : _root_.Vector (VarType N) k)
+    (a : IntAssignment N) :
+    IntCSP.satisfiesConstraintInt (increasing vec) a ↔
+    List.Pairwise (· ≤ ·) (List.ofFn fun j => a (vec.get j)) := by
+  rw [increasing_holds_iff, toList_map_eq_ofFn_get]
+
+/-! ### CSP Definition -/
 
 /- Bound constraints -/
-def bound_constraints (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def bound_constraints (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.finRange (n*n)).map (fun v => bound v 0 (n-1))
 
 /- Helper function: get all variables in a row -/
-def row_variables (i : Fin n) : Vector (HomogeneousVarIndex (n*n)) n :=
+def row_variables (i : Fin n) : Vector (VarType (n*n)) n :=
   Vector.ofFn (fun j => ⟨i.val * n + j.val, by
     have h1 : i.val < n := i.isLt
     have h2 : j.val < n := j.isLt
@@ -40,7 +64,7 @@ def row_variables (i : Fin n) : Vector (HomogeneousVarIndex (n*n)) n :=
       _ ≤ n * n := Nat.mul_le_mul_right n (Nat.succ_le_of_lt h1)⟩)
 
 /- Helper function: get all variables in a column -/
-def col_variables (j : Fin n) : Vector (HomogeneousVarIndex (n*n)) n :=
+def col_variables (j : Fin n) : Vector (VarType (n*n)) n :=
   Vector.ofFn (fun i => ⟨i.val * n + j.val, by
     have h1 : i.val < n := i.isLt
     have h2 : j.val < n := j.isLt
@@ -50,29 +74,27 @@ def col_variables (j : Fin n) : Vector (HomogeneousVarIndex (n*n)) n :=
       _ ≤ n * n := Nat.mul_le_mul_right n (Nat.succ_le_of_lt h1)⟩)
 
 /- Row constraints -/
-def row_constraints (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def row_constraints (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.finRange n).map (fun r => alldifferent (row_variables r))
 
 /- Column constraints -/
-def col_constraints (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def col_constraints (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.finRange n).map (fun c => alldifferent (col_variables c))
 
 /- CSP Definition -/
-def latin_square_csp (n : ℕ) : HomogeneousCSP :=
+def latin_square_csp (n : ℕ) : IntCSP :=
   ⟨ n*n,
     bound_constraints n ++
     row_constraints n ++
     col_constraints n ⟩
 
--- ============================================================================
--- Column Permutation Symmetry
--- ============================================================================
+/-! ### Column Permutation Symmetry -/
 
 /-- Column permutation: applies permutation σ to column indices.
     A cell at position (i, j) with index k = i*n + j
     maps to position (i, σ(j)) with index i*n + σ(j). -/
 def column_permutation (n : ℕ) (h_n : 0 < n) (σ : Equiv.Perm (Fin n)) :
-    Equiv.Perm (HomogeneousVarIndex (n*n)) where
+    Equiv.Perm (VarType (n*n)) where
   toFun := fun v =>
     let i := v.val / n  -- row index
     let j := v.val % n  -- column index
@@ -217,25 +239,21 @@ def column_permutation (n : ℕ) (h_n : 0 < n) (σ : Equiv.Perm (Fin n)) :
 def sorting_permutation (n : ℕ) (first_row : Fin n → ℤ) : Equiv.Perm (Fin n) :=
   Tuple.sort first_row
 
--- ============================================================================
--- Symmetry Breaking Constraint Definition
--- ============================================================================
+/-! ### Symmetry Breaking Constraint Definition -/
 
 /- Symmetry breaking constraint: first row must be in non-decreasing order.
    Uses the new `increasing` constraint. -/
-def sb_constraint (n : ℕ) (h_n : 0 < n) : TaggedConstraint (n*n) :=
+def latin_square_sbc (n : ℕ) (h_n : 0 < n) : IntConstraint (n*n) :=
   increasing (row_variables ⟨0, h_n⟩)
 
 /- Extended CSP (including the SBC) -/
-def extended_latin_square_csp (n : ℕ) (h_n : 0 < n) : HomogeneousCSP :=
-  (latin_square_csp n).addConstraint (sb_constraint n h_n)
+def latin_square_sb (n : ℕ) (h_n : 0 < n) : IntCSP :=
+  (latin_square_csp n).addConstraint (latin_square_sbc n h_n)
 
--- ============================================================================
--- Symmetry-Breaking Correctness
--- ============================================================================
+/-! ### Symmetry-Breaking Correctness -/
 
 /-- Helper lemma: column_permutation only changes the column index -/
-lemma column_permutation_structure (n : ℕ) (h_n : 0 < n) (σ : Equiv.Perm (Fin n)) (v : HomogeneousVarIndex (n*n)) :
+lemma column_permutation_structure (n : ℕ) (h_n : 0 < n) (σ : Equiv.Perm (Fin n)) (v : VarType (n*n)) :
     let i := v.val / n
     let j := v.val % n
     let j_fin : Fin n := ⟨j, Nat.mod_lt v.val h_n⟩
@@ -247,7 +265,7 @@ lemma column_permutation_structure (n : ℕ) (h_n : 0 < n) (σ : Equiv.Perm (Fin
 /-- Result 1: Column permutation is a variable symmetry for Latin Squares -/
 theorem column_permutation_is_variable_symmetry (n : ℕ) (h_n : 0 < n) (σ : Equiv.Perm (Fin n)) :
     VariableSymmetry (latin_square_csp n) (column_permutation n h_n σ) := by
-  unfold VariableSymmetry HomogeneousCSP.isSolution
+  unfold VariableSymmetry IntCSP.isSolutionInt
   intro assignment h_sol tc h_tc_mem
   unfold latin_square_csp at h_tc_mem
   simp only [List.mem_append] at h_tc_mem
@@ -262,14 +280,12 @@ theorem column_permutation_is_variable_symmetry (n : ℕ) (h_n : 0 < n) (σ : Eq
       left; left
       exact ⟨βv, trivial, rfl⟩
     have h_βv_sat := h_sol (bound βv 0 (n-1)) h_βv_bound
-    exact h_βv_sat
+    rw [bound_holds_iff] at h_βv_sat
+    exact (bound_holds_iff _ _ _ _).mpr h_βv_sat
   · unfold row_constraints at h_row
     simp only [List.mem_map, List.mem_finRange] at h_row
     obtain ⟨r, _, rfl⟩ := h_row
-    unfold HomogeneousCSP.satisfiesConstraint alldifferent
-    unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat
-    simp only [CSP.map_assignment, extractValues]
-    simp only [decide_eq_true_iff]
+    refine (alldifferent_get_holds_iff (row_variables r) _).mpr ?_
     have h_orig : (List.ofFn fun j => assignment ((row_variables r).get j)).Nodup := by
       have h_mem : alldifferent (row_variables r) ∈ (latin_square_csp n).constraints := by
         unfold latin_square_csp row_constraints
@@ -277,10 +293,7 @@ theorem column_permutation_is_variable_symmetry (n : ℕ) (h_n : 0 < n) (σ : Eq
         left; right
         exact ⟨r, trivial, rfl⟩
       have := h_sol (alldifferent (row_variables r)) h_mem
-      unfold HomogeneousCSP.satisfiesConstraint alldifferent at this
-      unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat at this
-      simp only [CSP.map_assignment, extractValues, decide_eq_true_iff] at this
-      exact this
+      exact (alldifferent_get_holds_iff _ _).mp this
     have h_perm : (List.ofFn fun i => (assignment ∘ column_permutation n h_n σ) ((row_variables r).get i)) =
                   (List.ofFn fun i => assignment ((row_variables r).get (σ i))) := by
       congr
@@ -323,9 +336,7 @@ theorem column_permutation_is_variable_symmetry (n : ℕ) (h_n : 0 < n) (σ : Eq
   · unfold col_constraints at h_col
     simp only [List.mem_map, List.mem_finRange] at h_col
     obtain ⟨c, _, rfl⟩ := h_col
-    unfold HomogeneousCSP.satisfiesConstraint alldifferent
-    unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat
-    simp only [CSP.map_assignment, extractValues, decide_eq_true_iff]
+    refine (alldifferent_get_holds_iff (col_variables c) _).mpr ?_
     have h_col_perm : (List.ofFn fun i => (assignment ∘ column_permutation n h_n σ) ((col_variables c).get i)) =
                       (List.ofFn fun i => assignment ((col_variables (σ c)).get i)) := by
       congr
@@ -368,16 +379,13 @@ theorem column_permutation_is_variable_symmetry (n : ℕ) (h_n : 0 < n) (σ : Eq
       right
       exact ⟨σ c, trivial, rfl⟩
     have := h_sol (alldifferent (col_variables (σ c))) h_mem
-    unfold HomogeneousCSP.satisfiesConstraint alldifferent at this
-    unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat at this
-    simp only [CSP.map_assignment, extractValues, decide_eq_true_iff] at this
-    exact this
+    exact (alldifferent_get_holds_iff _ _).mp this
 
 /-- Result 2: The symmetry breaking constraint is a variable symmetry breaking constraint -/
-theorem sb_constraint_is_variable_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
+theorem latin_square_sbc_is_variable_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
     variableSymmetryBreakingConstraint
       (latin_square_csp n)
-      (sb_constraint n h_n) := by
+      (latin_square_sbc n h_n) := by
   unfold variableSymmetryBreakingConstraint
   intro assignment h_sol
 
@@ -390,74 +398,40 @@ theorem sb_constraint_is_variable_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
   · exact column_permutation_is_variable_symmetry n h_n σ
 
   · intro tc h_tc_mem
-    simp only [HomogeneousCSP.addConstraint, List.mem_cons] at h_tc_mem
-    obtain h_sbc | h_orig := h_tc_mem
+    simp only [IntCSP.addConstraint] at h_tc_mem
+    obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
     · rw [h_sbc]
-      unfold HomogeneousCSP.satisfiesConstraint sb_constraint increasing
-      unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat
-      simp only [CSP.map_assignment, extractValues, decide_eq_true_iff]
+      unfold latin_square_sbc
+      refine (increasing_get_holds_iff (row_variables ⟨0, h_n⟩) _).mpr ?_
 
       have h_mono : Monotone (first_row ∘ σ) := by
         unfold sorting_permutation at σ
         exact Tuple.monotone_sort first_row
 
-      rw [List.sorted_le_ofFn_iff]
+      rw [← List.sortedLE_iff_pairwise, List.sortedLE_ofFn_iff]
 
       intro i1 i2 h_le
-      simp only [Function.comp_apply, row_variables, _root_.Vector.get, _root_.Vector.ofFn, Array.getElem_ofFn]
-
-      have h_i1_bound : 0 * n + i1.val < n * n := by
-        calc 0 * n + i1.val = i1.val := by simp
-          _ < n := i1.isLt
-          _ ≤ n * n := Nat.le_mul_of_pos_right n h_n
-
-      have h_i2_bound : 0 * n + i2.val < n * n := by
-        calc 0 * n + i2.val = i2.val := by simp
-          _ < n := i2.isLt
-          _ ≤ n * n := Nat.le_mul_of_pos_right n h_n
-
-      have h_σi1_bound : 0 * n + (σ i1).val < n * n := by
-        have : (σ i1).val < n := (σ i1).isLt
-        calc 0 * n + (σ i1).val = (σ i1).val := by simp
-          _ < n := this
-          _ ≤ n * n := Nat.le_mul_of_pos_right n h_n
-
-      have h_σi2_bound : 0 * n + (σ i2).val < n * n := by
-        have : (σ i2).val < n := (σ i2).isLt
-        calc 0 * n + (σ i2).val = (σ i2).val := by simp
-          _ < n := this
-          _ ≤ n * n := Nat.le_mul_of_pos_right n h_n
-
-      have h_cp_i1 : column_permutation n h_n σ ⟨0 * n + i1.val, h_i1_bound⟩ =
-                     ⟨0 * n + (σ i1).val, h_σi1_bound⟩ := by
-        ext
-        simp only [column_permutation, Nat.zero_mul, Nat.zero_add]
-        have : i1.val / n = 0 := Nat.div_eq_of_lt i1.isLt
-        have : i1.val % n = i1.val := Nat.mod_eq_of_lt i1.isLt
-        simp [*]
-
-      have h_cp_i2 : column_permutation n h_n σ ⟨0 * n + i2.val, h_i2_bound⟩ =
-                     ⟨0 * n + (σ i2).val, h_σi2_bound⟩ := by
-        ext
-        simp only [column_permutation, Nat.zero_mul, Nat.zero_add]
-        have : i2.val / n = 0 := Nat.div_eq_of_lt i2.isLt
-        have : i2.val % n = i2.val := Nat.mod_eq_of_lt i2.isLt
-        simp [*]
-
-      calc assignment (column_permutation n h_n σ ⟨0 * n + i1.val, h_i1_bound⟩)
-          = assignment ⟨0 * n + (σ i1).val, h_σi1_bound⟩ := by rw [h_cp_i1]
-        _ = assignment ((row_variables ⟨0, h_n⟩).get (σ i1)) := by
-            congr 1
-            simp only [row_variables, _root_.Vector.get, _root_.Vector.ofFn, Array.getElem_ofFn, Nat.zero_mul, Nat.zero_add]
-            rfl
+      simp only [Function.comp_apply]
+      -- Lean 4.30 core `Vector`: reduce `.get` of `ofFn` directly.  The old
+      -- `Vector.get`→`Array.getElem` simp path no longer normalises in context.
+      have vget : ∀ {α : Type} {m : ℕ} (f : Fin m → α) (k : Fin m),
+          (Vector.ofFn f).get k = f k := by
+        intro α m f k
+        simp only [Vector.get, Vector.toArray_ofFn, Array.getElem_ofFn, Fin.val_cast, Fin.eta]
+      -- The column permutation sends the row-0 variable for column k to that for σ k.
+      have hperm : ∀ (k : Fin n),
+          column_permutation n h_n σ ((row_variables ⟨0, h_n⟩).get k)
+            = (row_variables ⟨0, h_n⟩).get (σ k) := by
+        intro k
+        apply Fin.ext
+        simp [column_permutation, row_variables, vget, Nat.div_eq_of_lt, Nat.mod_eq_of_lt]
+      calc assignment (column_permutation n h_n σ ((row_variables ⟨0, h_n⟩).get i1))
+          = assignment ((row_variables ⟨0, h_n⟩).get (σ i1)) := by rw [hperm i1]
         _ = first_row (σ i1) := rfl
-        _ ≤ first_row (σ i2) := h_mono h_le
+        _ ≤ first_row (σ i2) := by simpa [Function.comp_apply] using h_mono h_le
         _ = assignment ((row_variables ⟨0, h_n⟩).get (σ i2)) := rfl
-        _ = assignment ⟨0 * n + (σ i2).val, h_σi2_bound⟩ := by
-            congr 1
-            simp only [row_variables, _root_.Vector.get, _root_.Vector.ofFn, Array.getElem_ofFn, Nat.zero_mul, Nat.zero_add]
-            rfl
-        _ = assignment (column_permutation n h_n σ ⟨0 * n + i2.val, h_i2_bound⟩) := by rw [h_cp_i2]
+        _ = assignment (column_permutation n h_n σ ((row_variables ⟨0, h_n⟩).get i2)) := by
+              rw [hperm i2]
 
     · have h_sym := column_permutation_is_variable_symmetry n h_n σ
       unfold VariableSymmetry at h_sym
@@ -465,25 +439,23 @@ theorem sb_constraint_is_variable_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
       exact h_sol_orig tc h_orig
 
 /-- Result 3: General symmetry breaking constraint -/
-theorem sb_constraint_is_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
+theorem latin_square_sbc_is_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
     symmetryBreakingConstraint
       (latin_square_csp n)
-      (sb_constraint n h_n) := by
+      (latin_square_sbc n h_n) := by
   unfold symmetryBreakingConstraint
   right  -- Choose variable symmetry breaking
-  exact sb_constraint_is_variable_symmetry_breaking n h_n
+  exact latin_square_sbc_is_variable_symmetry_breaking n h_n
 
 /-- Result 4: Equisatisfiability -/
 theorem latin_square_equisatisfiability (n : ℕ) (h_n : 0 < n) :
     equisatisfiable
       (latin_square_csp n)
-      (extended_latin_square_csp n h_n) := by
+      (latin_square_sb n h_n) := by
   apply variableSymmetryBreaking_equisatisfiability
-  exact sb_constraint_is_variable_symmetry_breaking n h_n
+  exact latin_square_sbc_is_variable_symmetry_breaking n h_n
 
--- ============================================================================
--- Solver translation
--- ============================================================================
+/-! ### Solver translation -/
 
 def main : IO Unit := do
   let lb := 10
@@ -499,7 +471,7 @@ def main : IO Unit := do
       IO.println s!"  Generating n={n}..."
 
       let base_csp := latin_square_csp n
-      let sbc_csp := extended_latin_square_csp n h_n
+      let sbc_csp := latin_square_sb n h_n
 
       -- Generate base instances
       saveToAuto base_csp s!"CSP/L2S/Proofs/mzn/latin_square/base_{n}" BackendType.MiniZinc

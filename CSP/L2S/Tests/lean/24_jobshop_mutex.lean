@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Job-Shop Scheduling
@@ -20,7 +18,7 @@ Constraints: Task precedence, machine mutex (using disjunctive), makespan deadli
 -/
 
 -- Job-shop scheduling with flexible machine orderings
-def jobshop_mutex : HomogeneousCSP :=
+def jobshop_mutex : IntCSP :=
   let njobs := 3
   let ntasks_per_job := 3
   let nvars := njobs * ntasks_per_job  -- 9 variables
@@ -106,6 +104,3 @@ def jobshop_mutex : HomogeneousCSP :=
   ]
 
   ⟨nvars, bounds_list ++ precedence ++ machine_mutex ++ makespan_constraints⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed jobshop_mutex

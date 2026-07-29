@@ -1,9 +1,7 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # 4-Bit Ripple Carry Adder
@@ -18,7 +16,7 @@ Variables: 28 total
 Result: 28 variables, 22 constraints
 -/
 
-def ripple_carry_adder_4bit : HomogeneousCSP :=
+def ripple_carry_adder_4bit : IntCSP :=
   let nvars := 29
   let bounds := (List.finRange nvars).map fun i => bound i 0 1
 
@@ -66,6 +64,3 @@ def ripple_carry_adder_4bit : HomogeneousCSP :=
     [s2_sum, s2_ab, s2_ac, s2_bc, s2_cout] ++
     [s3_sum, s3_ab, s3_ac, s3_bc, s3_cout] ++
     [violation]⟩
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed ripple_carry_adder_4bit

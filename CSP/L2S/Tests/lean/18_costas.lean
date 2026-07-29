@@ -2,44 +2,18 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
-# Costas Array Problem
-CSPLib Problem 076
+# Costas arrays
 
-## Problem Description
-A Costas array is a permutation of 1..n such that all pairwise differences
-(both horizontal and vertical) are distinct. Used in sonar and radar for
-minimal cross-correlation.
+A Costas array is a permutation of `1..n` in which all pairwise differences at each
+offset are distinct — used in sonar and radar for minimal cross-correlation.
 
-## CSP Formulation
-- **Primary variables**: n array positions, domain [1, n]
-- **Auxiliary variables**: n(n-1)/2 difference variables organized by offset
-  - For offset k=1: (n-1) differences
-  - For offset k=2: (n-2) differences
-  - ...
-  - For offset k=n-1: 1 difference
-- **Total variables**: n + n(n-1)/2
-- **Variable mapping**:
-  - Costas array: indices 0..(n-1)
-  - Differences: indices n onward, grouped by offset
-
-## Constraints
-1. Bounds: costas[i] ∈ [1, n], diff[k] ∈ [-(n-1), n-1]
-2. Alldifferent on costas (permutation)
-3. For each offset k: alldifferent on differences at that offset
-4. Difference definition: diff[offset,i] = costas[i+offset] - costas[i]
-
-## Parametrized Design
-- `costas_csp(n, num_vars)` - general formulation for array size n
-- `costas_8` - standard n=8 instance
-
-## Source
-CSPLib Problem 076
+`n + n(n-1)/2` variables: the array (indices `0..n-1`, domain `[1,n]`) plus, for each
+offset `k`, the differences `diff[k,i] = costas[i+k] - costas[i]`.  The array is
+`alldifferent`, as is each offset's difference group.  CSPLib problem 076.
 -/
 
 -- Helper: compute number of differences for all offsets
@@ -52,7 +26,7 @@ def diff_start_index (n k : ℕ) : ℕ :=
   n + (k - 1) * n - (k - 1) * k / 2
 
 -- Parametrized Costas Array CSP
-def costas_csp (n num_vars : ℕ) : HomogeneousCSP :=
+def costas_csp (n num_vars : ℕ) : IntCSP :=
   -- Bounds for costas array (indices 0..n-1): domain [1, n]
   let costas_bounds := (List.range n).filterMap fun i =>
     if h : i < num_vars then
@@ -78,7 +52,7 @@ def costas_csp (n num_vars : ℕ) : HomogeneousCSP :=
       none
   let costas_alldiff_opt :=
     if h_len : costas_var_list.length = n then
-      let costas_vars : _root_.Vector (HomogeneousVarIndex num_vars) n :=
+      let costas_vars : _root_.Vector (VarType num_vars) n :=
         ⟨costas_var_list.toArray, by simp; exact h_len⟩
       some (alldifferent costas_vars)
     else
@@ -101,7 +75,7 @@ def costas_csp (n num_vars : ℕ) : HomogeneousCSP :=
         if hj : costas_j < num_vars then
           if hd : diff_idx < num_vars then
             -- diff = costas[j] - costas[i]
-            let scope : _root_.Vector (HomogeneousVarIndex num_vars) 3 :=
+            let scope : _root_.Vector (VarType num_vars) 3 :=
               ⟨#[⟨costas_j, hj⟩, ⟨costas_i, hi⟩, ⟨diff_idx, hd⟩], rfl⟩
             let coeffs : _root_.Vector ℤ 3 := ⟨#[1, -1, -1], rfl⟩
             some (linear_eq scope coeffs 0)
@@ -121,7 +95,7 @@ def costas_csp (n num_vars : ℕ) : HomogeneousCSP :=
         none
     let alldiff_opt :=
       if h_len : diff_var_list.length = num_pairs then
-        let diff_vars : _root_.Vector (HomogeneousVarIndex num_vars) num_pairs :=
+        let diff_vars : _root_.Vector (VarType num_vars) num_pairs :=
           ⟨diff_var_list.toArray, by simp; exact h_len⟩
         some (alldifferent diff_vars)
       else
@@ -136,8 +110,5 @@ def costas_csp (n num_vars : ℕ) : HomogeneousCSP :=
 
 -- Standard n=8 Costas Array instance
 -- n = 8, num_diffs = 8*7/2 = 28, num_vars = 8 + 28 = 36
-def costas_8 : HomogeneousCSP :=
+def costas_8 : IntCSP :=
   costas_csp 8 36
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed costas_8

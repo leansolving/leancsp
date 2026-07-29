@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Car Sequencing (CSPLib #001)
@@ -33,7 +31,7 @@ def class_var_indices (data : CarSeqData) : List ℕ :=
 def option_indices (data : CarSeqData) (p : ℕ) : List ℕ :=
   List.range data.n_cars |>.map (option_var_idx data p)
 
-def generate_bounds (data : CarSeqData) : List (TaggedConstraint (data.n_cars + data.n_cars * data.n_options)) :=
+def generate_bounds (data : CarSeqData) : List (IntConstraint (data.n_cars + data.n_cars * data.n_options)) :=
   let class_bounds := (List.finRange data.n_cars).map fun ⟨i, h⟩ =>
     bound ⟨i, by omega⟩ 1 data.n_classes
   let option_bounds := (List.finRange data.n_options).flatMap fun ⟨p, hp⟩ =>
@@ -58,7 +56,7 @@ def nat_list_to_fin_vector {num_vars : ℕ} (indices : List ℕ)
   ⟨(indices.attach.map fun ⟨i, hi⟩ => ⟨i, h i hi⟩).toArray, by simp [List.length_attach]⟩
 
 def generate_count_constraints (data : CarSeqData) :
-    List (TaggedConstraint (data.n_cars + data.n_cars * data.n_options)) :=
+    List (IntConstraint (data.n_cars + data.n_cars * data.n_options)) :=
   let class_indices := class_var_indices data
   let class_vars := nat_list_to_fin_vector class_indices (by
     intro i hi
@@ -73,7 +71,7 @@ def generate_count_constraints (data : CarSeqData) :
     | none => none
 
 def generate_sliding_constraints (data : CarSeqData) :
-    List (TaggedConstraint (data.n_cars + data.n_cars * data.n_options)) :=
+    List (IntConstraint (data.n_cars + data.n_cars * data.n_options)) :=
   (List.finRange data.n_options).filterMap fun ⟨p, hp⟩ =>
     match data.option_block_size[p]?, data.option_max_per_block[p]? with
     | some block_size, some max_count =>
@@ -98,7 +96,7 @@ def generate_sliding_constraints (data : CarSeqData) :
         some (sliding_sum_le opt_vars block_size max_count)
     | _, _ => none
 
-def car_sequencing_csp (data : CarSeqData) : HomogeneousCSP :=
+def car_sequencing_csp (data : CarSeqData) : IntCSP :=
   let num_vars := data.n_cars + data.n_cars * data.n_options
   ⟨num_vars,
    generate_bounds data ++
@@ -123,6 +121,3 @@ def cars1_data : CarSeqData := {
 }
 
 def cars_csp := car_sequencing_csp cars1_data
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed cars_csp

@@ -7,7 +7,7 @@ import Mathlib.Tactic.Linarith
 
 namespace CSP.L2S
 
-open HomogeneousCSP
+open IntCSP
 
 /-!
 # Unreachable Input Elimination
@@ -40,9 +40,7 @@ This infrastructure (reachability, independence) can later be extended to:
 4. Conclude satisfiability independence
 -/
 
--- ============================================================================
--- Circuit Data Structure
--- ============================================================================
+/-! ### Circuit Data Structure -/
 
 /-- Types of logic gates in a circuit -/
 inductive GateType
@@ -67,9 +65,7 @@ structure Circuit where
   output_nodes : List ℕ    -- Explicit list of output node IDs
   deriving Repr
 
--- ============================================================================
--- Reachability Definitions
--- ============================================================================
+/-! ### Reachability Definitions -/
 
 /-- Direct dependency: node `src` feeds into node `tgt` via some gate.
     This defines the edges of the circuit DAG. -/
@@ -94,9 +90,7 @@ def is_output (c : Circuit) (node : ℕ) : Prop :=
 def reaches_output (c : Circuit) (i : ℕ) : Prop :=
   ∃ out, is_output c out ∧ ReachesOrEq c i out
 
--- ============================================================================
--- Well-Formedness: Strict Topological Order
--- ============================================================================
+/-! ### Well-Formedness: Strict Topological Order -/
 
 /-- A circuit is strictly ordered if all gate inputs are strictly less than
     the gate output. This ensures the circuit is a DAG and enables strong
@@ -112,9 +106,7 @@ def circuit_well_formed (c : Circuit) : Prop :=
 def circuit_valid (c : Circuit) : Prop :=
   circuit_well_formed c ∧ circuit_strictly_ordered c
 
--- ============================================================================
--- Circuit Evaluation (Semantics)
--- ============================================================================
+/-! ### Circuit Evaluation (Semantics) -/
 
 /-- Compute the total number of nodes in the circuit. -/
 def total_nodes (c : Circuit) : ℕ :=
@@ -172,9 +164,7 @@ def eval_node (c : Circuit) (assignment : ℕ → Bool) (v : ℕ) : Bool :=
 def circuit_satisfied (c : Circuit) (assignment : ℕ → Bool) : Prop :=
   ∀ out ∈ c.output_nodes, eval_node c assignment out = true
 
--- ============================================================================
--- Helper Lemmas for Reachability
--- ============================================================================
+/-! ### Helper Lemmas for Reachability -/
 
 /-- If there's a direct dependency from src to tgt, then src reaches tgt. -/
 lemma reaches_of_direct (c : Circuit) (src tgt : ℕ)
@@ -205,9 +195,7 @@ lemma reaches_extend (c : Circuit) (src u v : ℕ)
   | inr h_trans =>
     exact Relation.TransGen.tail h_trans h_edge
 
--- ============================================================================
--- The Coincidence Lemma (with fuel)
--- ============================================================================
+/-! ### The Coincidence Lemma (with fuel) -/
 
 /-- Key lemma: If input `i` does not reach node `v`, then the value at `v`
     is independent of the assignment to `i`.
@@ -282,9 +270,7 @@ theorem value_independent_of_unreachable
   unfold eval_node
   exact value_independent_of_unreachable_fuel c h_valid.2 i h_i_input (total_nodes c) v h_no_reach
 
--- ============================================================================
--- Main Theorem: Unreachable Input Elimination
--- ============================================================================
+/-! ### Main Theorem: Unreachable Input Elimination -/
 
 /-- Main theorem: If input `i` does not reach any output, then the circuit's
     satisfaction is independent of the value assigned to `i`.
@@ -328,7 +314,7 @@ theorem unreachable_input_irrelevant
       rw [← h_indep]
       exact h_sat out h_out_mem
     · -- assignment i = false, so assignment = update assignment i false
-      push_neg at h_ai
+      push Not at h_ai
       have h_ai' : assignment i = false := Bool.eq_false_iff.mpr h_ai
       have h_eq : assignment = Function.update assignment i false := by
         ext x
@@ -353,7 +339,7 @@ theorem unreachable_input_irrelevant
         · simp [Function.update, h_xi]
       rw [h_eq, h_indep]
       exact h_sat out h_out_mem
-    · push_neg at h_ai
+    · push Not at h_ai
       have h_ai' : assignment i = false := Bool.eq_false_iff.mpr h_ai
       have h_eq : assignment = Function.update assignment i false := by
         ext x
@@ -363,9 +349,7 @@ theorem unreachable_input_irrelevant
       rw [h_eq]
       exact h_sat out h_out_mem
 
--- ============================================================================
--- Corollary: Satisfiability Preservation
--- ============================================================================
+/-! ### Corollary: Satisfiability Preservation -/
 
 /-- Corollary: The existence of a satisfying assignment is preserved
     when fixing an unreachable input to false. -/

@@ -5,51 +5,34 @@ import CSP.L2S.Backends.SMTLIB
 namespace CSP.L2S
 
 /-!
-# Unified Translation API
+# Unified translation API
 
-All CSP translation functions in one place. Provides:
-- **Unified API**: `translateTo` for all backends
-- **Extended features**: Objectives, utility functions
+The translation entry points (`translateTo`, `saveTo`) for every backend.  This
+module sits above the backend implementations: `Backend.lean` defines the interface,
+`Backends/MiniZinc.lean` and `Backends/SMTLIB.lean` implement it, and this file
+imports both.
 
-## Design
-
-This module sits "above" the backend implementations and provides all
-translation entry points. It breaks the circular dependency by:
-- `Backend.lean` defines the interface (imported by backend implementations)
-- `Backends/MiniZinc.lean` and `Backends/SMTLIB.lean` implement the interface
-- `Translate.lean` (this file) imports everything and provides all APIs
-
-
-## Adding New Backends
-
-1. Create `CSP/Backends/Backends/YourBackend.lean`
-2. Implement the `Backend` interface
-3. Add constructor to `BackendType` in `Backend.lean`
-4. Add case to `selectBackend` below
-5. That's it! No other changes needed.
+To add a backend: implement the `Backend` interface, add a constructor to
+`BackendType`, and add a case to `selectBackend` below.
 -/
 
--- ============================================================================
--- Backend Selection
--- ============================================================================
+/-! ### Backend Selection -/
 
 /-- Select the backend implementation for a given backend type -/
 def selectBackend : BackendType → Backend
   | BackendType.MiniZinc => MiniZinc.miniZincBackend
   | BackendType.SMTLIB => SMTLIB.smtlibBackend
 
--- ============================================================================
--- Unified Translation Functions
--- ============================================================================
+/-! ### Unified Translation Functions -/
 
-def translateToExcept (csp : HomogeneousCSP)
+def translateToExcept (csp : IntCSP)
                       (backendType : BackendType)
                       (opts : BackendOptions := default)
                       : Except TranslatorError String :=
   translateWith (selectBackend backendType) opts csp
 
 
-def translateTo (csp : HomogeneousCSP)
+def translateTo (csp : IntCSP)
                 (backendType : BackendType)
                 (opts : BackendOptions := default)
                 : String :=
@@ -61,29 +44,14 @@ def translateTo (csp : HomogeneousCSP)
         | BackendType.SMTLIB => ";"
       s!"{commentPrefix} Translation error: {e.msg}"
 
--- ============================================================================
--- File I/O Functions
--- ============================================================================
+/-! ### File I/O Functions -/
 
-/--
-Save a translated CSP to a file.
+/-- Save a translated CSP to `filepath`, creating parent directories as needed.
 
-Creates parent directories automatically if they don't exist.
-Prints the output path for confirmation.
-
-## Parameters
-- `csp`: The CSP to translate
-- `filepath`: Path where to save the file (e.g., "output/model.mzn")
-- `backendType`: Which solver format to generate
-- `opts`: Backend options (optional)
-
-## Example
-```lean
-saveTo myCSP "output/queens.mzn" BackendType.MiniZinc
--- Output: ✓ Saved to output/queens.mzn
-```
--/
-def saveTo (csp : HomogeneousCSP)
+    ```lean
+    saveTo myCSP "output/queens.mzn" BackendType.MiniZinc
+    ``` -/
+def saveTo (csp : IntCSP)
            (filepath : String)
            (backendType : BackendType)
            (opts : BackendOptions := default)
@@ -104,7 +72,7 @@ Save a translated CSP with automatic file extension.
 Automatically appends the correct extension (.mzn or .smt2) based on backend type.
 Creates parent directories automatically if they don't exist.
 -/
-def saveToAuto (csp : HomogeneousCSP)
+def saveToAuto (csp : IntCSP)
                (basename : String)
                (backendType : BackendType)
                (opts : BackendOptions := default)
@@ -113,12 +81,10 @@ def saveToAuto (csp : HomogeneousCSP)
   let filepath := s!"{basename}.{ext}"
   saveTo csp filepath backendType opts
 
--- ============================================================================
--- MiniZinc Functions
--- ============================================================================
+/-! ### MiniZinc Functions -/
 
 
-def translateToMiniZinc (csp : HomogeneousCSP) : String :=
+def translateToMiniZinc (csp : IntCSP) : String :=
   translateTo csp BackendType.MiniZinc
 
 /-- Solving objectives for MiniZinc optimization problems -/
@@ -129,7 +95,7 @@ inductive SolveObjective where
   deriving Repr
 
 /-- MiniZinc translation with custom objective -/
-def translateToMiniZincWithObjective (csp : HomogeneousCSP)
+def translateToMiniZincWithObjective (csp : IntCSP)
     (objective : SolveObjective := .Satisfy) : String :=
   -- Include statements
   let includes := MiniZinc.getRequiredIncludes csp
@@ -142,10 +108,10 @@ def translateToMiniZincWithObjective (csp : HomogeneousCSP)
 
   -- Constraint translations (excluding bound constraints)
   let constraints := csp.constraints.filterMap fun tc =>
-    match tc.pattern with
-    | ConstraintPattern.bound _ _ _ => none
+    match tc with
+    | IntConstraint.bound _ _ _ => none
     | _ =>
-        match MiniZinc.patternToMiniZinc default tc.pattern with
+        match MiniZinc.patternToMiniZinc default tc with
         | .ok lines => some (String.intercalate "\n" lines)
         | .error _ => none
 
@@ -159,28 +125,26 @@ def translateToMiniZincWithObjective (csp : HomogeneousCSP)
   let allLines := includes ++ [""] ++ varDecls ++ [""] ++ constraints ++ ["", solveStmt]
   String.intercalate "\n" allLines
 
--- ============================================================================
--- Utility Functions (for analysis and debugging)
--- ============================================================================
+/-! ### Utility Functions (for analysis and debugging) -/
 
 /-- Extract variable bounds for MiniZinc variable declarations -/
-def extractVariableBoundsForMiniZinc (csp : HomogeneousCSP) :
+def extractVariableBoundsForMiniZinc (csp : IntCSP) :
     Fin csp.num_vars → (ℤ × ℤ) :=
   csp.extractAllBounds
 
 /-- Extract all variable bounds as a list for analysis -/
-def getAllVariableBounds (csp : HomogeneousCSP) : List (ℕ × ℤ × ℤ) :=
+def getAllVariableBounds (csp : IntCSP) : List (ℕ × ℤ × ℤ) :=
   List.ofFn fun (i : Fin csp.num_vars) =>
     let bounds := extractVariableBoundsForMiniZinc csp i
     (i.val, bounds.1, bounds.2)
 
 /-- Check if any variables have default bounds (indicating unbounded variables) -/
-def hasDefaultBounds (csp : HomogeneousCSP) : Bool :=
+def hasDefaultBounds (csp : IntCSP) : Bool :=
   let bounds := getAllVariableBounds csp
   bounds.any fun (_, lb, ub) => lb = -1000 ∧ ub = 1000
 
 /-- Generate statistics about variable bounds for debugging -/
-def generateBoundsReport (csp : HomogeneousCSP) : String :=
+def generateBoundsReport (csp : IntCSP) : String :=
   let bounds := getAllVariableBounds csp
   let lines := bounds.map fun (i, lb, ub) => s!"x{i}: [{lb}, {ub}]"
   let hasDefaults := if hasDefaultBounds csp then
@@ -190,59 +154,61 @@ def generateBoundsReport (csp : HomogeneousCSP) : String :=
   String.intercalate "\n" (hasDefaults :: lines)
 
 /-- Count constraints by type (for analysis) -/
-def countConstraintsByType (csp : HomogeneousCSP) : String :=
-  let patterns := csp.constraints.map (·.pattern)
+def countConstraintsByType (csp : IntCSP) : String :=
+  let patterns := csp.constraints
   let counts := patterns.foldl (fun acc p =>
     let key := match p with
-      | ConstraintPattern.alldifferent _ => "alldifferent"
-      | ConstraintPattern.alldifferentOffset _ _ => "alldifferent_offset"
-      | ConstraintPattern.increasing _ => "increasing"
-      | ConstraintPattern.sum _ _ _ => "sum"
-      | ConstraintPattern.linear _ _ _ _ => "linear"
-      | ConstraintPattern.count _ _ _ => "count"
-      | ConstraintPattern.count_var _ _ _ => "count_var"
-      | ConstraintPattern.element _ _ _ => "element"
-      | ConstraintPattern.maximum _ _ => "maximum"
-      | ConstraintPattern.minimum _ _ => "minimum"
-      | ConstraintPattern.bound _ _ _ => "bound"
-      | ConstraintPattern.eq _ _ => "eq"
-      | ConstraintPattern.ne _ _ => "ne"
-      | ConstraintPattern.lt _ _ => "lt"
-      | ConstraintPattern.le _ _ => "le"
-      | ConstraintPattern.gt _ _ => "gt"
-      | ConstraintPattern.ge _ _ => "ge"
-      | ConstraintPattern.eq_const _ _ => "eq_const"
-      | ConstraintPattern.ne_const _ _ => "ne_const"
-      | ConstraintPattern.lt_const _ _ => "lt_const"
-      | ConstraintPattern.le_const _ _ => "le_const"
-      | ConstraintPattern.gt_const _ _ => "gt_const"
-      | ConstraintPattern.ge_const _ _ => "ge_const"
-      | ConstraintPattern.schur_triple _ _ _ => "schur_triple"
-      | ConstraintPattern.abs_diff_rel _ _ _ _ => "abs_diff_rel"
-      | ConstraintPattern.abs_diff_var _ _ _ => "abs_diff_var"
-      | ConstraintPattern.modulo _ _ _ => "modulo"
-      | ConstraintPattern.sliding_sum _ _ _ _ => "sliding_sum"
-      | ConstraintPattern.not_gate _ _ => "not_gate"
-      | ConstraintPattern.and_gate _ _ _ => "and_gate"
-      | ConstraintPattern.or_gate _ _ _ => "or_gate"
-      | ConstraintPattern.xor_gate _ _ _ => "xor_gate"
-      | ConstraintPattern.nand_gate _ _ _ => "nand_gate"
-      | ConstraintPattern.nor_gate _ _ _ => "nor_gate"
-      | ConstraintPattern.and_all _ _ => "and_all"
-      | ConstraintPattern.or_all _ _ => "or_all"
-      | ConstraintPattern.xor_all _ _ => "xor_all"
-      | ConstraintPattern.implies _ _ => "implies"
-      | ConstraintPattern.iff _ _ => "iff"
-      | ConstraintPattern.if_then _ _ _ _ => "if_then"
-      | ConstraintPattern.if_then_or _ _ _ _ => "if_then_or"
-      | ConstraintPattern.at_least_k _ _ => "at_least_k"
-      | ConstraintPattern.at_most_k _ _ => "at_most_k"
-      | ConstraintPattern.exactly_k _ _ => "exactly_k"
-      | ConstraintPattern.sum_rel_var _ _ _ => "sum_rel_var"
-      | ConstraintPattern.linear_rel_var _ _ _ _ => "linear_rel_var"
-      | ConstraintPattern.product_rel_var _ _ _ => "product_rel_var"
-      | ConstraintPattern.disjunctive _ _ => "disjunctive"
-      | ConstraintPattern.unknown _ _ => "unknown"
+      | IntConstraint.alldifferent _ => "alldifferent"
+      | IntConstraint.alldifferentOffset _ _ => "alldifferent_offset"
+      | IntConstraint.increasing _ => "increasing"
+      | IntConstraint.sum _ _ _ => "sum"
+      | IntConstraint.linear _ _ _ _ => "linear"
+      | IntConstraint.count _ _ _ => "count"
+      | IntConstraint.count_var _ _ _ => "count_var"
+      | IntConstraint.element _ _ _ => "element"
+      | IntConstraint.maximum _ _ => "maximum"
+      | IntConstraint.minimum _ _ => "minimum"
+      | IntConstraint.bound _ _ _ => "bound"
+      | IntConstraint.eq _ _ => "eq"
+      | IntConstraint.ne _ _ => "ne"
+      | IntConstraint.lt _ _ => "lt"
+      | IntConstraint.le _ _ => "le"
+      | IntConstraint.gt _ _ => "gt"
+      | IntConstraint.ge _ _ => "ge"
+      | IntConstraint.eq_const _ _ => "eq_const"
+      | IntConstraint.ne_const _ _ => "ne_const"
+      | IntConstraint.lt_const _ _ => "lt_const"
+      | IntConstraint.le_const _ _ => "le_const"
+      | IntConstraint.gt_const _ _ => "gt_const"
+      | IntConstraint.ge_const _ _ => "ge_const"
+      | IntConstraint.schur_triple _ _ _ => "schur_triple"
+      | IntConstraint.abs_diff_rel _ _ _ _ => "abs_diff_rel"
+      | IntConstraint.abs_diff_var _ _ _ => "abs_diff_var"
+      | IntConstraint.modulo _ _ _ => "modulo"
+      | IntConstraint.sliding_sum _ _ _ _ => "sliding_sum"
+      | IntConstraint.not_gate _ _ => "not_gate"
+      | IntConstraint.and_gate _ _ _ => "and_gate"
+      | IntConstraint.or_gate _ _ _ => "or_gate"
+      | IntConstraint.xor_gate _ _ _ => "xor_gate"
+      | IntConstraint.nand_gate _ _ _ => "nand_gate"
+      | IntConstraint.nor_gate _ _ _ => "nor_gate"
+      | IntConstraint.and_all _ _ => "and_all"
+      | IntConstraint.or_all _ _ => "or_all"
+      | IntConstraint.xor_all _ _ => "xor_all"
+      | IntConstraint.implies _ _ => "implies"
+      | IntConstraint.iff _ _ => "iff"
+      | IntConstraint.if_then _ _ _ _ => "if_then"
+      | IntConstraint.if_then_or _ _ _ _ => "if_then_or"
+      | IntConstraint.at_least_k _ _ => "at_least_k"
+      | IntConstraint.at_most_k _ _ => "at_most_k"
+      | IntConstraint.exactly_k _ _ => "exactly_k"
+      | IntConstraint.sum_rel_var _ _ _ => "sum_rel_var"
+      | IntConstraint.linear_rel_var _ _ _ _ => "linear_rel_var"
+      | IntConstraint.product_rel_var _ _ _ => "product_rel_var"
+      | IntConstraint.value_precedence _ => "value_precedence"
+      | IntConstraint.strictLexRevLeader => "strictLexRevLeader"
+      | IntConstraint.disjunctive _ _ => "disjunctive"
+      | IntConstraint.unknown _ _ => "unknown"
     match acc.find? key with
     | some n => acc.insert key (n + 1)
     | none => acc.insert key 1
@@ -259,11 +225,11 @@ namespace CSP.L2S.Z3
 open CSP.L2S
 
 /-- Translate to SMT-LIB using old API -/
-def translateToSMTLIB (csp : HomogeneousCSP) : String :=
+def translateToSMTLIB (csp : IntCSP) : String :=
   translateTo csp BackendType.SMTLIB
 
 /-- SMT-LIB translation with custom logic -/
-def translateToSMTLIBWithLogic (csp : HomogeneousCSP) (logic : String) : String :=
+def translateToSMTLIBWithLogic (csp : IntCSP) (logic : String) : String :=
   translateTo csp BackendType.SMTLIB { smtLogic := some logic }
 
 end CSP.L2S.Z3

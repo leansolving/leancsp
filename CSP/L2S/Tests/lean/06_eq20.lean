@@ -2,25 +2,14 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
-# Solving 20 Linear Equations (06_eq20)
+# 20 linear equations
 
-This problem solves a system of 20 linear equations with 7 variables.
-Each equation has the form: c₀*x[0] + c₁*x[1] + ... + c₆*x[6] = target
-
-## Problem Details
-- **Variables**: 7 variables (x[0]..x[6])
-- **Domain**: 0..10 for all variables
-- **Constraints**: 20 linear equations with large integer coefficients
-
-## Source
-Ported from Gecode example by Guido Tack
-Original: 2007-02-22
+A system of 20 linear equations over 7 variables `x[0]..x[6]`, each with domain
+`0..10` and large integer coefficients.  Ported from a Gecode example.
 -/
 
 -- Helper to create a vector of coefficients from a list
@@ -29,13 +18,13 @@ def makeCoeffVector (n : ℕ) (coeffs : List ℤ) (h : coeffs.length = n) :
   ⟨coeffs.toArray, by simp [h]⟩
 
 -- Helper to create variable scope (all variables)
-def allVars (n : ℕ) : _root_.Vector (HomogeneousVarIndex n) n :=
+def allVars (n : ℕ) : _root_.Vector (VarType n) n :=
   _root_.Vector.ofFn id
 
 -- General function for creating a CSP with multiple linear equations
 def linear_equations_csp (n_vars : ℕ) (lb ub : ℤ)
     (equations : List (List ℤ × ℤ)) :
-    HomogeneousCSP :=
+    IntCSP :=
   let bounds_list := (List.finRange n_vars).map fun i => bound i lb ub
   let linear_constraints := equations.filterMap fun (coeffs, target) =>
     if h : coeffs.length = n_vars then
@@ -70,9 +59,6 @@ def eq20_equations : List (List ℤ × ℤ) := [
 ]
 
 -- Specific instance: solving the 20 linear equations
-def eq20_problem : HomogeneousCSP :=
+def eq20_problem : IntCSP :=
   let n := 7
   linear_equations_csp n 0 10 eq20_equations
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed eq20_problem

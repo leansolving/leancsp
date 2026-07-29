@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # N-Queens
@@ -19,11 +17,11 @@ Fully parametrized for any board size.
 -/
 
 -- Helper to create bound constraints for N-Queens
-def queens_bounds (n : ℕ) : List (TaggedConstraint n) :=
+def queens_bounds (n : ℕ) : List (IntConstraint n) :=
   (List.finRange n).map fun i => bound i 1 n
 
 -- General N-Queens CSP - parametrized for any board size
-def nqueens_csp (n : ℕ) : HomogeneousCSP :=
+def nqueens_csp (n : ℕ) : IntCSP :=
   ⟨n, queens_bounds n ++ [
     alldifferent (_root_.Vector.ofFn id),
     alldifferent_diag_pos n,
@@ -31,8 +29,5 @@ def nqueens_csp (n : ℕ) : HomogeneousCSP :=
   ]⟩
 
 -- Specific instance:
-def queens_inst : HomogeneousCSP :=
+def queens_inst : IntCSP :=
   nqueens_csp 30
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed queens_inst

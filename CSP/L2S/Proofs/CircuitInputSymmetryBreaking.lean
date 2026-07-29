@@ -3,6 +3,7 @@ import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
 import CSP.L2S.Translate
+import CSP.L2S.Proofs.PatternBridges
 import Mathlib.GroupTheory.Perm.Basic
 import Mathlib.Data.List.FinRange
 import Mathlib.Data.Fin.Tuple.Sort
@@ -10,39 +11,25 @@ import Mathlib.Tactic.Linarith
 
 namespace CSP.L2S
 
-open HomogeneousCSP
+open IntCSP
+open CSP.L2S.PB
 
 /-!
-# Circuit Input Symmetry Breaking Proof
+# Circuit input symmetry breaking
 
-This module proves the correctness of symmetry-breaking constraints for circuits
-where multiple inputs have identical fanout structure.
+Correctness of symmetry-breaking constraints for circuits whose inputs share an
+identical fanout structure.
 
-## Problem Statement
+The question "must at least `k` inputs be true to satisfy this circuit?" is posed as a
+counterexample search: all variables in `[0,1]`, the gate constraints, `output = 1`, and
+the negated cardinality `sum(inputs) ≤ k-1`.  UNSAT means `≥ k` inputs are needed; SAT
+yields a counterexample.
 
-**Verification Question**: Is it necessary to set at least k inputs to true to satisfy a circuit?
+Main theorem: if all circuit inputs fan out to exactly the same gates, then requiring
+them non-decreasing (`increasing`) is a valid symmetry-breaking constraint, so it
+preserves equisatisfiability. -/
 
-**CSP Formulation** (counterexample search):
-- Bounds: All variables ∈ [0,1]
-- Circuit gates: Gate constraints from Circuit structure
-- Satisfiability: output = 1 (circuit MUST output true)
-- Negated cardinality: sum(inputs) ≤ k-1 (at most k-1 inputs true)
-- **Symmetry Breaking**: increasing(symmetric_inputs) - inputs in non-decreasing order
-
-**Result**:
-- UNSAT → need ≥k inputs true (property proven)
-- SAT → counterexample with <k inputs (property violated)
-
-## Key Theorem
-
-If all circuit inputs have identical fanout structure (fan out to exactly the same gates),
-then imposing lexicographic ordering on them is a valid symmetry-breaking constraint that
-preserves equisatisfiability.
--/
-
--- ============================================================================
--- Circuit Data Structure (copied from example 32)
--- ============================================================================
+/-! ### Circuit Data Structure (copied from example 32) -/
 
 /-- Types of logic gates in a circuit -/
 inductive GateType
@@ -69,14 +56,21 @@ structure Circuit where
 /-- A circuit is well-formed if all gate outputs have indices ≥ num_inputs.
     This ensures that gate output nodes are disjoint from input nodes. -/
 def circuit_well_formed (circuit : Circuit) : Prop :=
-  circuit.gates ≠ [] ∧ ∀ gate ∈ circuit.gates, gate.output ≥ circuit.num_inputs
+  circuit.gates ≠ [] ∧
+  (∀ gate ∈ circuit.gates, gate.output ≥ circuit.num_inputs) ∧
+  -- Each gate's input list is duplicate-free, and a gate does not *mix* circuit
+  -- inputs with inter-gate wires: it uses either only circuit inputs (indices
+  -- `< num_inputs`) or only gate outputs (indices `≥ num_inputs`). Both hold for
+  -- layered circuits and are needed so that permuting symmetric inputs permutes a
+  -- gate's input list exactly.
+  (∀ gate ∈ circuit.gates, gate.inputs.Nodup) ∧
+  (∀ gate ∈ circuit.gates,
+    (∀ a ∈ gate.inputs, a < circuit.num_inputs) ∨ (∀ a ∈ gate.inputs, circuit.num_inputs ≤ a))
 
--- ============================================================================
--- Constraint Generation from Circuit (copied from example 32)
--- ============================================================================
+/-! ### Constraint Generation from Circuit (copied from example 32) -/
 
 /-- Generate CSP constraints for a list of gates -/
-def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (TaggedConstraint num_nodes) :=
+def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (IntConstraint num_nodes) :=
   gates.filterMap fun g =>
     match g.gate_type with
     | GateType.AND =>
@@ -111,12 +105,10 @@ def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (TaggedCo
         | _ => none
 
 /-- Convert a circuit to CSP constraints -/
-def circuit_to_constraints (circuit : Circuit) (total_nodes : ℕ) : List (TaggedConstraint total_nodes) :=
+def circuit_to_constraints (circuit : Circuit) (total_nodes : ℕ) : List (IntConstraint total_nodes) :=
   make_gate_constraints total_nodes circuit.gates
 
--- ============================================================================
--- Symmetric Input Detection
--- ============================================================================
+/-! ### Symmetric Input Detection -/
 
 /-- Check if two inputs have identical fanout structure.
     Two inputs are symmetric if they appear in exactly the same gates. -/
@@ -131,9 +123,7 @@ def get_circuit_inputs (circuit : Circuit) : List ℕ :=
 def all_inputs_symmetric (circuit : Circuit) (inputs : List ℕ) : Prop :=
   ∀ i ∈ inputs, ∀ j ∈ inputs, inputs_have_identical_fanout circuit i j
 
--- ============================================================================
--- Helper Lemmas
--- ============================================================================
+/-! ### Helper Lemmas -/
 
 /-- Folding max over a list preserves the initial value as a lower bound -/
 lemma foldl_max_ge_init (gates : List Gate) (init : ℕ) :
@@ -155,12 +145,10 @@ lemma total_nodes_gt_num_inputs (circuit : Circuit) :
   have h := foldl_max_ge_init circuit.gates circuit.num_inputs
   omega
 
--- ============================================================================
--- CSP Definitions
--- ============================================================================
+/-! ### CSP Definitions -/
 
 /-- Base CSP: circuit + satisfiability + negated cardinality (WITHOUT symmetry breaking) -/
-def circuit_requires_k_inputs_base_csp (circuit : Circuit) (k : ℕ) : HomogeneousCSP :=
+def circuit_requires_k_inputs_base_csp (circuit : Circuit) (k : ℕ) : IntCSP :=
   -- Compute total nodes needed
   let total_nodes := circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1
 
@@ -188,10 +176,10 @@ def circuit_requires_k_inputs_base_csp (circuit : Circuit) (k : ℕ) : Homogeneo
 /-- Symmetry breaking constraint: circuit inputs in non-decreasing order.
     Requires circuit to have at least one input. -/
 def input_ordering_constraint (circuit : Circuit) (_h : circuit.num_inputs > 0) :
-    TaggedConstraint (circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1) :=
+    IntConstraint (circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1) :=
   let total_nodes := circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1
   -- Create vector of input variables (0 to num_inputs-1)
-  let input_vars : _root_.Vector (HomogeneousVarIndex total_nodes) circuit.num_inputs :=
+  let input_vars : _root_.Vector (VarType total_nodes) circuit.num_inputs :=
     _root_.Vector.ofFn fun i => ⟨i.val, by
       have h_i : i.val < circuit.num_inputs := i.isLt
       have h_total : circuit.num_inputs < total_nodes := total_nodes_gt_num_inputs circuit
@@ -200,13 +188,11 @@ def input_ordering_constraint (circuit : Circuit) (_h : circuit.num_inputs > 0) 
 
 /-- Extended CSP: base + symmetry breaking constraint -/
 def circuit_requires_k_inputs_extended_csp (circuit : Circuit) (k : ℕ) (h : circuit.num_inputs > 0) :
-    HomogeneousCSP :=
+    IntCSP :=
   let base := circuit_requires_k_inputs_base_csp circuit k
   base.addConstraint (input_ordering_constraint circuit h)
 
--- ============================================================================
--- Symmetry Functions
--- ============================================================================
+/-! ### Symmetry Functions -/
 
 /-- Swap two variable indices -/
 def variable_swap (i j : ℕ) (n : ℕ) : Equiv.Perm (Fin n) :=
@@ -216,9 +202,7 @@ def variable_swap (i j : ℕ) (n : ℕ) : Equiv.Perm (Fin n) :=
     else Equiv.refl _
   else Equiv.refl _
 
--- ============================================================================
--- Example: 3-Input OR Gate
--- ============================================================================
+/-! ### Example: 3-Input OR Gate -/
 
 /-- 3-input OR gate: all inputs are symmetric (same fanout to single OR gate) -/
 def three_input_or : Circuit := {
@@ -234,16 +218,14 @@ lemma three_input_or_has_inputs : three_input_or.num_inputs > 0 := by decide
 
 /-- CSP: Is it necessary to set ≥1 input true to satisfy 3-input OR?
     Expected: UNSAT (cannot satisfy OR with 0 inputs true) -/
-def or3_requires_1_input_base : HomogeneousCSP :=
+def or3_requires_1_input_base : IntCSP :=
   circuit_requires_k_inputs_base_csp three_input_or 1
 
 /-- Extended CSP with symmetry breaking -/
-def or3_requires_1_input_extended : HomogeneousCSP :=
+def or3_requires_1_input_extended : IntCSP :=
   circuit_requires_k_inputs_extended_csp three_input_or 1 three_input_or_has_inputs
 
--- ============================================================================
--- Input Permutation Extension
--- ============================================================================
+/-! ### Input Permutation Extension -/
 
 /-- Extend a permutation on circuit inputs to all variables.
     Apply the permutation to input variables (0 to num_inputs-1) and
@@ -308,9 +290,7 @@ def extend_input_permutation (circuit : Circuit) (k : ℕ)
         simp only [h, dite_false]
   }
 
--- ============================================================================
--- Helper Lemmas for Circuit Well-formedness
--- ============================================================================
+/-! ### Helper Lemmas for Circuit Well-formedness -/
 
 /-- Helper lemma: foldl max preserves lower bounds -/
 lemma foldl_max_ge {α : Type*} (l : List α) (f : α → ℕ) (init n : ℕ)
@@ -332,7 +312,7 @@ lemma output_node_not_input (circuit : Circuit)
     (h_wf : circuit_well_formed circuit) :
     circuit.gates.foldl (fun acc g => max acc g.output) 0 ≥ circuit.num_inputs := by
   -- Extract the two parts of well-formedness
-  obtain ⟨h_nonempty, h_outputs⟩ := h_wf
+  obtain ⟨h_nonempty, h_outputs, _, _⟩ := h_wf
 
   -- Use the general foldl_max_ge lemma
   -- Since gates is non-empty, take first gate and use its output as bound
@@ -357,9 +337,7 @@ lemma output_node_not_input (circuit : Circuit)
     rw [h]
     exact List.mem_cons_of_mem first_gate h_g_mem
 
--- ============================================================================
--- Helper Lemmas for Gate Constraint Preservation
--- ============================================================================
+/-! ### Helper Lemmas for Gate Constraint Preservation -/
 
 /-- β fixes variables that are gate outputs (≥ num_inputs) -/
 lemma beta_fixes_gate_output (circuit : Circuit) (k : ℕ)
@@ -396,18 +374,16 @@ lemma gate_uses_all_or_none_inputs
   · -- Case: no circuit input is used
     right
     intro i h_i_lt
-    push_neg at h_exists
+    push Not at h_exists
     exact h_exists i h_i_lt
 
--- ============================================================================
--- Auxiliary Lemmas for Gate Constraint Preservation
--- ============================================================================
+/-! ### Auxiliary Lemmas for Gate Constraint Preservation -/
 
 /-- extractValues of map_assignment on appended vectors equals the concatenation -/
 lemma extractValues_map_assignment_append {num_vars m n : ℕ}
-    (v1 : _root_.Vector (HomogeneousVarIndex num_vars) m)
-    (v2 : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (f : HomogeneousVarIndex num_vars → ℤ) :
+    (v1 : _root_.Vector (VarType num_vars) m)
+    (v2 : _root_.Vector (VarType num_vars) n)
+    (f : VarType num_vars → ℤ) :
     extractValues (map_assignment f (_root_.Vector.append v1 v2)) =
     extractValues (map_assignment f v1) ++ extractValues (map_assignment f v2) := by
   unfold extractValues map_assignment _root_.Vector.append _root_.Vector.get
@@ -468,7 +444,7 @@ lemma beta_acts_as_sigma_on_inputs (circuit : Circuit) (k : ℕ)
 /-- Helper: Extract value from assignment after applying β to an input variable -/
 lemma extractValue_beta_on_input (circuit : Circuit) (k : ℕ)
     (σ : Equiv.Perm (Fin circuit.num_inputs))
-    (assignment : HomogeneousAssignment (circuit_requires_k_inputs_base_csp circuit k).num_vars)
+    (assignment : IntAssignment (circuit_requires_k_inputs_base_csp circuit k).num_vars)
     (i : ℕ) (h_i : i < circuit.num_inputs) :
     let β := extend_input_permutation circuit k σ
     (assignment ∘ β) ⟨i, by
@@ -487,27 +463,133 @@ lemma extractValue_beta_on_input (circuit : Circuit) (k : ℕ)
   congr 1
   exact beta_acts_as_sigma_on_inputs circuit k σ i h_i
 
+/-- `extractValues (map_assignment a v)` is just `v.toList.map a`. -/
+lemma extractValues_map_assignment_eq_toList_map {num_vars m : ℕ}
+    (a : VarType num_vars → ℤ)
+    (scope : _root_.Vector (VarType num_vars) m) :
+    extractValues (map_assignment a scope) = scope.toList.map a := by
+  unfold extractValues map_assignment
+  apply List.ext_getElem
+  · simp
+  · intro i h1 h2
+    rw [List.getElem_ofFn, List.getElem_map]
+    congr 1
+
+/-- Round-trip: when `listToFinVector` succeeds (no element dropped), mapping the
+    resulting Fin-vector back through `.val` recovers the original index list. -/
+lemma listToFinVector_toList_val {inputs : List ℕ} {N m : ℕ}
+    {vec : _root_.Vector (Fin N) m}
+    (h : IntCSP.listToFinVector inputs N = some ⟨m, vec⟩) :
+    vec.toList.map (·.val) = inputs := by
+  -- The dependent filterMap drops nothing exactly when its length is preserved.
+  have key : ∀ (l : List ℕ),
+      ((l.filterMap fun inp => if hh : inp < N then some (⟨inp, hh⟩ : Fin N) else none).length
+        = l.length) →
+      (l.filterMap fun inp => if hh : inp < N then some (⟨inp, hh⟩ : Fin N) else none).map
+          (·.val) = l := by
+    intro l
+    induction l with
+    | nil => intro _; simp
+    | cons a t ih =>
+      intro hlen
+      by_cases ha : a < N
+      · have htail :
+            (t.filterMap fun inp => if hh : inp < N then some (⟨inp, hh⟩ : Fin N) else none).length
+              = t.length := by
+          simp only [List.filterMap_cons, ha, dif_pos, List.length_cons] at hlen
+          omega
+        simp only [List.filterMap_cons, ha, dif_pos, List.map_cons, ih htail]
+      · exfalso
+        have hle :
+            (t.filterMap fun inp => if hh : inp < N then some (⟨inp, hh⟩ : Fin N) else none).length
+              ≤ t.length := List.length_filterMap_le _ _
+        simp only [List.filterMap_cons, ha, dif_neg, not_false_eq_true, List.length_cons] at hlen
+        omega
+  simp only [IntCSP.listToFinVector] at h
+  by_cases hcond :
+      (inputs.filterMap fun inp => if hh : inp < N then some (⟨inp, hh⟩ : Fin N) else none).length
+        = inputs.length ∧ inputs.length > 0
+  · rw [if_pos hcond, Option.some.injEq, Sigma.mk.injEq] at h
+    obtain ⟨hm, hv⟩ := h
+    subst hm
+    rw [← eq_of_heq hv]
+    simpa [_root_.Vector.toList] using key inputs hcond.1
+  · rw [if_neg hcond] at h
+    simp at h
+
 /-- When a gate uses all circuit inputs, applying β to the gate's input vector
     permutes the extracted values according to σ -/
 lemma beta_permutes_gate_input_values
     (circuit : Circuit) (k : ℕ)
     (σ : Equiv.Perm (Fin circuit.num_inputs))
     {n : ℕ}
-    (input_vec : _root_.Vector (HomogeneousVarIndex (circuit_requires_k_inputs_base_csp circuit k).num_vars) n)
+    (input_vec : _root_.Vector (VarType (circuit_requires_k_inputs_base_csp circuit k).num_vars) n)
     (gate_inputs : List ℕ)
     (h_vec_matches : input_vec.toList.map (·.val) = gate_inputs)
     (h_all_circuit_inputs : ∀ i ∈ gate_inputs, i < circuit.num_inputs)
     (h_perm : List.Perm gate_inputs (List.range circuit.num_inputs))
-    (assignment : HomogeneousAssignment (circuit_requires_k_inputs_base_csp circuit k).num_vars) :
+    (assignment : IntAssignment (circuit_requires_k_inputs_base_csp circuit k).num_vars) :
     let β := extend_input_permutation circuit k σ
     List.Perm
       (extractValues (map_assignment assignment input_vec))
       (extractValues (map_assignment (assignment ∘ β.toFun) input_vec)) := by
-  -- The proof strategy:
-  -- 1. Show that gate_inputs permutes to List.range num_inputs
-  -- 2. β acts as σ on each input
-  -- 3. Therefore the values are permuted according to σ
-  sorry
+  intro β
+  -- Reduce to a permutation of the index list: it suffices that β permutes
+  -- `input_vec.toList`, then `map assignment` preserves the permutation.
+  simp only [extractValues_map_assignment_eq_toList_map]
+  rw [← List.map_map]
+  refine List.Perm.map assignment ?_
+  -- The element-set of input_vec is exactly the circuit inputs, and β bijects it.
+  have hnodup : input_vec.toList.Nodup := by
+    have h1 : (input_vec.toList.map (·.val)).Nodup := by
+      rw [h_vec_matches]; exact (h_perm.nodup_iff).mpr List.nodup_range
+    exact List.Nodup.of_map _ h1
+  have hmem : ∀ x ∈ input_vec.toList, x.val < circuit.num_inputs := by
+    intro x hx
+    apply h_all_circuit_inputs
+    rw [← h_vec_matches]
+    exact List.mem_map_of_mem hx
+  have hcover : ∀ x : Fin (circuit_requires_k_inputs_base_csp circuit k).num_vars,
+      x.val < circuit.num_inputs → x ∈ input_vec.toList := by
+    intro x hx
+    have hxr : x.val ∈ gate_inputs := by
+      rw [h_perm.mem_iff]; exact List.mem_range.mpr hx
+    rw [← h_vec_matches, List.mem_map] at hxr
+    obtain ⟨y, hy_mem, hy_val⟩ := hxr
+    rwa [← (Fin.ext hy_val : y = x)]
+  have hβfix : ∀ x : Fin (circuit_requires_k_inputs_base_csp circuit k).num_vars,
+      circuit.num_inputs ≤ x.val → β x = x := fun x hx =>
+    beta_fixes_gate_output circuit k σ x.val hx x.isLt
+  have hβlow : ∀ x : Fin (circuit_requires_k_inputs_base_csp circuit k).num_vars,
+      x.val < circuit.num_inputs → (β x).val < circuit.num_inputs := by
+    intro x hx
+    show (extend_input_permutation circuit k σ x).val < circuit.num_inputs
+    unfold extend_input_permutation
+    simp only [Equiv.coe_fn_mk]
+    rw [dif_pos hx]
+    exact (σ ⟨x.val, hx⟩).isLt
+  have hβsurj : ∀ y : Fin (circuit_requires_k_inputs_base_csp circuit k).num_vars,
+      y.val < circuit.num_inputs → ∃ x, x.val < circuit.num_inputs ∧ β x = y := by
+    intro y hy
+    refine ⟨β.symm y, ?_, β.apply_symm_apply y⟩
+    by_contra hxnot
+    have hge : circuit.num_inputs ≤ (β.symm y).val := Nat.le_of_not_lt hxnot
+    have hfix : β (β.symm y) = β.symm y := hβfix (β.symm y) hge
+    rw [β.apply_symm_apply] at hfix
+    rw [← hfix] at hge
+    omega
+  have hnodup_map : (input_vec.toList.map β.toFun).Nodup := hnodup.map β.injective
+  have hfinset : input_vec.toList.toFinset = (input_vec.toList.map β.toFun).toFinset := by
+    apply Finset.ext
+    intro y
+    simp only [List.mem_toFinset, List.mem_map]
+    constructor
+    · intro hy
+      obtain ⟨x, hxlow, hxy⟩ := hβsurj y (hmem y hy)
+      exact ⟨x, hcover x hxlow, hxy⟩
+    · rintro ⟨x, hx_mem, rfl⟩
+      exact hcover _ (hβlow x (hmem x hx_mem))
+  exact List.perm_of_nodup_nodup_toFinset_eq hnodup hnodup_map hfinset
 
 /-- When a gate uses all circuit inputs, all its inputs are circuit inputs (< num_inputs).
     This is a structural property of circuits with identical fanout. -/
@@ -515,35 +597,36 @@ lemma gate_using_all_inputs_has_only_circuit_inputs
     (circuit : Circuit) (gate : Gate)
     (h_wf : circuit_well_formed circuit)
     (h_gate_mem : gate ∈ circuit.gates)
+    (h_pos : 0 < circuit.num_inputs)
     (h_all_in : ∀ i < circuit.num_inputs, i ∈ gate.inputs) :
     ∀ a ∈ gate.inputs, a < circuit.num_inputs := by
-  -- This property states that gates using all circuit inputs don't mix them with gate outputs
-  -- It's a structural property that holds in well-formed circuits with identical fanout
-  -- The formal proof requires additional well-formedness conditions about layering
-  -- For now we leave it as an axiom, as it holds in all practical examples
-  sorry
+  -- By the no-mixing conjunct of well-formedness, the gate uses only circuit inputs
+  -- or only gate outputs; since it uses input 0 (h_all_in, h_pos), it is the former.
+  obtain ⟨_, _, _, h_nomix⟩ := h_wf
+  rcases h_nomix gate h_gate_mem with h_lt | h_ge
+  · exact h_lt
+  · exact absurd (h_ge 0 (h_all_in 0 h_pos)) (by omega)
 
 /-- When a gate uses all circuit inputs, gate.inputs has no duplicates -/
 lemma gate_inputs_nodup_when_all
     (circuit : Circuit) (gate : Gate)
     (h_wf : circuit_well_formed circuit)
     (h_gate_mem : gate ∈ circuit.gates)
-    (h_all_in : ∀ i < circuit.num_inputs, i ∈ gate.inputs) :
+    (_h_all_in : ∀ i < circuit.num_inputs, i ∈ gate.inputs) :
     gate.inputs.Nodup := by
-  -- This follows from gate.inputs being a bijection with a finite range
-  -- The detailed proof uses pigeonhole principle: if gate.inputs had duplicates,
-  -- and it surjects onto range n, then it would need more than n elements
-  sorry
+  obtain ⟨_, _, h_nodup, _⟩ := h_wf
+  exact h_nodup gate h_gate_mem
 
 /-- When a gate uses all circuit inputs, gate.inputs is a permutation of List.range num_inputs -/
 lemma gate_inputs_perm_range_when_all
     (circuit : Circuit) (gate : Gate)
     (h_wf : circuit_well_formed circuit)
     (h_gate_mem : gate ∈ circuit.gates)
+    (h_pos : 0 < circuit.num_inputs)
     (h_all_in : ∀ i < circuit.num_inputs, i ∈ gate.inputs) :
     List.Perm gate.inputs (List.range circuit.num_inputs) := by
   -- Use Finset approach: show gate.inputs.toFinset = Finset.range circuit.num_inputs
-  have h_bounded := gate_using_all_inputs_has_only_circuit_inputs circuit gate h_wf h_gate_mem h_all_in
+  have h_bounded := gate_using_all_inputs_has_only_circuit_inputs circuit gate h_wf h_gate_mem h_pos h_all_in
 
   -- Show finset equality
   have h_finset_eq : gate.inputs.toFinset = Finset.range circuit.num_inputs := by
@@ -569,9 +652,7 @@ lemma gate_inputs_perm_range_when_all
   exact List.perm_of_nodup_nodup_toFinset_eq h_nodup_gate h_nodup_range h_finset_eq'
 
 
--- ============================================================================
--- Gate-Specific Constraint Preservation Lemmas
--- ============================================================================
+/-! ### Gate-Specific Constraint Preservation Lemmas -/
 
 /-- Helper: foldl with if-min computes the same result on permuted lists -/
 lemma foldl_if_min_perm (l1 l2 : List ℤ) (init : ℤ) (h_perm : List.Perm l1 l2) :
@@ -682,212 +763,271 @@ lemma foldl_if_min_mem_eq (l : List ℤ) (a b : ℤ)
       -- Since a < b (ha_lt_b), this simplifies to: foldl min a ((l.erase b).erase a)
       simp only [if_pos ha_lt_b]
 
+/-- The `headI` of a non-empty list is a member of it (helper for the foldl bridges). -/
+lemma headI_mem_of_ne_nil {α : Type*} [Inhabited α] {l : List α} (h : l ≠ []) :
+    l.headI ∈ l := by
+  cases l with
+  | nil => exact absurd rfl h
+  | cons a t => exact List.mem_cons_self
+
 /-- AND gate constraint preserved under input permutation -/
 lemma and_all_preserved_under_input_permutation
     {num_vars n : ℕ}
-    (input_vec : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (output : HomogeneousVarIndex num_vars)
-    (assignment : HomogeneousVarIndex num_vars → ℤ)
+    (input_vec : _root_.Vector (VarType num_vars) n)
+    (output : VarType num_vars)
+    (assignment : VarType num_vars → ℤ)
     (β : Equiv.Perm (Fin num_vars))
     (h_inputs_perm : List.Perm
       (extractValues (map_assignment assignment input_vec))
       (extractValues (map_assignment (assignment ∘ β) input_vec)))
     (h_output_fixed : β output = output)
-    (h_orig : satisfiesConstraint (and_all input_vec output) assignment) :
-    satisfiesConstraint (and_all input_vec output) (assignment ∘ β) := by
-  -- Unfold constraint definitions
-  unfold satisfiesConstraint and_all at h_orig ⊢
-  unfold satisfies_dynamic_constraint satisfies_constraint sat at h_orig ⊢
-  simp only at h_orig ⊢
+    (h_orig : satisfiesConstraintInt (and_all input_vec output) assignment) :
+    satisfiesConstraintInt (and_all input_vec output) (assignment ∘ β) := by
+  -- Reduce to the patternHolds form: list non-empty ∧ output = foldl-min of the values
+  simp only [IntCSP.satisfiesConstraintInt, and_all, patternHolds, map_valAt, valAt_eq]
+    at h_orig ⊢
+  simp only [extractValues_map_assignment_eq_toList_map] at h_inputs_perm
+  obtain ⟨h_ne, h_min⟩ := h_orig
+  -- The permuted value list is non-empty as well
+  have h_ne' : input_vec.toList.map (assignment ∘ β) ≠ [] := by
+    simp only [ne_eq, List.map_eq_nil_iff] at h_ne ⊢
+    exact h_ne
+  refine ⟨h_ne', ?_⟩
+  -- Both heads belong to the permuted list, so the foldl-min agrees
+  have h_head1 : (input_vec.toList.map assignment).headI ∈
+      input_vec.toList.map (assignment ∘ β) :=
+    h_inputs_perm.mem_iff.mp (headI_mem_of_ne_nil h_ne)
+  have h_head2 : (input_vec.toList.map (assignment ∘ β)).headI ∈
+      input_vec.toList.map (assignment ∘ β) := headI_mem_of_ne_nil h_ne'
+  calc (assignment ∘ β) output
+      = assignment output := by simp only [Function.comp_apply, h_output_fixed]
+    _ = (input_vec.toList.map assignment).foldl (fun acc x => if x < acc then x else acc)
+        (input_vec.toList.map assignment).headI := h_min
+    _ = (input_vec.toList.map (assignment ∘ β)).foldl (fun acc x => if x < acc then x else acc)
+        (input_vec.toList.map assignment).headI :=
+      foldl_if_min_perm _ _ _ h_inputs_perm
+    _ = (input_vec.toList.map (assignment ∘ β)).foldl (fun acc x => if x < acc then x else acc)
+        (input_vec.toList.map (assignment ∘ β)).headI :=
+      foldl_if_min_mem_eq _ _ _ h_head1 h_head2
 
-  -- Output value is unchanged since β fixes it
-  have h_output_eq : (assignment ∘ β) output = assignment output := by
-    simp only [Function.comp_apply]
-    rw [h_output_fixed]
+-- Max-fold counterparts of the min-fold lemmas above (mirror of `foldl_if_min_*`),
+-- used by the OR-gate preservation proof since `or_all` computes `max(inputs)`.
 
-  -- Strategy: The constraint checks that output = min(inputs)
-  -- Key lemma: extractValues of appended vector
-  have h_extract_append : ∀ (a : HomogeneousVarIndex num_vars → ℤ),
-      extractValues (map_assignment a (input_vec.append #v[output])) =
-      extractValues (map_assignment a input_vec) ++ [a output] := by
-    intro a
-    unfold extractValues map_assignment
-    -- Use ofFn_succ' to decompose into first n elements + last element
-    rw [List.ofFn_succ', List.concat_eq_append]
-    -- Now prove the two parts are equal
-    congr 1
-    · -- First n elements: show the functions are equal
-      congr
-      ext i
-      simp only [_root_.Vector.get, _root_.Vector.append, Fin.castSucc, Fin.cast, Fin.castAdd]
-      -- Prove (input_vec.toArray ++ #[output])[i] = input_vec.toArray[i]
-      have h_size : input_vec.toArray.size = n := by simp
-      rw [Array.getElem_append_left]
-      refine congrFun rfl input_vec.toArray[↑(Fin.castLE (Nat.le_add_right n 1) i)]
-    · -- Last element equals output
-      congr
-      simp only [_root_.Vector.get, _root_.Vector.append, Fin.last, Fin.cast, Fin.val_mk]
-      -- Prove (input_vec.toArray ++ #[output])[n] = output
-      have h_size : input_vec.toArray.size = n := by simp
-      rw [Array.getElem_append_right]
-      · simp [h_size]
-      · simp [h_size]
+/-- `foldl` with if-max computes the same result on permuted lists. -/
+lemma foldl_if_max_perm (l1 l2 : List ℤ) (init : ℤ) (h_perm : List.Perm l1 l2) :
+    List.foldl (fun acc x => if x > acc then x else acc) init l1 =
+    List.foldl (fun acc x => if x > acc then x else acc) init l2 := by
+  induction h_perm generalizing init with
+  | nil => rfl
+  | cons x hp IH =>
+    simp only [List.foldl_cons]
+    apply IH
+  | swap x y l =>
+    simp only [List.foldl_cons]
+    have h_comm : ∀ (a b c : ℤ),
+        (if b > (if c > a then c else a) then b else (if c > a then c else a)) =
+        (if c > (if b > a then b else a) then c else (if b > a then b else a)) := by
+      intros a b c
+      by_cases hb : b > a
+      · by_cases hc : c > a
+        · simp [hb, hc]
+          by_cases hbc : b > c
+          · simp [hbc]; omega
+          · simp [hbc]; omega
+        · simp [hb, hc]
+          omega
+      · by_cases hc : c > a
+        · simp [hb, hc]
+          omega
+        · simp [hb, hc]
+    rw [h_comm init x y]
+  | trans hp1 hp2 IH1 IH2 =>
+    exact Eq.trans (IH1 init) (IH2 init)
 
-  -- Apply to both assignments
-  have h_orig_vals := h_extract_append assignment
-  have h_perm_vals := h_extract_append (assignment ∘ β)
+/-- Folding with max when the init is in the list. -/
+lemma foldl_max_mem_eq_cons_erase (l : List ℤ) (a : ℤ) (ha : a ∈ l) :
+    List.foldl (fun acc x => if x > acc then x else acc) a l =
+    List.foldl (fun acc x => if x > acc then x else acc) a (a :: l.erase a) :=
+  foldl_if_max_perm _ _ _ (List.perm_cons_erase ha)
 
-  -- Rewrite h_orig using the structure
-  rw [h_orig_vals] at h_orig
-  rw [h_perm_vals]
-
-  -- Now both sides have the form: check(inputs_list ++ [output_val])
-  -- Use that inputs are permuted and output is same
-  have h_same_output : (assignment ∘ β) output = assignment output := h_output_eq
-
-  -- Simplify using list operations on appended lists
-  simp only [List.getLast?_concat, List.dropLast_concat] at h_orig ⊢
-
-  -- Both sides check: output = min(inputs)
-  -- Since inputs are permuted and min is preserved under permutation, we're done
-  have h_inputs_vals_perm := h_inputs_perm
-
-  -- The constraint checks if the list is non-empty and output equals the min
-  -- After simplification, both check the same condition due to:
-  -- 1. Same output value (h_same_output)
-  -- 2. Permuted input lists give same min (foldl_if_min_perm)
-  cases h_empty : (extractValues (map_assignment assignment input_vec)).isEmpty
-  · -- Non-empty case: use foldl_if_min_perm
-    simp [h_empty] at h_orig ⊢
-    constructor
-    · -- Prove the permuted list is also non-empty
-      intro h_contra
-      have h_perm_empty := List.Perm.length_eq h_inputs_vals_perm
-      rw [h_contra, List.length_nil] at h_perm_empty
-      have h_orig_nonempty : (extractValues (map_assignment assignment input_vec)) ≠ [] := by
-        exact List.isEmpty_eq_false_iff.mp h_empty
-      have h_orig_len : (extractValues (map_assignment assignment input_vec)).length = 0 := by
-        rw [← h_perm_empty]
-      simp only [List.length_eq_zero_iff] at h_orig_len
-      contradiction
-    · -- Prove assignment (β output) = min(permuted_inputs)
-      rw [h_output_fixed]
-      -- Use symmetry of permutation to swap the role of the two lists
-      have h_perm_symm := h_inputs_vals_perm.symm
-      -- Chain of equalities using fold preservation
-      calc assignment output
-        = List.foldl (fun acc x => if x < acc then x else acc)
-            (extractValues (map_assignment assignment input_vec)).head!
-            (extractValues (map_assignment assignment input_vec)) := h_orig
-      _ = List.foldl (fun acc x => if x < acc then x else acc)
-            (extractValues (map_assignment assignment input_vec)).head!
-            (extractValues (map_assignment (assignment ∘ β) input_vec)) :=
-          foldl_if_min_perm _ _ _ h_inputs_vals_perm
-      _ = List.foldl (fun acc x => if x < acc then x else acc)
-            (extractValues (map_assignment (assignment ∘ β) input_vec)).head!
-            (extractValues (map_assignment (assignment ∘ β) input_vec)) := by
-          -- Both heads are members of the permuted list
-          have h_nonempty_orig : extractValues (map_assignment assignment input_vec) ≠ [] := by
-            exact List.isEmpty_eq_false_iff.mp h_empty
-          have h_nonempty_perm : extractValues (map_assignment (assignment ∘ β) input_vec) ≠ [] := by
-            have h_len := List.Perm.length_eq h_inputs_vals_perm
-            intro h_contra
-            rw [h_contra, List.length_nil] at h_len
-            simp at h_len
-            contradiction
-          -- original.head! is in permuted list (since lists are permutations)
-          have h_orig_head_mem : (extractValues (map_assignment assignment input_vec)).head! ∈
-              extractValues (map_assignment (assignment ∘ β) input_vec) := by
-            rw [← h_inputs_vals_perm.mem_iff]
-            exact List.head!_mem_self h_nonempty_orig
-          -- permuted.head! is also in permuted list
-          have h_perm_head_mem : (extractValues (map_assignment (assignment ∘ β) input_vec)).head! ∈
-              extractValues (map_assignment (assignment ∘ β) input_vec) :=
-            List.head!_mem_self h_nonempty_perm
-          -- Apply helper lemma: both heads give the same fold result
-          exact foldl_if_min_mem_eq _ _ _ h_orig_head_mem h_perm_head_mem
-  · -- Empty case: both sides are false
-    simp [h_empty] at h_orig ⊢
+/-- When both initial values are members of the list, foldl-max agrees (both compute the max). -/
+lemma foldl_if_max_mem_eq (l : List ℤ) (a b : ℤ)
+    (ha : a ∈ l) (hb : b ∈ l) :
+    List.foldl (fun acc x => if x > acc then x else acc) a l =
+    List.foldl (fun acc x => if x > acc then x else acc) b l := by
+  by_cases hab : a = b
+  · simp [hab]
+  · rw [foldl_max_mem_eq_cons_erase l a ha]
+    rw [foldl_max_mem_eq_cons_erase l b hb]
+    have h_perm_a := List.perm_cons_erase ha
+    have h_perm_b := List.perm_cons_erase hb
+    have h_perm_ab : (a :: l.erase a).Perm (b :: l.erase b) :=
+      h_perm_a.symm.trans h_perm_b
+    rw [foldl_if_max_perm _ _ a h_perm_ab]
+    simp only [List.foldl_cons]
+    simp only [if_neg (lt_irrefl b)]
+    by_cases h : b > a
+    · simp [if_pos h]
+    · simp [if_neg h]
+      have ha_gt_b : a > b := by omega
+      have ha_erase : a ∈ l.erase b := by
+        have ha_cons : a ∈ (a :: l.erase a) := List.mem_cons_self
+        have ha_perm : a ∈ (b :: l.erase b) := h_perm_ab.mem_iff.mp ha_cons
+        simp [List.mem_cons] at ha_perm
+        cases ha_perm with
+        | inl h_eq => exact absurd h_eq hab
+        | inr h_mem => exact h_mem
+      have h_perm_a_erase : (l.erase b).Perm (a :: (l.erase b).erase a) :=
+        List.perm_cons_erase ha_erase
+      rw [foldl_if_max_perm _ _ _ h_perm_a_erase]
+      simp only [List.foldl_cons, if_neg (lt_irrefl a)]
+      rw [foldl_if_max_perm _ _ _ h_perm_a_erase]
+      simp only [List.foldl_cons]
+      simp only [if_pos ha_gt_b]
 
 /-- OR gate constraint preserved under input permutation -/
 lemma or_all_preserved_under_input_permutation
     {num_vars n : ℕ}
-    (input_vec : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (output : HomogeneousVarIndex num_vars)
-    (assignment : HomogeneousVarIndex num_vars → ℤ)
+    (input_vec : _root_.Vector (VarType num_vars) n)
+    (output : VarType num_vars)
+    (assignment : VarType num_vars → ℤ)
     (β : Equiv.Perm (Fin num_vars))
     (h_inputs_perm : List.Perm
       (extractValues (map_assignment assignment input_vec))
       (extractValues (map_assignment (assignment ∘ β) input_vec)))
     (h_output_fixed : β output = output)
-    (h_orig : satisfiesConstraint (or_all input_vec output) assignment) :
-    satisfiesConstraint (or_all input_vec output) (assignment ∘ β) := by
-  sorry
+    (h_orig : satisfiesConstraintInt (or_all input_vec output) assignment) :
+    satisfiesConstraintInt (or_all input_vec output) (assignment ∘ β) := by
+  -- Reduce to the patternHolds form: list non-empty ∧ output = foldl-max of the values
+  simp only [IntCSP.satisfiesConstraintInt, or_all, patternHolds, map_valAt, valAt_eq]
+    at h_orig ⊢
+  simp only [extractValues_map_assignment_eq_toList_map] at h_inputs_perm
+  obtain ⟨h_ne, h_max⟩ := h_orig
+  have h_ne' : input_vec.toList.map (assignment ∘ β) ≠ [] := by
+    simp only [ne_eq, List.map_eq_nil_iff] at h_ne ⊢
+    exact h_ne
+  refine ⟨h_ne', ?_⟩
+  have h_head1 : (input_vec.toList.map assignment).headI ∈
+      input_vec.toList.map (assignment ∘ β) :=
+    h_inputs_perm.mem_iff.mp (headI_mem_of_ne_nil h_ne)
+  have h_head2 : (input_vec.toList.map (assignment ∘ β)).headI ∈
+      input_vec.toList.map (assignment ∘ β) := headI_mem_of_ne_nil h_ne'
+  calc (assignment ∘ β) output
+      = assignment output := by simp only [Function.comp_apply, h_output_fixed]
+    _ = (input_vec.toList.map assignment).foldl (fun acc x => if x > acc then x else acc)
+        (input_vec.toList.map assignment).headI := h_max
+    _ = (input_vec.toList.map (assignment ∘ β)).foldl (fun acc x => if x > acc then x else acc)
+        (input_vec.toList.map assignment).headI :=
+      foldl_if_max_perm _ _ _ h_inputs_perm
+    _ = (input_vec.toList.map (assignment ∘ β)).foldl (fun acc x => if x > acc then x else acc)
+        (input_vec.toList.map (assignment ∘ β)).headI :=
+      foldl_if_max_mem_eq _ _ _ h_head1 h_head2
 
 /-- XOR gate constraint preserved under input permutation -/
 lemma xor_all_preserved_under_input_permutation
     {num_vars n : ℕ}
-    (input_vec : _root_.Vector (HomogeneousVarIndex num_vars) n)
-    (output : HomogeneousVarIndex num_vars)
-    (assignment : HomogeneousVarIndex num_vars → ℤ)
+    (input_vec : _root_.Vector (VarType num_vars) n)
+    (output : VarType num_vars)
+    (assignment : VarType num_vars → ℤ)
     (β : Equiv.Perm (Fin num_vars))
     (h_inputs_perm : List.Perm
       (extractValues (map_assignment assignment input_vec))
       (extractValues (map_assignment (assignment ∘ β) input_vec)))
     (h_output_fixed : β output = output)
-    (h_orig : satisfiesConstraint (xor_all input_vec output) assignment) :
-    satisfiesConstraint (xor_all input_vec output) (assignment ∘ β) := by
-  -- Unfold constraint definitions
-  unfold satisfiesConstraint xor_all at h_orig ⊢
-  unfold satisfies_dynamic_constraint satisfies_constraint sat at h_orig ⊢
-  simp only at h_orig ⊢
-
-  -- Sum is preserved by permutation
-  have h_sum_perm : ∀ (l1 l2 : List ℤ),
-      List.Perm l1 l2 → l1.sum = l2.sum := by
-    intros l1 l2 hp
-    exact List.Perm.sum_eq hp
-
-  sorry
+    (h_orig : satisfiesConstraintInt (xor_all input_vec output) assignment) :
+    satisfiesConstraintInt (xor_all input_vec output) (assignment ∘ β) := by
+  -- XOR check is `(inputs).sum % 2 = output`; sum is permutation-invariant, output is fixed.
+  simp only [IntCSP.satisfiesConstraintInt, xor_all, patternHolds, map_valAt, valAt_eq]
+    at h_orig ⊢
+  simp only [extractValues_map_assignment_eq_toList_map] at h_inputs_perm
+  rw [← List.Perm.sum_eq h_inputs_perm, Function.comp_apply, h_output_fixed]
+  exact h_orig
 
 /-- NOT gate constraint preserved when both variables fixed -/
 lemma not_gate_preserved_when_fixed
     {num_vars : ℕ}
-    (input output : HomogeneousVarIndex num_vars)
-    (assignment : HomogeneousVarIndex num_vars → ℤ)
+    (input output : VarType num_vars)
+    (assignment : VarType num_vars → ℤ)
     (β : Equiv.Perm (Fin num_vars))
     (h_input_fixed : β input = input)
     (h_output_fixed : β output = output)
-    (h_orig : satisfiesConstraint (not_gate input output) assignment) :
-    satisfiesConstraint (not_gate input output) (assignment ∘ β) := by
-  -- Unfold constraint definitions
-  unfold satisfiesConstraint not_gate at h_orig ⊢
-  unfold satisfies_dynamic_constraint satisfies_constraint sat at h_orig ⊢
-  simp only at h_orig ⊢
-
-  -- Show that map_assignment gives the same result
-  have h_map_eq : map_assignment (assignment ∘ ⇑β) #v[input, output] =
-                   map_assignment assignment #v[input, output] := by
-    funext i
-    simp only [map_assignment, _root_.Vector.get]
-    match i with
-    | ⟨0, _⟩ =>
-      -- Input variable case
-      simp only [Function.comp_apply]
-      congr 1
-    | ⟨1, _⟩ =>
-      -- Output variable case
-      simp only [Function.comp_apply]
-      congr 1
-
-  -- Rewrite using the equality
-  rw [h_map_eq]
+    (h_orig : satisfiesConstraintInt (not_gate input output) assignment) :
+    satisfiesConstraintInt (not_gate input output) (assignment ∘ β) := by
+  -- The check is `output = 1 - input`; β fixes both variables, so it transports as-is.
+  simp only [IntCSP.satisfiesConstraintInt, not_gate, patternHolds, valAt_eq] at h_orig ⊢
+  simp only [Function.comp_apply, h_input_fixed, h_output_fixed]
   exact h_orig
 
 
--- ============================================================================
--- Result 1: Input Permutation is a Variable Symmetry
--- ============================================================================
+/-- An at-most-k cardinality constraint is preserved when the variables' values
+    are permuted (the sum is permutation-invariant). -/
+lemma at_most_k_preserved_under_input_permutation {num_vars n : ℕ}
+    (input_vec : _root_.Vector (VarType num_vars) n) (k : ℕ)
+    (assignment : VarType num_vars → ℤ) (β : Equiv.Perm (Fin num_vars))
+    (h_inputs_perm : List.Perm
+      (extractValues (map_assignment assignment input_vec))
+      (extractValues (map_assignment (assignment ∘ β) input_vec)))
+    (h_orig : satisfiesConstraintInt (at_most_k input_vec k) assignment) :
+    satisfiesConstraintInt (at_most_k input_vec k) (assignment ∘ β) := by
+  -- The check is `sum(values) ≤ k`; the sum is permutation-invariant.
+  simp only [IntCSP.satisfiesConstraintInt, at_most_k, patternHolds, map_valAt] at h_orig ⊢
+  simp only [extractValues_map_assignment_eq_toList_map] at h_inputs_perm
+  rw [← List.Perm.sum_eq h_inputs_perm]
+  exact h_orig
+
+/-- Under well-formedness and all-inputs-symmetric, applying β to a gate's input
+    vector permutes the extracted input values. Two cases (no-mixing conjunct of
+    well-formedness): the gate uses only circuit inputs — permuted by σ, so the
+    values are a permutation — or only fixed gate-output wires — so the values are
+    literally unchanged. This unifies the AND/OR/XOR gate cases below. -/
+lemma gate_input_values_perm
+    (circuit : Circuit) (k : ℕ) (σ : Equiv.Perm (Fin circuit.num_inputs))
+    (h_wf : circuit_well_formed circuit)
+    (h_all_sym : all_inputs_symmetric circuit (get_circuit_inputs circuit))
+    (gate : Gate) (h_gate_mem : gate ∈ circuit.gates)
+    {n : ℕ}
+    (input_vec : _root_.Vector (VarType
+      (circuit_requires_k_inputs_base_csp circuit k).num_vars) n)
+    (heq_split : IntCSP.listToFinVector gate.inputs
+      (circuit_requires_k_inputs_base_csp circuit k).num_vars = some ⟨n, input_vec⟩)
+    (assignment : IntAssignment (circuit_requires_k_inputs_base_csp circuit k).num_vars) :
+    List.Perm
+      (extractValues (map_assignment assignment input_vec))
+      (extractValues (map_assignment
+        (assignment ∘ (extend_input_permutation circuit k σ)) input_vec)) := by
+  set β := extend_input_permutation circuit k σ with hβdef
+  have h_vec_matches : input_vec.toList.map (·.val) = gate.inputs :=
+    listToFinVector_toList_val heq_split
+  have h_ne : gate.inputs ≠ [] := by
+    intro hnil; rw [hnil] at heq_split
+    simp [IntCSP.listToFinVector] at heq_split
+  have ⟨_, _, _, h_nomix⟩ := h_wf
+  rcases h_nomix gate h_gate_mem with h_lt | h_ge
+  · -- gate uses only circuit inputs: σ permutes them, so values are permuted
+    obtain ⟨a, ha⟩ := List.exists_mem_of_ne_nil gate.inputs h_ne
+    have h_pos : 0 < circuit.num_inputs := lt_of_le_of_lt (Nat.zero_le a) (h_lt a ha)
+    have h_uses_all : ∀ i < circuit.num_inputs, i ∈ gate.inputs := by
+      rcases gate_uses_all_or_none_inputs circuit gate h_all_sym h_gate_mem with h | h
+      · exact h
+      · exact absurd ha (h a (h_lt a ha))
+    have h_perm : List.Perm gate.inputs (List.range circuit.num_inputs) :=
+      gate_inputs_perm_range_when_all circuit gate h_wf h_gate_mem h_pos h_uses_all
+    exact beta_permutes_gate_input_values circuit k σ input_vec gate.inputs
+      h_vec_matches h_lt h_perm assignment
+  · -- gate uses only gate-output wires: β fixes them all, so values are unchanged
+    have key : extractValues (map_assignment (assignment ∘ β) input_vec)
+             = extractValues (map_assignment assignment input_vec) := by
+      simp only [extractValues_map_assignment_eq_toList_map]
+      apply List.map_congr_left
+      intro x hx
+      have hxge : circuit.num_inputs ≤ x.val :=
+        h_ge _ (by rw [← h_vec_matches]; exact List.mem_map_of_mem hx)
+      have hbx : β x = x := beta_fixes_gate_output circuit k σ x.val hxge x.isLt
+      show assignment (β x) = assignment x
+      rw [hbx]
+    exact key ▸ List.Perm.refl _
+
+/-! ### Result 1: Input Permutation is a Variable Symmetry -/
 
 /-- When all circuit inputs have identical fanout, any permutation of inputs
     is a variable symmetry of the base CSP. -/
@@ -902,7 +1042,7 @@ theorem input_permutation_is_variable_symmetry
   -- Prove directly by unfolding VariableSymmetry
   -- (Individual constraints are NOT variable-symmetric in isolation,
   -- only when we have a full solution satisfying all bounds)
-  unfold VariableSymmetry HomogeneousCSP.isSolution
+  unfold VariableSymmetry IntCSP.isSolutionInt
   intro assignment h_sol tc h_tc_mem
 
   let β := extend_input_permutation circuit k σ
@@ -933,8 +1073,12 @@ theorem input_permutation_is_variable_symmetry
     -- Use that assignment satisfies bound βv 0 1
     have h_βv_sat := h_sol (bound βv 0 1) h_βv_bound
 
-    -- h_βv_sat says assignment βv ∈ [0,1], which is exactly what we need for (assignment ∘ β) v
-    exact h_βv_sat
+    -- h_βv_sat says assignment βv ∈ [0,1], which is exactly what we need for (assignment ∘ β) v.
+    -- (The bridge is applied as a term: the goal's num_vars is the non-reduced
+    -- `(circuit_requires_k_inputs_base_csp circuit k).num_vars` projection while `v` is
+    -- indexed by the reduced `foldl + 1`, so `rw` cannot match — elaboration can.)
+    rw [bound_holds_iff] at h_βv_sat
+    exact (bound_holds_iff v 0 1 (assignment ∘ ⇑β)).mpr h_βv_sat
 
   · -- Case 2: Circuit gate constraints
     -- Strategy: Show that gate constraints are preserved under input permutation
@@ -965,7 +1109,8 @@ theorem input_permutation_is_variable_symmetry
       -- heq : gate.gate_type = GateType.AND tells us which case we're in
 
       -- Split on the validity checks in the match
-      split_ifs at h_constraint_eq with h_output_valid <;> try contradiction
+      split_ifs at h_constraint_eq with h_output_valid
+      try contradiction
 
       -- The split on listToFinVector creates a match with some ⟨n, vec⟩
       split at h_constraint_eq
@@ -1000,13 +1145,13 @@ theorem input_permutation_is_variable_symmetry
           simp only [heq_split]
           -- Result is some (and_all input_vec ⟨gate.output, h_output_valid⟩)
           simp only [h_constraint_eq]
-        have h_orig : satisfiesConstraint (and_all input_vec ⟨gate.output, h_output_valid⟩) assignment :=
+        have h_orig : satisfiesConstraintInt (and_all input_vec ⟨gate.output, h_output_valid⟩) assignment :=
           h_constraint_eq ▸ h_sol tc h_tc_in_csp
 
         -- Prove that β fixes the gate output (it's >= num_inputs)
         have h_output_fixed : β ⟨gate.output, h_output_valid⟩ = ⟨gate.output, h_output_valid⟩ := by
           -- Gate outputs are >= circuit.num_inputs by well-formedness
-          obtain ⟨h_nonempty, h_wf_outputs⟩ := h_wf
+          have ⟨h_nonempty, h_wf_outputs, _, _⟩ := h_wf
           have h_output_ge : gate.output ≥ circuit.num_inputs := h_wf_outputs gate h_gate_mem
 
           -- β is extend_input_permutation, which fixes indices >= num_inputs
@@ -1020,52 +1165,8 @@ theorem input_permutation_is_variable_symmetry
           rw [dif_neg (not_lt.mpr h_output_ge)]
 
         -- Prove that input values are permuted by β
-        have h_inputs_perm : List.Perm
-            (extractValues (map_assignment assignment input_vec))
-            (extractValues (map_assignment (assignment ∘ β) input_vec)) := by
-          -- Use beta_permutes_gate_input_values lemma
-          -- Need to establish its preconditions:
-
-          -- First, gate uses all circuit inputs
-          have h_all_or_none := gate_uses_all_or_none_inputs circuit gate h_all_sym h_gate_mem
-          cases h_all_or_none with
-          | inl h_uses_all =>
-            -- h_uses_all : ∀ i < circuit.num_inputs, i ∈ gate.inputs
-
-            -- Show input_vec.toList.map (·.val) = gate.inputs
-            have h_vec_matches : input_vec.toList.map (·.val) = gate.inputs := by
-              -- From heq_split: listToFinVector gate.inputs total_nodes = some ⟨n_inputs, input_vec⟩
-              -- This proof requires establishing the relationship between the filterMapped list
-              -- and the original gate.inputs. Since all elements were valid (no filtering occurred),
-              -- mapping back to .val reconstructs gate.inputs
-              -- This is a technical lemma that would require unfolding Vector.toList, Array structure, etc.
-              sorry
-
-            -- Show all gate inputs are circuit inputs
-            have h_all_circuit_inputs : ∀ i ∈ gate.inputs, i < circuit.num_inputs :=
-              gate_using_all_inputs_has_only_circuit_inputs circuit gate h_wf h_gate_mem h_uses_all
-
-            -- Show gate.inputs is a permutation of List.range circuit.num_inputs
-            have h_perm : List.Perm gate.inputs (List.range circuit.num_inputs) := by
-              -- From h_uses_all: ∀ i < circuit.num_inputs, i ∈ gate.inputs
-              -- From h_all_circuit_inputs: ∀ i ∈ gate.inputs, i < circuit.num_inputs
-              -- This means gate.inputs and List.range circuit.num_inputs have the same elements
-              -- Need a lemma like: if two lists have the same elements and are both nodup, they're permutations
-              -- Or: use Finset.toList and show gate.inputs.toFinset = (List.range circuit.num_inputs).toFinset
-              sorry
-
-            -- Apply the lemma
-            convert beta_permutes_gate_input_values circuit k σ input_vec gate.inputs
-              h_vec_matches h_all_circuit_inputs h_perm assignment
-
-          | inr h_uses_none =>
-            -- Gate uses no circuit inputs - contradiction
-            -- AND gates must have inputs, and we successfully created input_vec from gate.inputs
-            -- But if gate uses no circuit inputs and only gate outputs, then for the gate to use
-            -- ALL circuit inputs (needed for all_inputs_symmetric), we'd need num_inputs = 0
-            -- However, this contradicts the well-formedness of the circuit
-            exfalso
-            sorry
+        have h_inputs_perm := gate_input_values_perm circuit k σ h_wf h_all_sym
+          gate h_gate_mem input_vec heq_split assignment
 
         -- Apply our preservation lemma!
         exact and_all_preserved_under_input_permutation input_vec ⟨gate.output, h_output_valid⟩
@@ -1073,28 +1174,80 @@ theorem input_permutation_is_variable_symmetry
       · -- Case: listToFinVector returned none - contradiction since h_constraint_eq shows we got some tc
         contradiction
 
-    · -- OR case
-      -- OR gate: output = OR(inputs) = max(inputs) for Boolean values
-      -- Key: OR is a symmetric function, so permuting inputs preserves the result
-      sorry
+    · -- OR case (output = max(inputs); OR is symmetric, mirrors the AND case)
+      split_ifs at h_constraint_eq with h_output_valid
+      try contradiction
+      split at h_constraint_eq
+      · rename_i n_inputs input_vec heq_split
+        simp only [Option.some.injEq] at h_constraint_eq
+        rw [← h_constraint_eq]
+        have h_tc_in_csp : tc ∈ (circuit_requires_k_inputs_base_csp circuit k).constraints := by
+          unfold circuit_requires_k_inputs_base_csp
+          simp only [List.mem_append]
+          left; left; right
+          unfold circuit_to_constraints make_gate_constraints
+          simp only [List.mem_filterMap]
+          use gate, h_gate_mem
+          simp only [heq]
+          rw [dif_pos h_output_valid]
+          simp only [heq_split]
+          simp only [h_constraint_eq]
+        have h_orig : satisfiesConstraintInt (or_all input_vec ⟨gate.output, h_output_valid⟩) assignment :=
+          h_constraint_eq ▸ h_sol tc h_tc_in_csp
+        have h_output_fixed : β ⟨gate.output, h_output_valid⟩ = ⟨gate.output, h_output_valid⟩ := by
+          have ⟨h_nonempty, h_wf_outputs, _, _⟩ := h_wf
+          have h_output_ge : gate.output ≥ circuit.num_inputs := h_wf_outputs gate h_gate_mem
+          ext
+          show (extend_input_permutation circuit k σ ⟨gate.output, h_output_valid⟩).val = gate.output
+          unfold extend_input_permutation
+          simp only [Equiv.coe_fn_mk]
+          rw [dif_neg (not_lt.mpr h_output_ge)]
+        have h_inputs_perm := gate_input_values_perm circuit k σ h_wf h_all_sym
+          gate h_gate_mem input_vec heq_split assignment
+        exact or_all_preserved_under_input_permutation input_vec ⟨gate.output, h_output_valid⟩
+          assignment β h_inputs_perm h_output_fixed h_orig
+      · contradiction
 
 
-    · -- XOR case
-      -- XOR gate: output = XOR(inputs) = (sum of inputs) mod 2 for Boolean values
-      -- Key: XOR is a symmetric function, so permuting inputs preserves the result
-      sorry
+    · -- XOR case (output = parity of inputs; XOR is symmetric, mirrors the AND case)
+      split_ifs at h_constraint_eq with h_output_valid
+      try contradiction
+      split at h_constraint_eq
+      · rename_i n_inputs input_vec heq_split
+        simp only [Option.some.injEq] at h_constraint_eq
+        rw [← h_constraint_eq]
+        have h_tc_in_csp : tc ∈ (circuit_requires_k_inputs_base_csp circuit k).constraints := by
+          unfold circuit_requires_k_inputs_base_csp
+          simp only [List.mem_append]
+          left; left; right
+          unfold circuit_to_constraints make_gate_constraints
+          simp only [List.mem_filterMap]
+          use gate, h_gate_mem
+          simp only [heq]
+          rw [dif_pos h_output_valid]
+          simp only [heq_split]
+          simp only [h_constraint_eq]
+        have h_orig : satisfiesConstraintInt (xor_all input_vec ⟨gate.output, h_output_valid⟩) assignment :=
+          h_constraint_eq ▸ h_sol tc h_tc_in_csp
+        have h_output_fixed : β ⟨gate.output, h_output_valid⟩ = ⟨gate.output, h_output_valid⟩ := by
+          have ⟨h_nonempty, h_wf_outputs, _, _⟩ := h_wf
+          have h_output_ge : gate.output ≥ circuit.num_inputs := h_wf_outputs gate h_gate_mem
+          ext
+          show (extend_input_permutation circuit k σ ⟨gate.output, h_output_valid⟩).val = gate.output
+          unfold extend_input_permutation
+          simp only [Equiv.coe_fn_mk]
+          rw [dif_neg (not_lt.mpr h_output_ge)]
+        have h_inputs_perm := gate_input_values_perm circuit k σ h_wf h_all_sym
+          gate h_gate_mem input_vec heq_split assignment
+        exact xor_all_preserved_under_input_permutation input_vec ⟨gate.output, h_output_valid⟩
+          assignment β h_inputs_perm h_output_fixed h_orig
+      · contradiction
 
     · -- NOT case
-        -- NOT gate: out = 1 - in
-        -- Generated constraint (if valid): not_gate ⟨in1, h1⟩ ⟨gate.output, h2⟩
-        --
-        -- Key insight: NOT gates take a single input.
-        -- Under all_inputs_symmetric, if the gate uses any circuit input,
-        -- it must use ALL circuit inputs. But NOT only takes 1 input, so:
-        -- - If num_inputs > 1: gate cannot use circuit inputs (uses gate outputs only)
-        -- - If num_inputs = 1: gate might use input 0, but σ : Equiv.Perm (Fin 1)
-        --   must be the identity, so β also acts as identity
-        -- In both cases, β fixes all relevant variables, preserving the constraint.
+        -- NOT takes a single input, so under `all_inputs_symmetric` either
+        -- `num_inputs > 1` (the gate cannot use a circuit input) or `num_inputs = 1`
+        -- (σ : Equiv.Perm (Fin 1) is the identity).  Either way β fixes every relevant
+        -- variable, preserving the constraint.
 
         -- Now h_constraint_eq is simplified to just the NOT branch
         -- For NOT gates, constraint is generated only if gate.inputs = [in1]
@@ -1126,7 +1279,7 @@ theorem input_permutation_is_variable_symmetry
                   -- Strategy: Show β fixes both in1 and gate.output
 
                   -- First, show gate.output ≥ num_inputs (by well-formedness)
-                  obtain ⟨h_nonempty, h_wf_outputs⟩ := h_wf
+                  have ⟨h_nonempty, h_wf_outputs, _, _⟩ := h_wf
                   have h_output_ge : gate.output ≥ circuit.num_inputs := h_wf_outputs gate h_gate_mem
 
                   -- Now case split on whether in1 < num_inputs or not
@@ -1200,27 +1353,8 @@ theorem input_permutation_is_variable_symmetry
                         · -- in1 ≥ num_inputs: impossible
                           omega
 
-                      -- Now show the constraint is preserved
-                      -- Use that both variables are fixed by β
-                      -- Goal: satisfiesConstraint (not_gate ⟨in1, h_in1_valid⟩ ⟨gate.output, h_output_valid⟩) (assignment ∘ β)
-
-                      -- Since β fixes both variables, (assignment ∘ β) = assignment on these variables
-                      -- Therefore (assignment ∘ β) satisfies the constraint
-                      have h_in1_fixed : (assignment ∘ β) ⟨in1, h_in1_valid⟩ = assignment ⟨in1, h_in1_valid⟩ := by
-                        simp [Function.comp_apply]
-                        congr 1
-
-                      have h_output_fixed : (assignment ∘ β) ⟨gate.output, h_output_valid⟩ = assignment ⟨gate.output, h_output_valid⟩ := by
-                        simp [Function.comp_apply]
-                        congr 1
-
-                      -- The NOT gate constraint is: out = 1 - in
-                      -- We need to show: (assignment ∘ β) satisfies this
-                      -- Since β fixes both variables, this follows from assignment satisfying it
-
-                      -- Use that both variables are fixed to show constraint preservation
-                      unfold satisfiesConstraint satisfies_dynamic_constraint satisfies_constraint
-                      simp only [not_gate]
+                      -- Now show the constraint is preserved: β fixes both variables,
+                      -- so the NOT-gate check transports directly.
 
                       -- Get the original satisfaction fact
                       have h_tc_mem : tc ∈ (circuit_requires_k_inputs_base_csp circuit k).constraints := by
@@ -1239,31 +1373,10 @@ theorem input_permutation_is_variable_symmetry
                         · simp only [Option.some.injEq]
                           exact h_constraint_eq
 
-                      have h_orig : satisfiesConstraint tc assignment := h_sol tc h_tc_mem
+                      have h_orig : satisfiesConstraintInt tc assignment := h_sol tc h_tc_mem
                       rw [←h_constraint_eq] at h_orig
-                      unfold satisfiesConstraint satisfies_dynamic_constraint satisfies_constraint at h_orig
-                      simp only [not_gate] at h_orig
-
-                      -- Both variables are fixed, so the constraint check gives the same result
-                      have h_eq : map_assignment (assignment ∘ β) #v[⟨in1, h_in1_valid⟩, ⟨gate.output, h_output_valid⟩] =
-                          map_assignment assignment #v[⟨in1, h_in1_valid⟩, ⟨gate.output, h_output_valid⟩] := by
-                        funext i
-                        simp only [map_assignment, Function.comp_apply]
-                        -- Explicitly case on the Fin 2 index
-                        match i with
-                        | ⟨0, _⟩ =>
-                          simp [_root_.Vector.get]
-                          exact h_in1_fixed
-                        | ⟨1, _⟩ =>
-                          simp [_root_.Vector.get]
-                          exact h_output_fixed
-
-                      -- Now use this to rewrite the goal
-                      show sat (match extractValues (map_assignment (assignment ∘ β) #v[⟨in1, h_in1_valid⟩, ⟨gate.output, h_output_valid⟩]) with
-                        | [x, z] => decide (z = 1 - x)
-                        | _ => false)
-                      rw [h_eq]
-                      exact h_orig
+                      exact not_gate_preserved_when_fixed _ _ assignment β
+                        h_β_fixes_in1 h_β_fixes_output h_orig
 
                     · -- No circuit inputs in gate.inputs
                       -- But in1 < num_inputs and in1 ∈ gate.inputs, contradiction
@@ -1285,15 +1398,6 @@ theorem input_permutation_is_variable_symmetry
                       apply beta_fixes_gate_output
                       exact h_output_ge
 
-                    -- Fixed variables mean equal assignments
-                    have h_in1_fixed : (assignment ∘ β) ⟨in1, h_in1_valid⟩ = assignment ⟨in1, h_in1_valid⟩ := by
-                      simp [Function.comp_apply]
-                      congr 1
-
-                    have h_output_fixed : (assignment ∘ β) ⟨gate.output, h_output_valid⟩ = assignment ⟨gate.output, h_output_valid⟩ := by
-                      simp [Function.comp_apply]
-                      congr 1
-
                     -- Get the original satisfaction
                     have h_tc_mem : tc ∈ (circuit_requires_k_inputs_base_csp circuit k).constraints := by
                       unfold circuit_requires_k_inputs_base_csp
@@ -1307,29 +1411,11 @@ theorem input_permutation_is_variable_symmetry
                       · simp only [Option.some.injEq]
                         exact h_constraint_eq
 
-                    have h_orig : satisfiesConstraint tc assignment := h_sol tc h_tc_mem
+                    have h_orig : satisfiesConstraintInt tc assignment := h_sol tc h_tc_mem
                     rw [←h_constraint_eq] at h_orig
-                    unfold satisfiesConstraint satisfies_dynamic_constraint satisfies_constraint at h_orig
-                    simp only [not_gate] at h_orig
-
-                    -- Prove equality of map_assignment on both assignments
-                    have h_eq : map_assignment (assignment ∘ β) #v[⟨in1, h_in1_valid⟩, ⟨gate.output, h_output_valid⟩] =
-                        map_assignment assignment #v[⟨in1, h_in1_valid⟩, ⟨gate.output, h_output_valid⟩] := by
-                      funext i
-                      simp only [map_assignment, Function.comp_apply]
-                      match i with
-                      | ⟨0, _⟩ =>
-                        simp [_root_.Vector.get]
-                        exact h_in1_fixed
-                      | ⟨1, _⟩ =>
-                        simp [_root_.Vector.get]
-                        exact h_output_fixed
-
-                    show sat (match extractValues (map_assignment (assignment ∘ β) #v[⟨in1, h_in1_valid⟩, ⟨gate.output, h_output_valid⟩]) with
-                      | [x, z] => decide (z = 1 - x)
-                      | _ => false)
-                    rw [h_eq]
-                    exact h_orig
+                    -- β fixes both variables, so the NOT-gate check transports directly.
+                    exact not_gate_preserved_when_fixed _ _ assignment β
+                      h_β_fixes_in1 h_β_fixes_output h_orig
 
             | cons _ _ =>
                 -- gate.inputs has ≥ 2 elements: match produces none
@@ -1387,7 +1473,7 @@ theorem input_permutation_is_variable_symmetry
         · -- Impossible: h_check says ¬(output_node < total_nodes), but h_output_valid says output_node < total_nodes
           omega
 
-      have h_assignment_sat : HomogeneousCSP.satisfiesConstraint
+      have h_assignment_sat : IntCSP.satisfiesConstraintInt
                                (equals_const ⟨output_node, h_output_valid⟩ 1) assignment :=
         h_sol _ h_constraint_mem
 
@@ -1395,25 +1481,19 @@ theorem input_permutation_is_variable_symmetry
       -- The key: β fixes output_node, so (assignment ∘ β)(output_node) = assignment(output_node) = 1
 
       -- First, show assignment(output_node) = 1
-      have h_assignment_eq_1 : assignment ⟨output_node, h_output_valid⟩ = 1 := by
-        unfold HomogeneousCSP.satisfiesConstraint equals_const at h_assignment_sat
-        unfold CSP.satisfies_dynamic_constraint CSP.unary_dynamic_constraint at h_assignment_sat
-        unfold CSP.satisfies_constraint CSP.sat CSP.unary_constraint at h_assignment_sat
-        simp only [CSP.map_assignment, _root_.Vector.get, decide_eq_true_iff] at h_assignment_sat
-        exact h_assignment_sat
+      have h_assignment_eq_1 : assignment ⟨output_node, h_output_valid⟩ = 1 :=
+        (equals_const_holds_iff _ _ _).mp h_assignment_sat
 
-      -- Now show (assignment ∘ β)(output_node) = 1
-      unfold HomogeneousCSP.satisfiesConstraint equals_const
-      unfold CSP.satisfies_dynamic_constraint CSP.unary_dynamic_constraint
-      unfold CSP.satisfies_constraint CSP.sat CSP.unary_constraint
-      simp only [CSP.map_assignment, _root_.Vector.get, Function.comp_apply, decide_eq_true_iff]
+      -- Now show (assignment ∘ β)(output_node) = 1.  The bridge is applied as a term
+      -- (not `rw`) because the goal's num_vars is the non-reduced CSP projection.
+      refine (equals_const_holds_iff ⟨output_node, h_output_valid⟩ 1 (assignment ∘ ⇑β)).mpr ?_
 
-      -- The value is (assignment ∘ β)(#[⟨output_node, h_output_valid⟩][0])
+      -- The value is (assignment ∘ β)(⟨output_node, h_output_valid⟩)
       --             = assignment(β(⟨output_node, h_output_valid⟩))
       --             = assignment(⟨output_node, h_output_valid⟩)   [by h_β_fixes]
       --             = 1                                            [by h_assignment_eq_1]
-      calc assignment (β #v[⟨output_node, h_output_valid⟩][0])
-          = assignment (β ⟨output_node, h_output_valid⟩) := by rfl
+      calc (assignment ∘ β) ⟨output_node, h_output_valid⟩
+          = assignment (β ⟨output_node, h_output_valid⟩) := rfl
         _ = assignment ⟨output_node, h_output_valid⟩ := by rw [h_β_fixes]
         _ = 1 := h_assignment_eq_1
 
@@ -1442,23 +1522,29 @@ theorem input_permutation_is_variable_symmetry
         simp only [List.mem_singleton] at h_at_most
         rw [h_at_most]
 
-        -- Goal: (assignment ∘ β) satisfies (at_most_k input_vec (k - 1))
-        -- Strategy: Show that β permutes the input variables, so the sum is unchanged
+        -- β permutes the circuit-input variables (gate_inputs := range num_inputs),
+        -- so the sum is unchanged and the at-most-k bound is preserved.
+        have h_perm_vals := beta_permutes_gate_input_values circuit k σ input_vec
+          (List.range circuit.num_inputs) (listToFinVector_toList_val h_vec)
+          (fun i hi => List.mem_range.mp hi) (List.Perm.refl _) assignment
+        have h_mem : at_most_k input_vec (k - 1)
+            ∈ (circuit_requires_k_inputs_base_csp circuit k).constraints := by
+          unfold circuit_requires_k_inputs_base_csp
+          simp only [List.mem_append]
+          right
+          rw [h_vec]
+          simp
+        exact at_most_k_preserved_under_input_permutation input_vec (k - 1) assignment β
+          h_perm_vals (h_sol _ h_mem)
 
-        sorry  -- Complete the cardinality preservation proof
+/-! ### Result 2: Input Ordering is a Variable Symmetry Breaking Constraint -/
 
--- ============================================================================
--- Result 2: Input Ordering is a Variable Symmetry Breaking Constraint
--- ============================================================================
+/-- The `increasing` constraint on circuit inputs is a valid symmetry-breaking constraint.
 
-/-- The increasing constraint on circuit inputs is a valid symmetry breaking constraint.
-
-    Key idea: When all circuit inputs have identical fanout structure, any permutation
-    of the input variables preserves all circuit constraints. Therefore, for any solution,
-    we can find a permutation that sorts the input values while maintaining satisfiability.
-
-    This proof uses the lex-leader approach: among all equivalent solutions (related by
-    input permutations), we pick the lexicographically smallest one (sorted inputs). -/
+    With identical fanout structure, any permutation of the input variables preserves every
+    circuit constraint, so for any solution we can find a permutation sorting the input
+    values while staying satisfiable.  The proof takes the lex leader: among all solutions
+    related by input permutations, the lexicographically smallest has sorted inputs. -/
 theorem input_ordering_is_variable_symmetry_breaking
     (circuit : Circuit) (k : ℕ) (h_inputs : circuit.num_inputs > 0)
     (h_wf : circuit_well_formed circuit)
@@ -1493,26 +1579,67 @@ theorem input_ordering_is_variable_symmetry_breaking
 
   · -- assignment ∘ β satisfies extended CSP
     intro tc h_tc_mem
-    simp only [HomogeneousCSP.addConstraint, List.mem_cons] at h_tc_mem
-    obtain h_sbc | h_orig := h_tc_mem
+    simp only [IntCSP.addConstraint] at h_tc_mem
+    obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
     · -- The SBC constraint: prove sorted inputs satisfy increasing
       rw [h_sbc]
-      unfold HomogeneousCSP.satisfiesConstraint input_ordering_constraint increasing
-      unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat
-      simp only [CSP.map_assignment, extractValues, decide_eq_true_iff]
+      -- Re-elaborate the goal so every index is the reduced `foldl + 1` (the constraint's
+      -- own num_vars) rather than the `addConstraint`/CSP projections; the bridges then
+      -- match syntactically.
+      show IntCSP.satisfiesConstraintInt (input_ordering_constraint circuit h_inputs)
+        (assignment ∘ ⇑β)
+      simp only [input_ordering_constraint]
+      rw [increasing_holds_iff, toList_map_ofFn]
 
-      -- The key: after composing with β, inputs are sorted
-      -- Need to show: (assignment ∘ β) applied to input variables is monotone
-      -- This follows from Tuple.monotone_sort
-      sorry
+      -- The i-th input variable, after β, holds the value `input_values (σ i)`, and
+      -- `input_values ∘ σ = input_values ∘ Tuple.sort input_values` is `Monotone`
+      -- (`Tuple.monotone_sort`), hence the value list is sorted.
+      rw [← List.sortedLE_iff_pairwise, List.sortedLE_ofFn_iff]
+      intro a b hab
+      simp only [Function.comp_apply]
+      rw [show β = extend_input_permutation circuit k σ from rfl]
+      -- After β, the i-th input variable holds `input_values (σ i)`.  We expose the
+      -- RHS as `assignment` of a Fin (proof-irrelevant in its bound) and reduce the
+      -- value equality through `extend_input_permutation`'s definition.
+      have key : ∀ (c : Fin circuit.num_inputs)
+          (hc : c.val < (circuit_requires_k_inputs_base_csp circuit k).num_vars),
+          assignment (extend_input_permutation circuit k σ ⟨c.val, hc⟩) = input_values (σ c) := by
+        intro c hc
+        show assignment (extend_input_permutation circuit k σ ⟨c.val, hc⟩)
+            = assignment ⟨(σ c).val, by
+                have h_σ := (σ c).isLt
+                have h_foldl := foldl_max_ge_init circuit.gates circuit.num_inputs
+                have h_nv : (circuit_requires_k_inputs_base_csp circuit k).num_vars
+                  = circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1 := rfl
+                omega⟩
+        congr 1
+        apply Fin.ext
+        unfold extend_input_permutation
+        simp only [Equiv.coe_fn_mk]
+        split_ifs with h
+        · rfl
+        · exact absurd c.isLt h
+      -- Close by `calc`: its final `isDefEq` runs at default transparency and so
+      -- reconciles the goal's Fin (whose bound is `foldl+1`) with `key`'s
+      -- (`num_vars`), unlike `rw`/`kabstract`, which refuses to unfold the def.
+      have h_nv : (circuit_requires_k_inputs_base_csp circuit k).num_vars
+        = circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1 := rfl
+      have h_foldl := foldl_max_ge_init circuit.gates circuit.num_inputs
+      have ha : a.val < (circuit_requires_k_inputs_base_csp circuit k).num_vars := by
+        have := a.isLt; omega
+      have hb : b.val < (circuit_requires_k_inputs_base_csp circuit k).num_vars := by
+        have := b.isLt; omega
+      calc assignment (extend_input_permutation circuit k σ ⟨a.val, ha⟩)
+          = input_values (σ a) := key a ha
+        _ ≤ input_values (σ b) := by
+            simpa only [Function.comp_apply] using Tuple.monotone_sort input_values hab
+        _ = assignment (extend_input_permutation circuit k σ ⟨b.val, hb⟩) := (key b hb).symm
 
     · -- Original constraints preserved by Result 1
       have h_sym := input_permutation_is_variable_symmetry circuit k σ h_wf h_all_sym
       exact h_sym assignment h_sol tc h_orig
 
--- ============================================================================
--- Result 3: General Symmetry Breaking Constraint
--- ============================================================================
+/-! ### Result 3: General Symmetry Breaking Constraint -/
 
 /-- Wrap as general symmetry breaking constraint -/
 theorem input_ordering_is_symmetry_breaking
@@ -1526,9 +1653,7 @@ theorem input_ordering_is_symmetry_breaking
   right  -- Choose variable symmetry breaking
   exact input_ordering_is_variable_symmetry_breaking circuit k h_inputs h_wf h_all_sym
 
--- ============================================================================
--- Result 4: Equisatisfiability
--- ============================================================================
+/-! ### Result 4: Equisatisfiability -/
 
 /-- The base and extended CSPs are equisatisfiable -/
 theorem circuit_symmetry_breaking_equisatisfiable
@@ -1541,9 +1666,7 @@ theorem circuit_symmetry_breaking_equisatisfiable
   apply variableSymmetryBreaking_equisatisfiability
   exact input_ordering_is_variable_symmetry_breaking circuit k h_inputs h_wf h_all_sym
 
--- ============================================================================
--- Main Function for Testing
--- ============================================================================
+/-! ### Main Function for Testing -/
 
 def main : IO Unit := do
   IO.println "Saving circuit symmetry breaking CSPs..."

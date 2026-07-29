@@ -3,28 +3,14 @@ import CSP.L2S.Core
 namespace CSP.L2S
 
 /-!
-# Backend Abstraction for Translators
+# Backend abstraction for translators
 
-Unified interface for translating HomogeneousCSP to various solver formats.
+A runtime-selected interface for translating an `IntCSP` to a solver format, with
+`Except` error handling for unsupported constraints.
 
-## Design Principles
-- Backend selected at runtime (not typeclass inference)
-- Error handling with Except for unsupported constraints
-- Options for strict mode, logic selection, etc.
-- Zero impact on semantic proofs
-
-## Architecture
-
-The backend system provides a common driver (`translateWith`) that handles:
-1. Variable declarations
-2. Domain assertions
-3. Constraint translation loop
-4. File assembly (header + decls + constraints + footer)
-
-Each backend only needs to implement:
-- Format-specific syntax (MiniZinc vs SMT-LIB)
-- Pattern translation logic
-- Include/header generation
+The common driver `translateWith` handles variable declarations, domain assertions,
+the constraint translation loop, and file assembly.  A backend supplies only its
+format-specific syntax, pattern translation, and header generation.
 -/
 
 /-- Translation errors -/
@@ -56,33 +42,33 @@ structure Backend where
   name : String
 
   /-- Generate file header (logic declaration, includes, etc.) -/
-  header : (csp : HomogeneousCSP) → BackendOptions → List String
+  header : (csp : IntCSP) → BackendOptions → List String
 
   /-- Generate file footer (solve statement, check-sat, etc.) -/
-  footer : (csp : HomogeneousCSP) → BackendOptions → List String
+  footer : (csp : IntCSP) → BackendOptions → List String
 
   /-- Generate variable declarations -/
-  varDecls : (csp : HomogeneousCSP) →
+  varDecls : (csp : IntCSP) →
              (Fin csp.num_vars → (ℤ × ℤ)) →
              List String
 
   /-- Generate domain assertions (separate from declarations) -/
-  domainAsserts : (csp : HomogeneousCSP) →
+  domainAsserts : (csp : IntCSP) →
                   (Fin csp.num_vars → (ℤ × ℤ)) →
                   List String
 
   /-- Translate a constraint pattern -/
   translatePattern : {n : ℕ} →
                      BackendOptions →
-                     ConstraintPattern n →
+                     IntConstraint n →
                      Except TranslatorError (List String)
 
   /-- Should this pattern be skipped in constraint section? -/
-  skipInConstraints : {n : ℕ} → ConstraintPattern n → Bool
+  skipInConstraints : {n : ℕ} → IntConstraint n → Bool
 
 /-- Unified translation driver -/
 def translateWith (backend : Backend) (opts : BackendOptions)
-    (csp : HomogeneousCSP) : Except TranslatorError String := do
+    (csp : IntCSP) : Except TranslatorError String := do
   -- Extract bounds
   let bounds := csp.extractAllBounds
 
@@ -95,9 +81,9 @@ def translateWith (backend : Backend) (opts : BackendOptions)
   -- Translate constraints
   let mut constraints : List String := []
   for tc in csp.constraints do
-    if backend.skipInConstraints tc.pattern then
+    if backend.skipInConstraints tc then
       continue
-    match backend.translatePattern opts tc.pattern with
+    match backend.translatePattern opts tc with
     | .ok lines => constraints := constraints ++ lines
     | .error e =>
         if opts.strict then
@@ -114,9 +100,7 @@ def translateWith (backend : Backend) (opts : BackendOptions)
   let allLines := header ++ decls ++ domains ++ constraints ++ footer
   return String.intercalate "\n" allLines
 
--- ============================================================================
--- Backend Type Enumeration
--- ============================================================================
+/-! ### Backend Type Enumeration -/
 
 /-!
 ## Backend Types

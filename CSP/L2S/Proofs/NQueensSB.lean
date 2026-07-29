@@ -3,6 +3,7 @@ import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
 import CSP.L2S.Translate
+import CSP.L2S.Proofs.PatternBridges
 import Mathlib.GroupTheory.Perm.Basic
 import Mathlib.Data.List.FinRange
 import Mathlib.Data.List.Nodup
@@ -18,62 +19,54 @@ Domains: Rows of the corresponding queens
 Constraints: Different queens must be in different rows, columns and diagonals
 -/
 
--- ============================================================================
--- CSP Definition
--- ============================================================================
+/-! ### CSP Definition -/
 
 /- Bound constraints -/
-def bound_constraints (n : ℕ) : List (TaggedConstraint n) :=
+def bound_constraints (n : ℕ) : List (IntConstraint n) :=
   (List.finRange n).map (fun v => bound v 0 (n-1))
 
 /- All queens must be placed in different rows -/
-def row_constraint (n : ℕ) : TaggedConstraint n :=
+def row_constraint (n : ℕ) : IntConstraint n :=
   alldifferent_all n
 
 /- All queens must be placed in different diagonals (x[i] - i all different) -/
-def diagonal_constraint (n : ℕ) : TaggedConstraint n :=
+def diagonal_constraint (n : ℕ) : IntConstraint n :=
   alldifferent_diag_neg n
 
 /- All queens must be placed in different antidiagonals (x[i] + i all different) -/
-def antidiagonal_constraint (n : ℕ) : TaggedConstraint n :=
+def antidiagonal_constraint (n : ℕ) : IntConstraint n :=
   alldifferent_diag_pos n
 
 /- CSP: include all constraints -/
-def nqueens_csp (n : ℕ) : HomogeneousCSP :=
+def nqueens_csp (n : ℕ) : IntCSP :=
   ⟨ n,
     bound_constraints n ++
     [row_constraint n] ++
     [diagonal_constraint n] ++
     [antidiagonal_constraint n] ⟩
 
--- ============================================================================
--- Symmetry Breaking Constraint Definition
--- ============================================================================
+/-! ### Symmetry Breaking Constraint Definition -/
 
 /- Our candidate to symmetry breaking constraint: first queen must be placed
 on the first half of the first column -/
-def sb_constraint (n : ℕ) (h_n : 0 < n) : TaggedConstraint n :=
+def nqueens_sbc (n : ℕ) (h_n : 0 < n) : IntConstraint n :=
   less_than_const ⟨0, h_n⟩ ((n + 1) / 2)
 
 /- Extended CSP -/
-def extended_nqueens_csp (n : ℕ) (h_n : 0 < n) : HomogeneousCSP :=
-  (nqueens_csp n).addConstraint (sb_constraint n h_n)
+def nqueens_sb (n : ℕ) (h_n : 0 < n) : IntCSP :=
+  (nqueens_csp n).addConstraint (nqueens_sbc n h_n)
 
--- ============================================================================
--- Symmetry Function
--- ============================================================================
+/-! ### Symmetry Function -/
 
 /-- Horizontal reflection: maps row i to row (n-1) - i
     This is an involution (self-inverse permutation) -/
-def horizontal_reflection (n : ℕ) : Equiv.Perm HomogeneousDomain where
+def horizontal_reflection (n : ℕ) : Equiv.Perm IntDomain where
   toFun := fun d => (↑n - 1 : ℤ) - d
   invFun := fun d => (↑n - 1 : ℤ) - d  -- involution: applying twice gives identity
   left_inv := fun d => by ring
   right_inv := fun d => by ring
 
--- ============================================================================
--- Auxiliary Lemmas
--- ============================================================================
+/-! ### Auxiliary Lemmas -/
 
 /-- Horizontal reflection preserves the interval [0, n-1] -/
 lemma intervalPreserving_horizontal_reflection (n : ℕ) :
@@ -89,25 +82,12 @@ lemma intervalPreserving_horizontal_reflection (n : ℕ) :
 
 /-- Alldifferent_all is preserved by any permutation (via injectivity) -/
 lemma alldifferent_all_preserved_by_perm {num_vars : ℕ}
-    (δ : Equiv.Perm HomogeneousDomain) :
+    (δ : Equiv.Perm IntDomain) :
     taggedConstraintDomainSymmetric (alldifferent_all num_vars) δ := by
   unfold taggedConstraintDomainSymmetric constraintDomainSymmetric
   intro assignment h_sat
-  unfold alldifferent_all alldifferent CSP.satisfies_dynamic_constraint at *
-  unfold CSP.satisfies_constraint CSP.sat at *
-  simp only [decide_eq_true_iff] at *
-  unfold extractValues at *
-  have h_simp1 : ∀ i, CSP.map_assignment assignment (_root_.Vector.ofFn id) i = assignment i := by
-    intro i
-    simp [CSP.map_assignment, _root_.Vector.ofFn, _root_.Vector.get]
-  have h_simp2 : ∀ i, CSP.map_assignment (δ ∘ assignment) (_root_.Vector.ofFn id) i = δ (assignment i) := by
-    intro i
-    simp [CSP.map_assignment, _root_.Vector.ofFn, _root_.Vector.get, Function.comp_apply]
-  simp only [h_simp1] at h_sat
-  simp only [h_simp2]
-  have h_eq : (fun i : Fin num_vars => δ (assignment i)) = (δ ∘ assignment) := by
-    funext i; rfl
-  rw [h_eq]
+  rw [← IntCSP.satisfiesConstraintInt_iff_toDynamic] at h_sat ⊢
+  rw [alldifferent_all_holds_iff] at h_sat ⊢
   have h_map : List.ofFn (δ ∘ assignment) = (List.ofFn assignment).map δ := by
     apply List.ext_get
     · simp
@@ -135,33 +115,20 @@ lemma affine_transform_preserves_nodup (L : List ℤ) (a : ℤ) :
 
 /-- Diagonal constraints swap under horizontal reflection -/
 lemma diagonal_constraints_swap (n : ℕ)
-    (assignment : HomogeneousAssignment n)
-    (h_pos_sat : HomogeneousCSP.satisfiesConstraint (alldifferent_diag_pos n) assignment)
-    (h_neg_sat : HomogeneousCSP.satisfiesConstraint (alldifferent_diag_neg n) assignment) :
-    HomogeneousCSP.satisfiesConstraint (alldifferent_diag_pos n) ((horizontal_reflection n) ∘ assignment) ∧
-    HomogeneousCSP.satisfiesConstraint (alldifferent_diag_neg n) ((horizontal_reflection n) ∘ assignment) := by
-  have h_map_id : ∀ (a : HomogeneousAssignment n) (i : Fin n),
-    CSP.map_assignment a (_root_.Vector.ofFn (fun j : Fin n => j)) i = a i := by
-    intros a i
-    simp [CSP.map_assignment, _root_.Vector.ofFn, _root_.Vector.get]
+    (assignment : IntAssignment n)
+    (h_pos_sat : IntCSP.satisfiesConstraintInt (alldifferent_diag_pos n) assignment)
+    (h_neg_sat : IntCSP.satisfiesConstraintInt (alldifferent_diag_neg n) assignment) :
+    IntCSP.satisfiesConstraintInt (alldifferent_diag_pos n) ((horizontal_reflection n) ∘ assignment) ∧
+    IntCSP.satisfiesConstraintInt (alldifferent_diag_neg n) ((horizontal_reflection n) ∘ assignment) := by
+  have h_pos_nodup : (List.ofFn fun (i : Fin n) => assignment i + ↑i.val).Nodup :=
+    (diag_pos_holds_iff assignment).mp h_pos_sat
 
-  have h_pos_nodup : (List.ofFn fun (i : Fin n) => assignment i + ↑i.val).Nodup := by
-    unfold HomogeneousCSP.satisfiesConstraint alldifferent_diag_pos at h_pos_sat
-    unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat at h_pos_sat
-    simp only [decide_eq_true_iff, h_map_id] at h_pos_sat
-    exact h_pos_sat
-
-  have h_neg_nodup : (List.ofFn fun (i : Fin n) => assignment i - ↑i.val).Nodup := by
-    unfold HomogeneousCSP.satisfiesConstraint alldifferent_diag_neg at h_neg_sat
-    unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat at h_neg_sat
-    simp only [decide_eq_true_iff, h_map_id] at h_neg_sat
-    exact h_neg_sat
+  have h_neg_nodup : (List.ofFn fun (i : Fin n) => assignment i - ↑i.val).Nodup :=
+    (diag_neg_holds_iff assignment).mp h_neg_sat
 
   constructor
 
-  · unfold HomogeneousCSP.satisfiesConstraint alldifferent_diag_pos
-    unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat
-    simp only [decide_eq_true_iff, h_map_id]
+  · rw [diag_pos_holds_iff]
 
     have h_eq : ∀ i : Fin n,
       ((horizontal_reflection n) ∘ assignment) i + ↑i.val = (↑n - 1 : ℤ) - (assignment i - ↑i.val) := by
@@ -184,9 +151,7 @@ lemma diagonal_constraints_swap (n : ℕ)
     rw [h_map_ofFn]
     exact affine_transform_preserves_nodup (List.ofFn fun i : Fin n => assignment i - ↑i.val) (↑n - 1) h_neg_nodup
 
-  · unfold HomogeneousCSP.satisfiesConstraint alldifferent_diag_neg
-    unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.sat
-    simp only [decide_eq_true_iff, h_map_id]
+  · rw [diag_neg_holds_iff]
 
     have h_eq : ∀ i : Fin n,
       ((horizontal_reflection n) ∘ assignment) i - ↑i.val = (↑n - 1 : ℤ) - (assignment i + ↑i.val) := by
@@ -209,9 +174,7 @@ lemma diagonal_constraints_swap (n : ℕ)
     rw [h_map_ofFn]
     exact affine_transform_preserves_nodup (List.ofFn fun i : Fin n => assignment i + ↑i.val) (↑n - 1) h_pos_nodup
 
--- ============================================================================
--- Symmetry-Breaking Correctness
--- ============================================================================
+/-! ### Symmetry-Breaking Correctness -/
 
 /-- Result 1: Horizontal reflection is a domain symmetry for N-Queens -/
 theorem horizontal_reflection_is_symmetry (n : ℕ) :
@@ -223,17 +186,19 @@ theorem horizontal_reflection_is_symmetry (n : ℕ) :
   rcases h_tc_mem with ((⟨v, _, h1⟩ | h2 | h3)| (h4 | h5)) | h6 | h7
 
   · subst h1
-    unfold HomogeneousCSP.satisfiesConstraint
+    unfold IntCSP.satisfiesConstraintInt
     have h_interval := intervalPreserving_horizontal_reflection n
     have h_preserves := intervalPreserving_preserves_bound (horizontal_reflection n) v 0 (↑n - 1) h_interval assignment
     have h_sat := h_sol (bound v 0 (↑n - 1)) h_tc_orig
-    unfold HomogeneousCSP.satisfiesConstraint at h_sat
+    unfold IntCSP.satisfiesConstraintInt at h_sat
     exact h_preserves.mp h_sat
 
   · subst h2
     unfold row_constraint
     have h_sat := h_sol (row_constraint n) h_tc_orig
-    exact alldifferent_all_preserved_by_perm (horizontal_reflection n) assignment h_sat
+    rw [IntCSP.satisfiesConstraintInt_iff_toDynamic]
+    exact alldifferent_all_preserved_by_perm (horizontal_reflection n) assignment
+      ((IntCSP.satisfiesConstraintInt_iff_toDynamic _ _).mp h_sat)
 
   · cases h3
 
@@ -272,37 +237,33 @@ theorem horizontal_reflection_is_symmetry (n : ℕ) :
   · cases h7
 
 /-- Result 2: The symmetry breaking constraint is a domain symmetry breaking constraint -/
-theorem sb_constraint_is_domain_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
-    domainSymmetryBreakingConstraint (nqueens_csp n) (sb_constraint n h_n) := by
+theorem nqueens_sbc_is_domain_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
+    domainSymmetryBreakingConstraint (nqueens_csp n) (nqueens_sbc n h_n) := by
   intro assignment h_sol
   by_cases h : assignment ⟨0, h_n⟩ < ((↑n + 1) / 2 : ℤ)
   · use DomainSymmetry.identity
     constructor
     · exact DomainSymmetry.identity_is_symmetry _
     · intro tc h_tc_mem
-      simp only [HomogeneousCSP.addConstraint, List.mem_cons] at h_tc_mem
-      obtain h_sbc | h_orig := h_tc_mem
+      simp only [IntCSP.addConstraint] at h_tc_mem
+      obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
       · rw [h_sbc]
-        unfold HomogeneousCSP.satisfiesConstraint sb_constraint less_than_const
-        unfold CSP.satisfies_dynamic_constraint CSP.unary_dynamic_constraint
-        unfold CSP.satisfies_constraint CSP.sat CSP.unary_constraint CSP.map_assignment
-        simp only [_root_.Vector.get, decide_eq_true_iff, Function.comp_apply]
-        simp only [DomainSymmetry.identity, Equiv.refl_apply]
+        simp only [IntCSP.satisfiesConstraintInt, nqueens_sbc, less_than_const, patternHolds,
+          valAt, IntCSP.addConstraint, nqueens_csp, h_n, dif_pos, Function.comp_apply,
+          DomainSymmetry.identity, Equiv.refl_apply]
         exact h
-      · unfold HomogeneousCSP.isSolution at h_sol
+      · unfold IntCSP.isSolutionInt at h_sol
         simp only [DomainSymmetry.identity]
         exact h_sol tc h_orig
   · use horizontal_reflection n
     constructor
     · exact horizontal_reflection_is_symmetry n
     · intro tc h_tc_mem
-      simp only [HomogeneousCSP.addConstraint, List.mem_cons] at h_tc_mem
-      obtain h_sbc | h_orig := h_tc_mem
+      simp only [IntCSP.addConstraint] at h_tc_mem
+      obtain h_sbc | h_orig := List.mem_cons.mp h_tc_mem
       · rw [h_sbc]
-        unfold HomogeneousCSP.satisfiesConstraint sb_constraint less_than_const
-        unfold CSP.satisfies_dynamic_constraint CSP.unary_dynamic_constraint
-        unfold CSP.satisfies_constraint CSP.sat CSP.unary_constraint CSP.map_assignment
-        simp only [_root_.Vector.get, decide_eq_true_iff, Function.comp_apply]
+        simp only [IntCSP.satisfiesConstraintInt, nqueens_sbc, less_than_const, patternHolds,
+          valAt, IntCSP.addConstraint, nqueens_csp, h_n, dif_pos, Function.comp_apply]
         show (horizontal_reflection n) (assignment ⟨0, h_n⟩) < ((↑n + 1) / 2 : ℤ)
         unfold horizontal_reflection
         simp only [Equiv.coe_fn_mk]
@@ -311,15 +272,10 @@ theorem sb_constraint_is_domain_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
           unfold nqueens_csp bound_constraints
           simp [List.mem_append, List.mem_map, List.mem_finRange]
 
-        have h_bound_sat := h_sol (bound ⟨0, h_n⟩ 0 (↑n - 1)) h_bound_mem
+        have h_bound_sat := h_sol _ h_bound_mem
 
-        have h_upper : assignment ⟨0, h_n⟩ ≤ ↑n - 1 := by
-          unfold HomogeneousCSP.satisfiesConstraint bound at h_bound_sat
-          unfold CSP.satisfies_dynamic_constraint at h_bound_sat
-          simp only [CSP.satisfies_constraint, CSP.sat, CSP.map_assignment, extractValues, _root_.Vector.get, List.ofFn] at h_bound_sat
-          have : decide (0 ≤ assignment ⟨0, h_n⟩ ∧ assignment ⟨0, h_n⟩ ≤ ↑n - 1) = true := h_bound_sat
-          simp only [decide_eq_true_iff] at this
-          exact this.2
+        have h_upper : assignment ⟨0, h_n⟩ ≤ ↑n - 1 :=
+          ((bound_holds_iff _ _ _ _).mp h_bound_sat).2
 
         have h_div_prop : ∀ m : ℤ, m / 2 * 2 ≤ m ∧ m ≤ m / 2 * 2 + 1 := by
           intro m
@@ -328,7 +284,7 @@ theorem sb_constraint_is_domain_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
 
         have h_ge : assignment ⟨0, h_n⟩ >= (↑n + 1) / 2 := by
           by_contra h_contra
-          push_neg at h_contra
+          push Not at h_contra
           exact h h_contra
 
         have h_div_lower : (↑n + 1 : ℤ) / 2 * 2 ≤ ↑n + 1 := by
@@ -354,7 +310,7 @@ theorem sb_constraint_is_domain_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
 
         have : (↑n - 1 : ℤ) - assignment ⟨0, h_n⟩ < ((↑n + 1) : ℤ) / 2 := by
           by_contra h_contra
-          push_neg at h_contra
+          push Not at h_contra
           have h1 : 2 * ((↑n - 1 : ℤ) - assignment ⟨0, h_n⟩) ≥ 2 * ((↑n + 1) / 2) := by linarith
           have h2 : 2 * ((↑n + 1) / 2) ≥ ↑n := by linarith [h_div_upper]
           have h3 : 2 * ((↑n - 1 : ℤ) - assignment ⟨0, h_n⟩) = ↑n := by omega
@@ -367,21 +323,19 @@ theorem sb_constraint_is_domain_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
         exact h_sol_reflected tc h_orig
 
 /-- Result 3: General symmetry breaking constraint -/
-theorem sb_constraint_is_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
-    symmetryBreakingConstraint (nqueens_csp n) (sb_constraint n h_n) := by
+theorem nqueens_sbc_is_symmetry_breaking (n : ℕ) (h_n : 0 < n) :
+    symmetryBreakingConstraint (nqueens_csp n) (nqueens_sbc n h_n) := by
   unfold symmetryBreakingConstraint
   left
-  exact sb_constraint_is_domain_symmetry_breaking n h_n
+  exact nqueens_sbc_is_domain_symmetry_breaking n h_n
 
 /-- Result 4: Equisatisfiability -/
 theorem nqueens_equisatisfiability (n : ℕ) (h_n : 0 < n) :
-    equisatisfiable (nqueens_csp n) (extended_nqueens_csp n h_n) := by
+    equisatisfiable (nqueens_csp n) (nqueens_sb n h_n) := by
   apply domainSymmetryBreaking_equisatisfiability
-  exact sb_constraint_is_domain_symmetry_breaking n h_n
+  exact nqueens_sbc_is_domain_symmetry_breaking n h_n
 
--- ============================================================================
--- Solver translation
--- ============================================================================
+/-! ### Solver translation -/
 
 
 def main : IO Unit := do
@@ -398,7 +352,7 @@ def main : IO Unit := do
       IO.println s!"  Generating n={n}..."
 
       let base_csp := nqueens_csp n
-      let sbc_csp := extended_nqueens_csp n h_n
+      let sbc_csp := nqueens_sb n h_n
 
       -- Generate base instances
       saveToAuto base_csp s!"CSP/L2S/Proofs/mzn/nqueens/base_{n}" BackendType.MiniZinc

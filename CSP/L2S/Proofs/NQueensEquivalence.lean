@@ -3,6 +3,7 @@ import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
 import CSP.L2S.Translate
+import CSP.L2S.Proofs.PatternBridges
 import Mathlib.GroupTheory.Perm.Basic
 import Mathlib.Data.List.FinRange
 import Mathlib.Data.List.Nodup
@@ -12,7 +13,7 @@ import Mathlib.Algebra.Order.BigOperators.Group.List
 import Mathlib.Algebra.BigOperators.Ring.Finset
 import Mathlib.Data.List.OfFn
 
-open CSP.L2S
+open CSP.L2S CSP.L2S.PB
 
 /-!
 ## N-Queens equivalent problems
@@ -29,30 +30,28 @@ Constraints: Different queens must be in different rows, columns and diagonals
 
 -/
 
--- ============================================================================
--- CSP definitions
--- ============================================================================
+/-! ### CSP definitions -/
 
 -- Formulation 1
 
 /- Bounds: from 0 to n-1 -/
-def bound_constraints1D (n : ℕ) : List (TaggedConstraint n) :=
+def bound_constraints1D (n : ℕ) : List (IntConstraint n) :=
   (List.finRange n).map (fun v => bound v 0 (n-1))
 
 /- All queens must be placed in different rows -/
-def row_constraint1D (n : ℕ) : TaggedConstraint n :=
+def row_constraint1D (n : ℕ) : IntConstraint n :=
   alldifferent_all n
 
 /- All queens must be placed in different diagonals (x[i] - i all different) -/
-def diagonal_constraint1D (n : ℕ) : TaggedConstraint n :=
+def diagonal_constraint1D (n : ℕ) : IntConstraint n :=
   alldifferent_diag_neg n
 
 /- All queens must be placed in different antidiagonals (x[i] + i all different) -/
-def antidiagonal_constraint1D (n : ℕ) : TaggedConstraint n :=
+def antidiagonal_constraint1D (n : ℕ) : IntConstraint n :=
   alldifferent_diag_pos n
 
 /- CSP: include all constraints -/
-def nqueens_csp1D (n : ℕ) : HomogeneousCSP :=
+def nqueens_csp1D (n : ℕ) : IntCSP :=
   ⟨ n,
     bound_constraints1D n ++
     [row_constraint1D n] ++
@@ -62,19 +61,19 @@ def nqueens_csp1D (n : ℕ) : HomogeneousCSP :=
 -- Formulation 2
 
 /- Helper function: get row from variable -/
-def row {n : ℕ} (hn : 0 < n) (v : HomogeneousVarIndex (n*n)) : Fin n :=
+def row {n : ℕ} (hn : 0 < n) (v : VarType (n*n)) : Fin n :=
   ⟨v.val % n, Nat.mod_lt v.val hn⟩
 
 /- Helper function: get column from variable -/
-def col {n : ℕ} (hn : 0 < n) (v : HomogeneousVarIndex (n*n)) : Fin n :=
+def col {n : ℕ} (hn : 0 < n) (v : VarType (n*n)) : Fin n :=
   ⟨v.val / n, by rw [Nat.div_lt_iff_lt_mul hn]; exact v.isLt⟩
 
 /- Helper function: get position (i,j) from variable v ∈ 0..(n*n - 1) -/
-def position (hn : 0 < n) (v : HomogeneousVarIndex (n*n)) : Fin n × Fin n :=
+def position (hn : 0 < n) (v : VarType (n*n)) : Fin n × Fin n :=
   (row hn v, col hn v)
 
 /- Helper function: get all variables in a row -/
-def row_variables (i : Fin n) : Vector (HomogeneousVarIndex (n*n)) n :=
+def row_variables (i : Fin n) : Vector (VarType (n*n)) n :=
   Vector.ofFn (fun j => ⟨i.val * n + j.val, by
     have h1 : i.val < n := i.isLt
     have h2 : j.val < n := j.isLt
@@ -84,7 +83,7 @@ def row_variables (i : Fin n) : Vector (HomogeneousVarIndex (n*n)) n :=
       _ ≤ n * n := Nat.mul_le_mul_right n (Nat.succ_le_of_lt h1)⟩)
 
 /- Helper function: get all variables in a column -/
-def col_variables (j : Fin n) : Vector (HomogeneousVarIndex (n*n)) n :=
+def col_variables (j : Fin n) : Vector (VarType (n*n)) n :=
   Vector.ofFn (fun i => ⟨i.val * n + j.val, by
     have h1 : i.val < n := i.isLt
     have h2 : j.val < n := j.isLt
@@ -94,25 +93,25 @@ def col_variables (j : Fin n) : Vector (HomogeneousVarIndex (n*n)) n :=
       _ ≤ n * n := Nat.mul_le_mul_right n (Nat.succ_le_of_lt h1)⟩)
 
 /- Helper function: get all variables in a diagonal (where row - col = d) -/
-def diag_variables {n : ℕ} (d : ℤ) : List (HomogeneousVarIndex (n*n)) :=
+def diag_variables {n : ℕ} (d : ℤ) : List (VarType (n*n)) :=
   (List.finRange (n*n)).filter fun v =>
     ((v.val / n : ℤ) - (v.val % n : ℤ)) = d
 
 /- Helper function: get all variables in an antidiagonal (where row + col = a) -/
-def antidiag_variables {n : ℕ} (a : ℤ) : List (HomogeneousVarIndex (n*n)) :=
+def antidiag_variables {n : ℕ} (a : ℤ) : List (VarType (n*n)) :=
   (List.finRange (n*n)).filter fun v =>
     ((v.val / n : ℤ) + (v.val % n : ℤ)) = a
 
 /- Bounds: from 0 to 1 -/
-def bound_constraints2D (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def bound_constraints2D (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.finRange (n*n)).map (fun v => bound v 0 1)
 
 /- All queens must be placed in different rows: exactly 1 queen per row -/
-def row_constraints2D (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def row_constraints2D (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.finRange n).map (fun i => sum_eq (row_variables i) 1)
 
 /- All queens must be placed in different columns: exactly 1 queen per column -/
-def col_constraints2D (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def col_constraints2D (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.finRange n).map (fun j => sum_eq (col_variables j) 1)
 
 /- Helper: convert list to vector with length proof -/
@@ -120,7 +119,7 @@ private def listToVector {α : Type*} (l : List α) : _root_.Vector α l.length 
   ⟨l.toArray, by simp [List.size_toArray]⟩
 
 /- All diagonals: at most 1 queen per diagonal -/
-def diag_constraints2D (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def diag_constraints2D (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.range (2*n - 1)).filterMap fun k =>
     let d := (k : ℤ) - (n - 1)  -- offset from -(n-1) to (n-1)
     let cells := diag_variables d
@@ -129,7 +128,7 @@ def diag_constraints2D (n : ℕ) : List (TaggedConstraint (n*n)) :=
     | _ => some (sum_le (listToVector cells) 1)
 
 /- All antidiagonals: at most 1 queen per antidiagonal -/
-def antidiag_constraints2D (n : ℕ) : List (TaggedConstraint (n*n)) :=
+def antidiag_constraints2D (n : ℕ) : List (IntConstraint (n*n)) :=
   (List.range (2*n - 1)).filterMap fun k =>
     let cells := antidiag_variables k
     match cells with
@@ -137,7 +136,7 @@ def antidiag_constraints2D (n : ℕ) : List (TaggedConstraint (n*n)) :=
     | _ => some (sum_le (listToVector cells) 1)
 
 /- CSP: include all constraints -/
-def nqueens_csp2D (n : ℕ) : HomogeneousCSP :=
+def nqueens_csp2D (n : ℕ) : IntCSP :=
   ⟨ n*n,
     bound_constraints2D n ++
     row_constraints2D n  ++
@@ -145,15 +144,13 @@ def nqueens_csp2D (n : ℕ) : HomogeneousCSP :=
     diag_constraints2D n  ++
     antidiag_constraints2D n ⟩
 
--- ============================================================================
--- Equivalence Functions (Projection and Lifting)
--- ============================================================================
+/-! ### Equivalence Functions (Projection and Lifting) -/
 
 /--
 Projection π: 2D board → 1D permutation
 For each column c, find the unique row r where x(r*n + c) = 1
 -/
-def π {n : ℕ} (x : HomogeneousAssignment (n*n)) : HomogeneousAssignment n :=
+def π {n : ℕ} (x : IntAssignment (n*n)) : IntAssignment n :=
   fun c : Fin n =>
     match (List.finRange n).find? (fun r =>
       x ⟨r.val * n + c.val, by
@@ -170,15 +167,13 @@ def π {n : ℕ} (x : HomogeneousAssignment (n*n)) : HomogeneousAssignment n :=
 Lifting lift: 1D permutation → 2D board
 Set x(r*n + c) = 1 if and only if q(c) = r
 -/
-def lift {n : ℕ} (hn : 0 < n) (q : HomogeneousAssignment n) : HomogeneousAssignment (n*n) :=
+def lift {n : ℕ} (hn : 0 < n) (q : IntAssignment n) : IntAssignment (n*n) :=
   fun v : Fin (n*n) =>
     let r : ℤ := v.val / n
     let c : Fin n := ⟨v.val % n, Nat.mod_lt v.val hn⟩
     if q c = r then 1 else 0
 
--- ============================================================================
--- Auxiliary Lemmas
--- ============================================================================
+/-! ### Auxiliary Lemmas -/
 
 section AuxiliaryLemmas
 
@@ -195,7 +190,7 @@ def varIndex (r c : Fin n) : Fin (n*n) :=
       _ ≤ n * n := Nat.mul_le_mul_right n (Nat.succ_le_of_lt h1)⟩
 
 /-- The π-lift composition is identity (when q has valid bounds) -/
-lemma π_lift_inverse (q : HomogeneousAssignment n)
+lemma π_lift_inverse (q : IntAssignment n)
     (h_bounds : ∀ c : Fin n, 0 ≤ q c ∧ q c < n) :
     π (lift hn q) = q := by
   funext c
@@ -275,7 +270,7 @@ lemma π_lift_inverse (q : HomogeneousAssignment n)
         have h_eq : q c = ((j.val : ℤ) * n + c.val) / n := by
           by_contra h
           have : q ⟨c.val, c.isLt⟩ ≠ (((j.val * n + c.val) : ℕ) : ℤ) / n := h
-          have h_contra : (0 : HomogeneousDomain) = 1 := h_eq_fn this
+          have h_contra : (0 : IntDomain) = 1 := h_eq_fn this
           norm_num at h_contra
         push_cast at h_eq
         have hn_ne : (n : ℤ) ≠ 0 := by omega
@@ -292,29 +287,24 @@ lemma π_lift_inverse (q : HomogeneousAssignment n)
   rw [← h_toNat_eq]
 
 /-- A 2D solution has exactly one queen per column -/
-lemma col_has_exactly_one (x : HomogeneousAssignment (n*n))
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp2D n) x) (c : Fin n) :
+lemma col_has_exactly_one (x : IntAssignment (n*n))
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp2D n) x) (c : Fin n) :
     ∃! r : Fin n, x (varIndex r c) = 1 := by
   have h_mem : sum_eq (col_variables c) 1 ∈ (nqueens_csp2D n).constraints := by
     unfold nqueens_csp2D
     simp [col_constraints2D, List.finRange]
-  have h_sat := h_sol (sum_eq (col_variables c) 1) h_mem
-  unfold HomogeneousCSP.satisfiesConstraint at h_sat
-  unfold sum_eq sum_rel at h_sat
-  unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_sat
-  unfold CSP.map_assignment at h_sat
-  simp [CSP.sat, extractValues] at h_sat
+  have h_sat₀ : IntCSP.satisfiesConstraintInt (sum_eq (col_variables c) 1) x :=
+    h_sol (sum_eq (col_variables c) 1) h_mem
+  have h_sat := (sum_eq_holds_iff _ _ _).mp h_sat₀
+  unfold col_variables at h_sat
+  simp only [_root_.Vector.toList_ofFn, List.map_ofFn] at h_sat
   have h_binary : ∀ r : Fin n, x (varIndex r c) = 0 ∨ x (varIndex r c) = 1 := by
     intro r
     have h_bound_mem : bound (varIndex r c) 0 1 ∈ (nqueens_csp2D n).constraints := by
       unfold nqueens_csp2D
       simp [bound_constraints2D, List.finRange]
-    have h_bound_sat := h_sol (bound (varIndex r c) 0 1) h_bound_mem
-    unfold HomogeneousCSP.satisfiesConstraint at h_bound_sat
-    unfold bound at h_bound_sat
-    unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_bound_sat
-    unfold CSP.map_assignment at h_bound_sat
-    simp [CSP.sat, extractValues, _root_.Vector.get] at h_bound_sat
+    have h_bound_sat := (bound_holds_iff _ _ _ _).mp
+      (h_sol (bound (varIndex r c) 0 1) h_bound_mem)
     have h_lb := h_bound_sat.1
     have h_ub := h_bound_sat.2
     by_cases h_eq_zero : x (varIndex r c) = 0
@@ -326,17 +316,11 @@ lemma col_has_exactly_one (x : HomogeneousAssignment (n*n))
       have h_not_gt_one : ¬(1 < x (varIndex r c)) := by exact Int.not_lt_of_ge h_ub
       have : x (varIndex r c) = 1 := by exact Eq.symm (Int.le_antisymm h_pos h_ub)
       exact this
-  have h_sum_varIndex : (List.ofFn fun r : Fin n => x (varIndex r c)).sum = 1 := by
-    have h_col_def : (fun i => x ((col_variables c).get i)) = (fun i => x (varIndex i c)) := by
-      funext i
-      unfold col_variables _root_.Vector.get _root_.Vector.ofFn varIndex
-      simp
-    rw [h_col_def] at h_sat
-    exact h_sat
+  have h_sum_varIndex : (List.ofFn fun r : Fin n => x (varIndex r c)).sum = 1 := h_sat
 
   have h_exists : ∃ r : Fin n, x (varIndex r c) = 1 := by
     by_contra h_none
-    push_neg at h_none
+    push Not at h_none
     have h_all_zero : ∀ r : Fin n, x (varIndex r c) = 0 := by
       intro r
       cases h_binary r with
@@ -400,29 +384,24 @@ lemma col_has_exactly_one (x : HomogeneousAssignment (n*n))
       exact (h_unique r_wit r' h_wit h_r').symm
 
 /-- A 2D solution has exactly one queen per row -/
-lemma row_has_exactly_one (x : HomogeneousAssignment (n*n))
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp2D n) x) (r : Fin n) :
+lemma row_has_exactly_one (x : IntAssignment (n*n))
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp2D n) x) (r : Fin n) :
     ∃! c : Fin n, x (varIndex r c) = 1 := by
   have h_mem : sum_eq (row_variables r) 1 ∈ (nqueens_csp2D n).constraints := by
     unfold nqueens_csp2D
     simp [row_constraints2D, List.finRange]
-  have h_sat := h_sol (sum_eq (row_variables r) 1) h_mem
-  unfold HomogeneousCSP.satisfiesConstraint at h_sat
-  unfold sum_eq sum_rel at h_sat
-  unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_sat
-  unfold CSP.map_assignment at h_sat
-  simp [CSP.sat, extractValues] at h_sat
+  have h_sat₀ : IntCSP.satisfiesConstraintInt (sum_eq (row_variables r) 1) x :=
+    h_sol (sum_eq (row_variables r) 1) h_mem
+  have h_sat := (sum_eq_holds_iff _ _ _).mp h_sat₀
+  unfold row_variables at h_sat
+  simp only [_root_.Vector.toList_ofFn, List.map_ofFn] at h_sat
   have h_binary : ∀ c : Fin n, x (varIndex r c) = 0 ∨ x (varIndex r c) = 1 := by
     intro c
     have h_bound_mem : bound (varIndex r c) 0 1 ∈ (nqueens_csp2D n).constraints := by
       unfold nqueens_csp2D
       simp [bound_constraints2D, List.finRange]
-    have h_bound_sat := h_sol (bound (varIndex r c) 0 1) h_bound_mem
-    unfold HomogeneousCSP.satisfiesConstraint at h_bound_sat
-    unfold bound at h_bound_sat
-    unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_bound_sat
-    unfold CSP.map_assignment at h_bound_sat
-    simp [CSP.sat, extractValues, _root_.Vector.get] at h_bound_sat
+    have h_bound_sat := (bound_holds_iff _ _ _ _).mp
+      (h_sol (bound (varIndex r c) 0 1) h_bound_mem)
     have h_lb := h_bound_sat.1
     have h_ub := h_bound_sat.2
     by_cases h_eq_zero : x (varIndex r c) = 0
@@ -434,17 +413,11 @@ lemma row_has_exactly_one (x : HomogeneousAssignment (n*n))
       have h_not_gt_one : ¬(1 < x (varIndex r c)) := by exact Int.not_lt_of_ge h_ub
       have : x (varIndex r c) = 1 := by exact Eq.symm (Int.le_antisymm h_pos h_ub)
       exact this
-  have h_sum_varIndex : (List.ofFn fun c : Fin n => x (varIndex r c)).sum = 1 := by
-    have h_row_def : (fun i => x ((row_variables r).get i)) = (fun i => x (varIndex r i)) := by
-      funext i
-      unfold row_variables _root_.Vector.get _root_.Vector.ofFn varIndex
-      simp
-    rw [h_row_def] at h_sat
-    exact h_sat
+  have h_sum_varIndex : (List.ofFn fun c : Fin n => x (varIndex r c)).sum = 1 := h_sat
 
   have h_exists : ∃ c : Fin n, x (varIndex r c) = 1 := by
     by_contra h_none
-    push_neg at h_none
+    push Not at h_none
     have h_all_zero : ∀ c : Fin n, x (varIndex r c) = 0 := by
       intro c
       cases h_binary c with
@@ -508,43 +481,28 @@ lemma row_has_exactly_one (x : HomogeneousAssignment (n*n))
       exact (h_unique c_wit c' h_wit h_c').symm
 
 /-- A 1D solution has bounds 0 ≤ q(c) < n -/
-lemma solution_1D_bounds (q : HomogeneousAssignment n)
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp1D n) q) (c : Fin n) :
+lemma solution_1D_bounds (q : IntAssignment n)
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp1D n) q) (c : Fin n) :
     0 ≤ q c ∧ q c < n := by
   have h_mem : bound c 0 (n-1) ∈ (nqueens_csp1D n).constraints := by
     unfold nqueens_csp1D
     simp [bound_constraints1D, List.finRange]
-  have h_sat := h_sol (bound c 0 (n-1)) h_mem
-  unfold HomogeneousCSP.satisfiesConstraint at h_sat
-  unfold bound at h_sat
-  unfold CSP.satisfies_dynamic_constraint at h_sat
-  unfold CSP.satisfies_constraint at h_sat
-  unfold CSP.map_assignment at h_sat
-  simp [CSP.sat, extractValues, _root_.Vector.get] at h_sat
+  have h_sat := (bound_holds_iff _ _ _ _).mp (h_sol (bound c 0 (n-1)) h_mem)
   constructor
   · exact h_sat.1
-  · have h_ub : q c ≤ (n : ℤ) - 1 := h_sat.2
-    have h_n_pos : 0 < (n : ℤ) := by omega
-    linarith
+  · exact lt_of_le_of_lt h_sat.2 (sub_one_lt _)
 
 /-- A 1D solution is injective (from AllDifferent) -/
-lemma solution_1D_injective (q : HomogeneousAssignment n)
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp1D n) q) :
+lemma solution_1D_injective (q : IntAssignment n)
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp1D n) q) :
     Function.Injective q := by
   have h_mem : row_constraint1D n ∈ (nqueens_csp1D n).constraints := by
     unfold nqueens_csp1D
     simp [row_constraint1D]
-  have h_sat := h_sol (row_constraint1D n) h_mem
-  unfold HomogeneousCSP.satisfiesConstraint at h_sat
-  unfold row_constraint1D alldifferent_all alldifferent at h_sat
-  unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_sat
-  simp [extractValues] at h_sat
-  have h_simp : (fun i => q ((Vector.ofFn id).get i)) = q := by
-    funext i
-    congr
-    unfold _root_.Vector.ofFn _root_.Vector.get
-    simp
-  rw [h_simp, List.nodup_iff_injective_get] at h_sat
+  have h_nodup : (List.ofFn q).Nodup :=
+    (alldifferent_all_holds_iff _).mp (h_sol (row_constraint1D n) h_mem)
+  rw [List.nodup_iff_injective_get] at h_nodup
+  have h_sat := h_nodup
   intro i j h_eq
   have h_get_eq : (List.ofFn q).get ⟨i.val, by simp⟩ =
                   (List.ofFn q).get ⟨j.val, by simp⟩ := by
@@ -629,8 +587,8 @@ lemma varIndex_injective (hn : 0 < n) : ∀ r₁ c₁ r₂ c₂ : Fin n,
   exact ⟨Fin.ext h_r, Fin.ext h_c⟩
 
 /-- π equals the row where the queen is located -/
-lemma π_eq_row_of_queen (x : HomogeneousAssignment (n*n))
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp2D n) x)
+lemma π_eq_row_of_queen (x : IntAssignment (n*n))
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp2D n) x)
     (c : Fin n) (r : Fin n) (h : x (varIndex r c) = 1) :
     π x c = r.val := by
   have h_unique := col_has_exactly_one x h_sol c
@@ -672,16 +630,14 @@ lemma π_eq_row_of_queen (x : HomogeneousAssignment (n*n))
 
 end AuxiliaryLemmas
 
--- ============================================================================
--- Forward Direction: 2D → 1D
--- ============================================================================
+/-! ### Forward Direction: 2D → 1D -/
 
 section ForwardDirection
 
 variable {n : ℕ} (hn : 0 < n)
 
 /-- π preserves bounds -/
-lemma π_preserves_bounds (x : HomogeneousAssignment (n*n))
+lemma π_preserves_bounds (x : IntAssignment (n*n))
    (c : Fin n) :
     0 ≤ π x c ∧ π x c < n := by
   unfold π
@@ -717,8 +673,8 @@ lemma find?_eq_some_of_exists_unique {α : Type*} {l : List α} {p : α → Bool
       simp [hbeq]
 
 /-- π preserves AllDifferent (injectivity) -/
-lemma π_preserves_alldifferent (x : HomogeneousAssignment (n*n))
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp2D n) x) :
+lemma π_preserves_alldifferent (x : IntAssignment (n*n))
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp2D n) x) :
     Function.Injective (π x) := by
   intro c₁ c₂ h_eq
   by_contra h_ne
@@ -753,7 +709,7 @@ lemma π_preserves_alldifferent (x : HomogeneousAssignment (n*n))
         _ ≤ n * n := Nat.mul_le_mul_right n (Nat.succ_le_iff.mpr r.isLt)
     ⟩ = 1)) =
            (fun r => decide (x (varIndex r c₁) = 1)) := by
-      funext r; simp only [varIndex]
+      funext r; rfl
     simp only [this, hfind₁]
 
   have hπ₂ : π x c₂ = (r₂.val : ℤ) := by
@@ -765,7 +721,7 @@ lemma π_preserves_alldifferent (x : HomogeneousAssignment (n*n))
         _ ≤ n * n := Nat.mul_le_mul_right n (Nat.succ_le_iff.mpr r.isLt)
     ⟩ = 1)) =
            (fun r => decide (x (varIndex r c₂) = 1)) := by
-      funext r; simp only [varIndex]
+      funext r; rfl
     simp only [this, hfind₂]
 
   have h_r_eq : r₁ = r₂ := by
@@ -784,8 +740,8 @@ lemma π_preserves_alldifferent (x : HomogeneousAssignment (n*n))
   exact h_ne this
 
 /-- π preserves positive diagonal constraint -/
-lemma π_preserves_diag_pos (hn : 0 < n) (x : HomogeneousAssignment (n*n))
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp2D n) x) :
+lemma π_preserves_diag_pos (hn : 0 < n) (x : IntAssignment (n*n))
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp2D n) x) :
     List.Nodup (List.ofFn fun i : Fin n => π x i + (i.val : ℤ)) := by
   rw [List.nodup_ofFn]
   intro i j h_eq
@@ -847,17 +803,13 @@ lemma π_preserves_diag_pos (hn : 0 < n) (x : HomogeneousAssignment (n*n))
     simp [List.mem_filterMap]
     use k
     constructor
-    · simp
-      exact h_k_range
+    · exact h_k_range
     · simp
 
-  have h_sat := h_sol (sum_le (listToVector (@antidiag_variables n (k : ℤ))) 1) h_constraint_mem
-
-  unfold HomogeneousCSP.satisfiesConstraint at h_sat
-  unfold sum_le sum_rel at h_sat
-  unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_sat
-  unfold CSP.map_assignment at h_sat
-  simp [CSP.sat, extractValues] at h_sat
+  have h_sat₀ : IntCSP.satisfiesConstraintInt
+      (sum_le (listToVector (@antidiag_variables n (k : ℤ))) 1) x :=
+    h_sol (sum_le (listToVector (@antidiag_variables n (k : ℤ))) 1) h_constraint_mem
+  have h_sat := (sum_le_holds_iff _ _ _).mp h_sat₀
 
   have h_i_in_k : varIndex r_i i ∈ @antidiag_variables n (k : ℤ) := by
     unfold k
@@ -872,13 +824,7 @@ lemma π_preserves_diag_pos (hn : 0 < n) (x : HomogeneousAssignment (n*n))
     have h_bound_mem : bound v 0 1 ∈ (nqueens_csp2D n).constraints := by
       unfold nqueens_csp2D
       simp [bound_constraints2D, List.finRange]
-    have h_bound_sat := h_sol (bound v 0 1) h_bound_mem
-    unfold HomogeneousCSP.satisfiesConstraint at h_bound_sat
-    unfold bound at h_bound_sat
-    unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_bound_sat
-    unfold CSP.map_assignment at h_bound_sat
-    simp [CSP.sat, extractValues, _root_.Vector.get] at h_bound_sat
-    exact h_bound_sat
+    exact (bound_holds_iff _ _ _ _).mp (h_sol (bound v 0 1) h_bound_mem)
 
   have h_sum_ge_2 : ((@antidiag_variables n (k : ℤ)).map x).sum ≥ 2 := by
     have h_i_in_map : 1 ∈ (@antidiag_variables n (k : ℤ)).map x := by
@@ -938,27 +884,14 @@ lemma π_preserves_diag_pos (hn : 0 < n) (x : HomogeneousAssignment (n*n))
       _ = 1 + 1 := by rw [h_val_i, h_val_j]
       _ = 2 := by norm_num
 
-  have h_sat_converted : ((@antidiag_variables n (k : ℤ)).map x).sum ≤ 1 := by
-    convert h_sat using 2
-    let l := @antidiag_variables n (k : ℤ)
-    let v := listToVector l
-
-    unfold listToVector at v
-    apply List.ext_get
-    · -- Show lengths are equal
-      simp only [List.length_map, List.length_ofFn]
-    · -- Show elements at each index are equal
-      intro j h₁ h₂
-      rw [List.get_eq_getElem, List.get_eq_getElem]
-      rw [List.getElem_map, List.getElem_ofFn]
-      congr 1
+  have h_sat_converted : ((@antidiag_variables n (k : ℤ)).map x).sum ≤ 1 := h_sat
 
   -- Now we have a contradiction: sum ≥ 2 but sum ≤ 1
   linarith
 
 /-- π preserves negative diagonal constraint -/
-lemma π_preserves_diag_neg (hn : 0 < n) (x : HomogeneousAssignment (n*n))
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp2D n) x) :
+lemma π_preserves_diag_neg (hn : 0 < n) (x : IntAssignment (n*n))
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp2D n) x) :
     List.Nodup (List.ofFn fun i : Fin n => π x i - (i.val : ℤ)) := by
   rw [List.nodup_ofFn]
   intro i j h_eq
@@ -1028,20 +961,16 @@ lemma π_preserves_diag_neg (hn : 0 < n) (x : HomogeneousAssignment (n*n))
     simp [List.mem_filterMap]
     use k_nat
     constructor
-    · simp
-      exact h_k_range
+    · exact h_k_range
     · rw [h_k_eq_d]
       split
       · contradiction
       · rfl
 
-  have h_sat := h_sol (sum_le (listToVector (@diag_variables n d)) 1) h_constraint_mem
-
-  unfold HomogeneousCSP.satisfiesConstraint at h_sat
-  unfold sum_le sum_rel at h_sat
-  unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_sat
-  unfold CSP.map_assignment at h_sat
-  simp [CSP.sat, extractValues] at h_sat
+  have h_sat₀ : IntCSP.satisfiesConstraintInt
+      (sum_le (listToVector (@diag_variables n d)) 1) x :=
+    h_sol (sum_le (listToVector (@diag_variables n d)) 1) h_constraint_mem
+  have h_sat := (sum_le_holds_iff _ _ _).mp h_sat₀
 
   have h_i_in_d : varIndex r_i i ∈ @diag_variables n d := by
     unfold d
@@ -1056,13 +985,7 @@ lemma π_preserves_diag_neg (hn : 0 < n) (x : HomogeneousAssignment (n*n))
     have h_bound_mem : bound v 0 1 ∈ (nqueens_csp2D n).constraints := by
       unfold nqueens_csp2D
       simp [bound_constraints2D, List.finRange]
-    have h_bound_sat := h_sol (bound v 0 1) h_bound_mem
-    unfold HomogeneousCSP.satisfiesConstraint at h_bound_sat
-    unfold bound at h_bound_sat
-    unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_bound_sat
-    unfold CSP.map_assignment at h_bound_sat
-    simp [CSP.sat, extractValues, _root_.Vector.get] at h_bound_sat
-    exact h_bound_sat
+    exact (bound_holds_iff _ _ _ _).mp (h_sol (bound v 0 1) h_bound_mem)
 
   have h_sum_ge_2 : ((@diag_variables n d).map x).sum ≥ 2 := by
     have h_nodup_diag : (@diag_variables n d).Nodup := by
@@ -1102,86 +1025,62 @@ lemma π_preserves_diag_neg (hn : 0 < n) (x : HomogeneousAssignment (n*n))
 
     linarith
 
-  have h_sat_converted : ((@diag_variables n d).map x).sum ≤ 1 := by
-    convert h_sat using 2
-    let l := @diag_variables n d
-    let v := listToVector l
-
-    unfold listToVector at v
-    apply List.ext_get
-    · simp only [List.length_map, List.length_ofFn]
-    · intro j h₁ h₂
-      rw [List.get_eq_getElem, List.get_eq_getElem]
-      rw [List.getElem_map, List.getElem_ofFn]
-      congr 1
+  have h_sat_converted : ((@diag_variables n d).map x).sum ≤ 1 := h_sat
 
   -- Now we have a contradiction: sum ≥ 2 but sum ≤ 1
   linarith
 
 /-- Forward direction: 2D solution projects to 1D solution -/
-theorem forward_direction (hn : 0 < n) (sol₂ : HomogeneousAssignment (n*n))
-    (h : HomogeneousCSP.isSolution (nqueens_csp2D n) sol₂) :
-    HomogeneousCSP.isSolution (nqueens_csp1D n) (π sol₂) := by
+theorem forward_direction (hn : 0 < n) (sol₂ : IntAssignment (n*n))
+    (h : IntCSP.isSolutionInt (nqueens_csp2D n) sol₂) :
+    IntCSP.isSolutionInt (nqueens_csp1D n) (π sol₂) := by
   intro c h_c_in
-  simp [nqueens_csp1D] at h_c_in
-  rcases h_c_in with h_bound | h_row | h_diag_neg | h_diag_pos
-  · simp [bound_constraints1D] at h_bound
-    obtain ⟨v, h_v_in, rfl⟩ := h_bound
-    simp [HomogeneousCSP.satisfiesConstraint]
-    unfold bound CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.map_assignment CSP.sat
-    simp [extractValues, Vector.get]
-    have h_bounds := π_preserves_bounds sol₂ v
-    constructor
-    · exact h_bounds.1
-    · linarith
+  have h_c_in' : c ∈ bound_constraints1D n ∨ c = row_constraint1D n ∨
+      c = diagonal_constraint1D n ∨ c = antidiagonal_constraint1D n := by
+    have : c ∈ bound_constraints1D n ++ [row_constraint1D n] ++
+        [diagonal_constraint1D n] ++ [antidiagonal_constraint1D n] := h_c_in
+    rcases List.mem_append.mp this with h | h
+    · rcases List.mem_append.mp h with h | h
+      · rcases List.mem_append.mp h with h | h
+        · exact Or.inl h
+        · exact Or.inr (Or.inl (List.mem_singleton.mp h))
+      · exact Or.inr (Or.inr (Or.inl (List.mem_singleton.mp h)))
+    · exact Or.inr (Or.inr (Or.inr (List.mem_singleton.mp h)))
+  rcases h_c_in' with h_bound | h_row | h_diag_neg | h_diag_pos
+  · rw [bound_constraints1D] at h_bound
+    obtain ⟨v, h_v_in, rfl⟩ := List.mem_map.mp h_bound
+    show IntCSP.satisfiesConstraintInt (bound v 0 ((n : ℤ) - 1)) (π sol₂)
+    rw [bound_holds_iff]
+    obtain ⟨h_lb, h_ub⟩ := π_preserves_bounds sol₂ v
+    exact ⟨h_lb, Int.le_sub_one_of_lt h_ub⟩
   · subst h_row
-    simp [row_constraint1D, alldifferent_all, HomogeneousCSP.satisfiesConstraint]
-    unfold alldifferent CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.map_assignment CSP.sat
-    simp
-    unfold extractValues
-    have h_vec : (fun i => π sol₂ ((Vector.ofFn id).get i)) = π sol₂ := by
-      ext i
-      congr 1
-      simp [Vector.ofFn, Vector.get]
-    rw [h_vec]
-    rw [List.nodup_ofFn]
+    show IntCSP.satisfiesConstraintInt (alldifferent_all n) (π sol₂)
+    rw [alldifferent_all_holds_iff, List.nodup_ofFn]
     exact π_preserves_alldifferent sol₂ h
   · subst h_diag_neg
-    simp [diagonal_constraint1D, alldifferent_diag_neg, HomogeneousCSP.satisfiesConstraint]
-    unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.map_assignment CSP.sat
-    simp
-    have : ∀ x, (Vector.ofFn (fun i : Fin n => i)).get x = x := by
-      intro x
-      simp [Vector.ofFn, Vector.get]
-    simp_all
+    show IntCSP.satisfiesConstraintInt (alldifferent_diag_neg n) (π sol₂)
+    rw [diag_neg_holds_iff]
     exact π_preserves_diag_neg hn sol₂ h
   · subst h_diag_pos
-    simp [antidiagonal_constraint1D, alldifferent_diag_pos, HomogeneousCSP.satisfiesConstraint]
-    unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.map_assignment CSP.sat
-    simp
-    have : ∀ x, (Vector.ofFn (fun i : Fin n => i)).get x = x := by
-      intro x
-      simp [Vector.ofFn, Vector.get]
-    simp_all
+    show IntCSP.satisfiesConstraintInt (alldifferent_diag_pos n) (π sol₂)
+    rw [diag_pos_holds_iff]
     exact π_preserves_diag_pos hn sol₂ h
 
 end ForwardDirection
 
--- ============================================================================
--- Backward Direction: 1D → 2D
--- ============================================================================
+/-! ### Backward Direction: 1D → 2D -/
 
 section BackwardDirection
 
 variable {n : ℕ} (hn : 0 < n)
 
 /-- lift produces binary values -/
-lemma lift_binary (q : HomogeneousAssignment n) (v : Fin (n*n)) :
+lemma lift_binary (q : IntAssignment n) (v : Fin (n*n)) :
     lift hn q v = 0 ∨ lift hn q v = 1 := by
   simp [lift]; by_cases h : q ⟨v.val % n, Nat.mod_lt v.val hn⟩ = v.val / n <;> simp [h]
 
 /-- Simplification of lift at varIndex -/
-lemma lift_at_varIndex (q : HomogeneousAssignment n) (r c : Fin n) :
+lemma lift_at_varIndex (q : IntAssignment n) (r c : Fin n) :
     lift hn q (varIndex r c) = if q c = (r.val : ℤ) then 1 else 0 := by
   unfold lift varIndex
   simp only
@@ -1212,8 +1111,8 @@ lemma lift_at_varIndex (q : HomogeneousAssignment n) (r c : Fin n) :
 lemma Fin_is_Finite : Finite (Fin n) := inferInstance
 
 /-- A 1D solution is surjective (from injectivity on finite domain) -/
-lemma solution_1D_surjective (q : HomogeneousAssignment n)
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp1D n) q) :
+lemma solution_1D_surjective (q : IntAssignment n)
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp1D n) q) :
     ∀ r : Fin n, ∃ c : Fin n, q c = (r.val : ℤ) := by
   intro r
   have h_inj := solution_1D_injective q h_sol
@@ -1246,8 +1145,8 @@ lemma solution_1D_surjective (q : HomogeneousAssignment n)
 
 
 /-- A 1D solution gives unique column for each row (bijectivity) -/
-lemma solution_1D_bijective (q : HomogeneousAssignment n)
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp1D n) q) :
+lemma solution_1D_bijective (q : IntAssignment n)
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp1D n) q) :
     ∀ r : Fin n, ∃! c : Fin n, q c = (r.val : ℤ) := by
   intro r
   obtain ⟨c₀, hc₀⟩ := solution_1D_surjective q h_sol r
@@ -1258,8 +1157,8 @@ lemma solution_1D_bijective (q : HomogeneousAssignment n)
   exact h_inj this.symm
 
 /-- A 1D solution gives unique row for each column value -/
-lemma unique_row_for_column (q : HomogeneousAssignment n)
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp1D n) q) (c : Fin n) :
+lemma unique_row_for_column (q : IntAssignment n)
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp1D n) q) (c : Fin n) :
     ∃! r : Fin n, q c = (r.val : ℤ) := by
   have h_bounds := solution_1D_bounds q h_sol c
   let r₀ : Fin n := ⟨(q c).toNat, by
@@ -1324,8 +1223,8 @@ lemma sum_indicator_index_eq {n : ℕ} (val : ℤ)
     exact h_not_mem (Finset.mem_univ r₀)
 
 /-- lift satisfies row constraints -/
-lemma lift_satisfies_row_constraints (q : HomogeneousAssignment n)
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp1D n) q) (r : Fin n) :
+lemma lift_satisfies_row_constraints (q : IntAssignment n)
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp1D n) q) (r : Fin n) :
     (List.ofFn fun c : Fin n => lift hn q (varIndex r c)).sum = 1 := by
   -- Step 1: Rewrite using lift_at_varIndex
   have h_eq : (List.ofFn fun c : Fin n => lift hn q (varIndex r c)) =
@@ -1341,8 +1240,8 @@ lemma lift_satisfies_row_constraints (q : HomogeneousAssignment n)
   exact sum_indicator_unique r q h_unique
 
 /-- lift satisfies column constraints -/
-lemma lift_satisfies_col_constraints (q : HomogeneousAssignment n)
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp1D n) q) (c : Fin n) :
+lemma lift_satisfies_col_constraints (q : IntAssignment n)
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp1D n) q) (c : Fin n) :
     (List.ofFn fun r : Fin n => lift hn q (varIndex r c)).sum = 1 := by
   -- Step 1: Rewrite using lift_at_varIndex
   have h_eq : (List.ofFn fun r : Fin n => lift hn q (varIndex r c)) =
@@ -1358,47 +1257,37 @@ lemma lift_satisfies_col_constraints (q : HomogeneousAssignment n)
   exact sum_indicator_index_eq (q c) h_unique
 
 /-- Extract AllDifferent constraint for negative diagonals (q[i] - i) -/
-lemma extract_alldifferent_diag_neg (q : HomogeneousAssignment n)
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp1D n) q) :
+lemma extract_alldifferent_diag_neg (q : IntAssignment n)
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp1D n) q) :
     ∀ c₁ c₂ : Fin n, q c₁ - (c₁.val : ℤ) = q c₂ - (c₂.val : ℤ) → c₁ = c₂ := by
   -- Extract the diagonal constraint from h_sol
   have h_mem : diagonal_constraint1D n ∈ (nqueens_csp1D n).constraints := by
     unfold nqueens_csp1D
     simp [diagonal_constraint1D]
-  have h_sat := h_sol (diagonal_constraint1D n) h_mem
-  -- Unfold to get to the nodup property
-  unfold HomogeneousCSP.satisfiesConstraint at h_sat
-  unfold diagonal_constraint1D alldifferent_diag_neg at h_sat
-  unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_sat
-  simp [Vector.ofFn, Vector.get] at h_sat
-  -- h_sat is now: List.Nodup (List.ofFn fun i => q i - i.val)
-  rw [List.nodup_ofFn] at h_sat
-  exact h_sat
+  have h_sat' : (List.ofFn fun i : Fin n => q i - (i.val : ℤ)).Nodup :=
+    (diag_neg_holds_iff _).mp (h_sol (diagonal_constraint1D n) h_mem)
+  rw [List.nodup_ofFn] at h_sat'
+  exact h_sat'
 
 /-- Extract AllDifferent constraint for positive diagonals (q[i] + i) -/
-lemma extract_alldifferent_diag_pos (q : HomogeneousAssignment n)
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp1D n) q) :
+lemma extract_alldifferent_diag_pos (q : IntAssignment n)
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp1D n) q) :
     ∀ c₁ c₂ : Fin n, q c₁ + (c₁.val : ℤ) = q c₂ + (c₂.val : ℤ) → c₁ = c₂ := by
   -- Extract the antidiagonal constraint from h_sol
   have h_mem : antidiagonal_constraint1D n ∈ (nqueens_csp1D n).constraints := by
     unfold nqueens_csp1D
     simp [antidiagonal_constraint1D]
-  have h_sat := h_sol (antidiagonal_constraint1D n) h_mem
-  -- Unfold to get to the nodup property
-  unfold HomogeneousCSP.satisfiesConstraint at h_sat
-  unfold antidiagonal_constraint1D alldifferent_diag_pos at h_sat
-  unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_sat
-  simp [Vector.ofFn, Vector.get] at h_sat
-  -- h_sat is now: List.Nodup (List.ofFn fun i => q i + i.val)
-  rw [List.nodup_ofFn] at h_sat
-  exact h_sat
+  have h_sat' : (List.ofFn fun i : Fin n => q i + (i.val : ℤ)).Nodup :=
+    (diag_pos_holds_iff _).mp (h_sol (antidiagonal_constraint1D n) h_mem)
+  rw [List.nodup_ofFn] at h_sat'
+  exact h_sat'
 
 /-- lift satisfies each diagonal constraint -/
-lemma lift_satisfies_each_diagonal (q : HomogeneousAssignment n)
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp1D n) q) (d : ℤ) :
+lemma lift_satisfies_each_diagonal (q : IntAssignment n)
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp1D n) q) (d : ℤ) :
     ((diag_variables d).map (lift hn q)).sum ≤ 1 := by
   by_contra h_not_le
-  push_neg at h_not_le
+  push Not at h_not_le
   have h_sum_ge_2 : ((diag_variables d).map (lift hn q)).sum ≥ 2 := by
     have h_gt : 1 < ((diag_variables d).map (lift hn q)).sum := h_not_le
     exact Int.add_one_le_of_lt h_gt
@@ -1535,11 +1424,11 @@ lemma lift_satisfies_each_diagonal (q : HomogeneousAssignment n)
   exact h_ne h_eq_cells
 
 /-- lift satisfies each antidiagonal constraint -/
-lemma lift_satisfies_each_antidiagonal (q : HomogeneousAssignment n)
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp1D n) q) (a : ℤ) :
+lemma lift_satisfies_each_antidiagonal (q : IntAssignment n)
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp1D n) q) (a : ℤ) :
     ((antidiag_variables a).map (lift hn q)).sum ≤ 1 := by
   by_contra h_not_le
-  push_neg at h_not_le
+  push Not at h_not_le
   have h_sum_ge_2 : ((antidiag_variables a).map (lift hn q)).sum ≥ 2 := by
     have h_gt : 1 < ((antidiag_variables a).map (lift hn q)).sum := h_not_le
     exact Int.add_one_le_of_lt h_gt
@@ -1677,10 +1566,10 @@ lemma lift_satisfies_each_antidiagonal (q : HomogeneousAssignment n)
   exact h_ne h_eq_cells
 
 /-- lift satisfies all diagonal and antidiagonal constraints -/
-lemma lift_satisfies_diag_constraints (q : HomogeneousAssignment n)
-    (h_sol : HomogeneousCSP.isSolution (nqueens_csp1D n) q) :
+lemma lift_satisfies_diag_constraints (q : IntAssignment n)
+    (h_sol : IntCSP.isSolutionInt (nqueens_csp1D n) q) :
     ∀ c ∈ diag_constraints2D n ++ antidiag_constraints2D n,
-      HomogeneousCSP.satisfiesConstraint c (lift hn q) := by
+      IntCSP.satisfiesConstraintInt c (lift hn q) := by
   intro c h_mem
   rw [List.mem_append] at h_mem
   cases h_mem with
@@ -1694,16 +1583,7 @@ lemma lift_satisfies_diag_constraints (q : HomogeneousAssignment n)
     · have h_c : c = sum_le (listToVector (diag_variables ((k : ℤ) - (n - 1)))) 1 := by
         exact Option.some_inj.mp h_some.symm
       rw [h_c]
-      unfold HomogeneousCSP.satisfiesConstraint sum_le sum_rel CSP.satisfies_dynamic_constraint CSP.satisfies_constraint
-      simp only [CSP.sat]
-      rw [decide_eq_true_iff]
-      have h_eq_sum : (extractValues (CSP.map_assignment (lift hn q) (listToVector (@diag_variables n ((k : ℤ) - (n - 1)))))).sum =
-                      (List.map (lift hn q) (@diag_variables n ((k : ℤ) - (n - 1)))).sum := by
-        unfold extractValues CSP.map_assignment listToVector
-        conv_rhs => rw [← List.ofFn_get (@diag_variables n ((k : ℤ) - (n - 1)))]
-        rw [List.map_ofFn]
-        congr 1
-      rw [h_eq_sum]
+      rw [sum_le_holds_iff]
       exact lift_satisfies_each_diagonal hn q h_sol ((k : ℤ) - (n - 1))
   | inr h_antidiag =>
     unfold antidiag_constraints2D at h_antidiag
@@ -1715,23 +1595,14 @@ lemma lift_satisfies_diag_constraints (q : HomogeneousAssignment n)
     · have h_c : c = sum_le (listToVector (antidiag_variables k)) 1 := by
         exact Option.some_inj.mp h_some.symm
       rw [h_c]
-      unfold HomogeneousCSP.satisfiesConstraint sum_le sum_rel CSP.satisfies_dynamic_constraint CSP.satisfies_constraint
-      simp only [CSP.sat]
-      rw [decide_eq_true_iff]
-      have h_eq_sum : (extractValues (CSP.map_assignment (lift hn q) (listToVector (@antidiag_variables n k)))).sum =
-                      (List.map (lift hn q) (@antidiag_variables n k)).sum := by
-        unfold extractValues CSP.map_assignment listToVector
-        conv_rhs => rw [← List.ofFn_get (@antidiag_variables n k)]
-        rw [List.map_ofFn]
-        congr 1
-      rw [h_eq_sum]
+      rw [sum_le_holds_iff]
       exact lift_satisfies_each_antidiagonal hn q h_sol k
 
 /-- Backward direction: 1D solution lifts to 2D solution -/
-theorem backward_direction (hn : 0 < n) (sol₁ : HomogeneousAssignment n)
-    (h : HomogeneousCSP.isSolution (nqueens_csp1D n) sol₁) :
-    ∃ sol₂ : HomogeneousAssignment (n*n),
-      HomogeneousCSP.isSolution (nqueens_csp2D n) sol₂ ∧ π sol₂ = sol₁ := by
+theorem backward_direction (hn : 0 < n) (sol₁ : IntAssignment n)
+    (h : IntCSP.isSolutionInt (nqueens_csp1D n) sol₁) :
+    ∃ sol₂ : IntAssignment (n*n),
+      IntCSP.isSolutionInt (nqueens_csp2D n) sol₂ ∧ π sol₂ = sol₁ := by
   use lift hn sol₁
   constructor
   · intro c h_mem
@@ -1741,44 +1612,26 @@ theorem backward_direction (hn : 0 < n) (sol₁ : HomogeneousAssignment n)
     · -- Bound constraints
       simp only [bound_constraints2D, List.mem_map] at h_bound
       obtain ⟨v, _, rfl⟩ := h_bound
-      unfold HomogeneousCSP.satisfiesConstraint bound CSP.satisfies_dynamic_constraint CSP.satisfies_constraint
-      simp [CSP.sat, extractValues, CSP.map_assignment, lift]
-      split <;> simp
+      show IntCSP.satisfiesConstraintInt (bound v 0 1) (lift hn sol₁)
+      rw [bound_holds_iff]
+      rcases lift_binary hn sol₁ v with h0 | h0 <;> rw [h0] <;> norm_num
     · -- Row constraints
       simp only [row_constraints2D, List.mem_map] at h_row
       obtain ⟨r, _, rfl⟩ := h_row
-      unfold HomogeneousCSP.satisfiesConstraint sum_eq sum_rel CSP.satisfies_dynamic_constraint CSP.satisfies_constraint
-      simp [CSP.sat]
-      have h_eq : (extractValues (CSP.map_assignment (lift hn sol₁) (row_variables r))).sum =
-                  (List.ofFn fun c : Fin n => lift hn sol₁ (varIndex r c)).sum := by
-        unfold extractValues CSP.map_assignment row_variables varIndex
-        congr 1
-        ext i : 1
-        by_cases h : i < n
-        · simp only [List.getElem?_ofFn, h, ↓reduceDIte]
-          congr
-          ext
-          simp [_root_.Vector.get, _root_.Vector.ofFn]
-        · simp [h]
-      rw [h_eq]
+      show IntCSP.satisfiesConstraintInt (sum_eq (row_variables r) 1) (lift hn sol₁)
+      rw [sum_eq_holds_iff]
+      unfold row_variables
+      simp only [_root_.Vector.toList_ofFn, List.map_ofFn]
+      show (List.ofFn fun c : Fin n => lift hn sol₁ (varIndex r c)).sum = 1
       exact lift_satisfies_row_constraints hn sol₁ h r
     · -- Column constraints
       simp only [col_constraints2D, List.mem_map] at h_col
       obtain ⟨c_idx, _, rfl⟩ := h_col
-      unfold HomogeneousCSP.satisfiesConstraint sum_eq sum_rel CSP.satisfies_dynamic_constraint CSP.satisfies_constraint
-      simp [CSP.sat]
-      have h_eq : (extractValues (CSP.map_assignment (lift hn sol₁) (col_variables c_idx))).sum =
-                  (List.ofFn fun r : Fin n => lift hn sol₁ (varIndex r c_idx)).sum := by
-        unfold extractValues CSP.map_assignment col_variables varIndex
-        congr 1
-        ext i : 1
-        by_cases h : i < n
-        · simp only [List.getElem?_ofFn, h, ↓reduceDIte]
-          congr
-          ext
-          simp [_root_.Vector.get, _root_.Vector.ofFn]
-        · simp [h]
-      rw [h_eq]
+      show IntCSP.satisfiesConstraintInt (sum_eq (col_variables c_idx) 1) (lift hn sol₁)
+      rw [sum_eq_holds_iff]
+      unfold col_variables
+      simp only [_root_.Vector.toList_ofFn, List.map_ofFn]
+      show (List.ofFn fun r : Fin n => lift hn sol₁ (varIndex r c_idx)).sum = 1
       exact lift_satisfies_col_constraints hn sol₁ h c_idx
     · -- Diagonal constraints
       have h_combined := lift_satisfies_diag_constraints hn sol₁ h
@@ -1790,18 +1643,16 @@ theorem backward_direction (hn : 0 < n) (sol₁ : HomogeneousAssignment n)
 
 end BackwardDirection
 
--- ============================================================================
--- Injectivity
--- ============================================================================
+/-! ### Injectivity -/
 
 section Injectivity
 
 variable {n : ℕ} (hn : 0 < n)
 
 /-- π is injective on solutions -/
-theorem injective_on_solutions (hn : 0 < n) (sol₂ sol₂' : HomogeneousAssignment (n*n))
-    (h₂ : HomogeneousCSP.isSolution (nqueens_csp2D n) sol₂)
-    (h₂' : HomogeneousCSP.isSolution (nqueens_csp2D n) sol₂')
+theorem injective_on_solutions (hn : 0 < n) (sol₂ sol₂' : IntAssignment (n*n))
+    (h₂ : IntCSP.isSolutionInt (nqueens_csp2D n) sol₂)
+    (h₂' : IntCSP.isSolutionInt (nqueens_csp2D n) sol₂')
     (h_eq : π sol₂ = π sol₂') :
     sol₂ = sol₂' := by
   funext v
@@ -1844,12 +1695,8 @@ theorem injective_on_solutions (hn : 0 < n) (sol₂ sol₂' : HomogeneousAssignm
       have h_bound_mem : bound (varIndex r c) 0 1 ∈ (nqueens_csp2D n).constraints := by
         unfold nqueens_csp2D
         simp [bound_constraints2D, List.finRange]
-      have h_bound_sat := h₂ (bound (varIndex r c) 0 1) h_bound_mem
-      unfold HomogeneousCSP.satisfiesConstraint at h_bound_sat
-      unfold bound at h_bound_sat
-      unfold CSP.satisfies_dynamic_constraint CSP.satisfies_constraint at h_bound_sat
-      unfold CSP.map_assignment at h_bound_sat
-      simp [CSP.sat, extractValues, _root_.Vector.get] at h_bound_sat
+      have h_bound_sat := (bound_holds_iff _ _ _ _).mp
+        (h₂ (bound (varIndex r c) 0 1) h_bound_mem)
       by_cases h_val : sol₂ (varIndex r c) = 1
       · have : r = r₂ := h₂_uniq r h_val
         exact absurd this h_case
@@ -1864,9 +1711,8 @@ theorem injective_on_solutions (hn : 0 < n) (sol₂ sol₂' : HomogeneousAssignm
       have h_bound_mem : bound (varIndex r c) 0 1 ∈ (nqueens_csp2D n).constraints := by
         unfold nqueens_csp2D
         simp [bound_constraints2D, List.finRange]
-      have h_bound_sat := h₂' (bound (varIndex r c) 0 1) h_bound_mem
-      unfold HomogeneousCSP.satisfiesConstraint bound CSP.satisfies_dynamic_constraint CSP.satisfies_constraint CSP.map_assignment at h_bound_sat
-      simp [CSP.sat, extractValues, _root_.Vector.get] at h_bound_sat
+      have h_bound_sat := (bound_holds_iff _ _ _ _).mp
+        (h₂' (bound (varIndex r c) 0 1) h_bound_mem)
       by_cases h_val : sol₂' (varIndex r c) = 1
       · have : r = r₂' := h₂'_uniq r h_val
         have h_r_ne_r₂' : r ≠ r₂' := by
@@ -1885,9 +1731,7 @@ theorem injective_on_solutions (hn : 0 < n) (sol₂ sol₂' : HomogeneousAssignm
 
 end Injectivity
 
--- ============================================================================
--- π-Equivalence
--- ============================================================================
+/-! ### π-Equivalence -/
 
 section PiEquivalence
 
@@ -1917,9 +1761,7 @@ theorem nqueens_equisatisfiable (hn_pos : 0 < n) :
 
 end PiEquivalence
 
--- ============================================================================
--- Solvers translation
--- ============================================================================
+/-! ### Solvers translation -/
 
 
 def main : IO Unit := do

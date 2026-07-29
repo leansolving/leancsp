@@ -10,9 +10,7 @@ namespace CSP
 
 open Function List
 
--- ============================================================================
--- Helper Functions for Type-Safe Constraint Construction
--- ============================================================================
+/-! ### Helper Functions for Type-Safe Constraint Construction -/
 
 section Helpers
 
@@ -24,9 +22,7 @@ def extractHomogeneousValues {VarIndex : Type} {DomainType : VarIndex → Type} 
 
 end Helpers
 
--- ============================================================================
--- All Different Constraints (Type-Specific Versions)
--- ============================================================================
+/-! ### All Different Constraints (Type-Specific Versions) -/
 
 section AllDifferent
 
@@ -93,9 +89,7 @@ def alldifferent_fin_dynamic {VarIndex : Type} {DomainType : VarIndex → Type} 
 
 end AllDifferent
 
--- ============================================================================
--- Sum Equals Constraints (Type-Specific Versions)
--- ============================================================================
+/-! ### Sum Equals Constraints (Type-Specific Versions) -/
 
 section SumEquals
 
@@ -144,9 +138,7 @@ def sum_eq_int_dynamic {VarIndex : Type} {DomainType : VarIndex → Type} [Decid
 
 end SumEquals
 
--- ============================================================================
--- Count Constraints (Type-Specific Versions)
--- ============================================================================
+/-! ### Count Constraints (Type-Specific Versions) -/
 
 section Count
 
@@ -189,9 +181,7 @@ def count_true {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq V
 
 end Count
 
--- ============================================================================
--- Domain-Specific Constraints
--- ============================================================================
+/-! ### Domain-Specific Constraints -/
 
 section DomainSpecific
 
@@ -220,9 +210,7 @@ def nqueens {n : ℕ} [NeZero n] : Constraint (Fin n) (fun _ => Fin n) n where
 
 end DomainSpecific
 
--- ============================================================================
--- Utility Functions
--- ============================================================================
+/-! ### Utility Functions -/
 
 section Utilities
 

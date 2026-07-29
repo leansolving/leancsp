@@ -1,5 +1,6 @@
 import CSP.Core
 import Mathlib.Data.Fin.Basic
+import Mathlib.Data.Fin.Rev
 import Mathlib.Data.Set.Basic
 import Mathlib.Data.List.Basic
 import Mathlib.Data.Vector.Basic
@@ -7,46 +8,33 @@ import Mathlib.Data.Vector.Basic
 namespace CSP.L2S
 
 /-!
-# L2M (Lean-to-MiniZinc) Core
+# L2S core
 
-Unified CSP framework combining Homogeneous integer domains with Tagged constraints
-for direct MiniZinc translation. This eliminates the two-layer structure and provides
-a single `HomogeneousCSP` type that is both proof-ready and MiniZinc-translatable.
-
-## Design
-
-- **Single Structure**: One `HomogeneousCSP` type (not base + tagged)
-- **Dual Representation**: Each constraint has semantic pattern + dynamic checker
-- **Integer Domains**: All variables have type `ℤ` (unlimited range, negatives supported)
-- **Direct Translation**: MiniZinc generation without structure conversion
-
-
+A single `IntCSP` type that is both proof-ready and directly translatable to a
+solver.  All variables range over `ℤ`; each constraint carries a semantic pattern
+(its meaning, via `patternHolds`) alongside an executable checker.
 -/
 
--- ============================================================================
--- Type Aliases and Foundations
--- ============================================================================
+/-! ### Type Aliases and Foundations -/
 
 /-- Integer domain for all variables -/
-abbrev HomogeneousDomain := ℤ
+abbrev IntDomain := ℤ
 
 /-- Variable indices are finite -/
-abbrev HomogeneousVarIndex (n : ℕ) := Fin n
+abbrev VarType (n : ℕ) := Fin n
 
 /-- DecidableEq instance for variable indices -/
-instance {n : ℕ} : DecidableEq (HomogeneousVarIndex n) := inferInstance
+instance {n : ℕ} : DecidableEq (VarType n) := inferInstance
 
 /-- Abbreviation for homogeneous constraints -/
-abbrev HomogeneousConstraint (n : ℕ) :=
-  DynamicConstraint (HomogeneousVarIndex n) (fun _ => HomogeneousDomain)
+abbrev IntDynConstraint (n : ℕ) :=
+  DynamicConstraint (VarType n) (fun _ => IntDomain)
 
 /-- Abbreviation for homogeneous assignments -/
-abbrev HomogeneousAssignment (n : ℕ) :=
-  HomogeneousVarIndex n → HomogeneousDomain
+abbrev IntAssignment (n : ℕ) :=
+  VarType n → IntDomain
 
--- ============================================================================
--- Relational Operators (for sum and other constraints)
--- ============================================================================
+/-! ### Relational Operators (for sum and other constraints) -/
 
 /-- Relational operators for constraints -/
 inductive RelOp where
@@ -58,15 +46,13 @@ inductive RelOp where
   | GE  -- Greater than or equal
   deriving Repr, DecidableEq
 
--- ============================================================================
--- Constraint Patterns (Semantic Representation)
--- ============================================================================
+/-! ### Constraint Patterns (Semantic Representation) -/
 
 /--
 Semantic patterns for constraint types. These enable MiniZinc translation
 by capturing the high-level structure of constraints.
 -/
-inductive ConstraintPattern (num_vars : ℕ)
+inductive IntConstraint (num_vars : ℕ)
   -- Global constraints
   | alldifferent (vars : List ℕ)
   | alldifferentOffset (vars : List ℕ) (offsets : List ℤ)  -- For diagonal constraints
@@ -142,79 +128,188 @@ inductive ConstraintPattern (num_vars : ℕ)
   | linear_rel_var (vars : List ℕ) (coeffs : List ℤ) (op : RelOp) (target_var : ℕ)  -- Σ(coeffs[i]*vars[i]) op target_var
   | product_rel_var (vars : List ℕ) (op : RelOp) (target_var : ℕ)  -- product(vars) op target_var
 
+  -- Value precedence (Law–Lee 2004): a colour `v ∈ [1, colors)` may first appear,
+  -- scanning `x_0, x_1, …`, only after `v-1` has.  Sound for any CSP closed under all
+  -- permutations of the colour values (see `CSP/L2S/ValuePrecedence.lean`).
+  | value_precedence (colors : ℕ)
+
+  -- Strict lexicographic reversal leader `x <_lex rev(x)`, for the index reversal
+  -- `i ↦ (num_vars-1)-i`.  A whole-CSP constraint.  Sound ONLY when that reversal is a
+  -- symmetry of the CSP; see `Proofs/SchurReversalCounterexample.lean`.
+  | strictLexRevLeader
+
   -- Scheduling constraints
   | disjunctive (tasks : List ℕ) (durations : List ℤ)  -- Tasks on unary resource must not overlap
 
   -- Unknown pattern (fallback)
   | unknown (arity : ℕ) (scope : List ℕ)
-  deriving Repr
+  deriving Repr, DecidableEq
 
--- ============================================================================
--- Tagged Constraint (Dual Representation)
--- ============================================================================
+/-! ### Pattern Semantics (meaning of a constraint from its `pattern`) -/
 
-/--
-Tagged constraint bundles semantic pattern with dynamic checker.
+/-- Value of pattern variable `v` (a raw `ℕ` index) under assignment `a`;
+    out-of-range indices default to `0` (they do not occur in well-formed CSPs). -/
+def valAt {n : ℕ} (a : IntAssignment n) (v : ℕ) : ℤ :=
+  if h : v < n then a ⟨v, h⟩ else 0
 
-The dual representation enables:
-- **Pattern**: High-level structure for MiniZinc translation
-- **Dynamic**: Executable checker for Lean proofs and verification
--/
-structure TaggedConstraint (num_vars : ℕ) where
-  /-- The semantic pattern for translation -/
-  pattern : ConstraintPattern num_vars
-  /-- The dynamic checker for proof verification -/
-  dynamic : HomogeneousConstraint num_vars
+/-- Interpret a `RelOp` as a relation on `ℤ`. -/
+def relHolds : RelOp → ℤ → ℤ → Prop
+  | .EQ, x, y => x = y
+  | .NE, x, y => x ≠ y
+  | .LT, x, y => x < y
+  | .LE, x, y => x ≤ y
+  | .GT, x, y => x > y
+  | .GE, x, y => x ≥ y
 
--- ============================================================================
--- Unified Homogeneous CSP Structure
--- ============================================================================
+/-- The meaning of a constraint pattern as a predicate on assignments.
+    `satisfiesConstraintInt` is defined through this, making a constraint's meaning a
+    function of its finite `pattern` rather than its opaque `dynamic` field. -/
+def patternHolds {n : ℕ} : IntConstraint n → IntAssignment n → Prop
+  | .alldifferent vars, a => (vars.map (valAt a)).Nodup
+  | .alldifferentOffset vars offsets, a =>
+      ((vars.zip offsets).map (fun p => valAt a p.1 + p.2)).Nodup
+  | .increasing vars, a => List.Pairwise (· ≤ ·) (vars.map (valAt a))
+  | .sum vars op target, a => relHolds op (vars.map (valAt a)).sum target
+  | .linear vars coeffs op target, a =>
+      relHolds op (List.zipWith (· * ·) coeffs (vars.map (valAt a))).sum target
+  | .count vars value target, a =>
+      ((vars.map (valAt a)).filter (· = value)).length = target
+  | .count_var vars value cvar, a =>
+      (((vars.map (valAt a)).filter (· = value)).length : ℤ) = valAt a cvar
+  | .element idx array result, a =>
+      valAt a idx ≥ 1 ∧ (array[(valAt a idx).natAbs - 1]?).any (· = valAt a result)
+  | .maximum vars mx, a =>
+      (vars.map (valAt a)).all (· ≤ valAt a mx) ∧ (vars.map (valAt a)).any (· = valAt a mx)
+  | .minimum vars mn, a =>
+      (vars.map (valAt a)).all (valAt a mn ≤ ·) ∧ (vars.map (valAt a)).any (· = valAt a mn)
+  | .bound v lb ub, a => lb ≤ valAt a v ∧ valAt a v ≤ ub
+  | .eq v1 v2, a => valAt a v1 = valAt a v2
+  | .ne v1 v2, a => valAt a v1 ≠ valAt a v2
+  | .lt v1 v2, a => valAt a v1 < valAt a v2
+  | .le v1 v2, a => valAt a v1 ≤ valAt a v2
+  | .gt v1 v2, a => valAt a v1 > valAt a v2
+  | .ge v1 v2, a => valAt a v1 ≥ valAt a v2
+  | .eq_const v c, a => valAt a v = c
+  | .ne_const v c, a => valAt a v ≠ c
+  | .lt_const v c, a => valAt a v < c
+  | .le_const v c, a => valAt a v ≤ c
+  | .gt_const v c, a => valAt a v > c
+  | .ge_const v c, a => valAt a v ≥ c
+  | .schur_triple v1 v2 v3, a =>
+      valAt a v1 ≠ valAt a v2 ∨ valAt a v1 ≠ valAt a v3 ∨ valAt a v2 ≠ valAt a v3
+  | .abs_diff_rel v1 v2 op target, a =>
+      relHolds op ((valAt a v1 - valAt a v2).natAbs : ℤ) target
+  | .abs_diff_var v1 v2 result, a => valAt a result = ((valAt a v1 - valAt a v2).natAbs : ℤ)
+  | .modulo v k m, a => valAt a v % k = m
+  | .sliding_sum vars w op target, a =>
+      ∀ s ∈ List.range (vars.length - w + 1),
+        relHolds op (((vars.map (valAt a)).drop s).take w).sum target
+  | .not_gate i o, a => valAt a o = 1 - valAt a i
+  | .and_gate i1 i2 o, a => valAt a o = min (valAt a i1) (valAt a i2)
+  | .or_gate i1 i2 o, a => valAt a o = max (valAt a i1) (valAt a i2)
+  | .xor_gate i1 i2 o, a => (valAt a i1 + valAt a i2) % 2 = valAt a o
+  | .nand_gate i1 i2 o, a =>
+      valAt a o ≥ 1 - valAt a i1 ∧ valAt a o ≥ 1 - valAt a i2 ∧
+        valAt a o ≤ 2 - valAt a i1 - valAt a i2
+  | .nor_gate i1 i2 o, a =>
+      valAt a o ≤ 1 - valAt a i1 ∧ valAt a o ≤ 1 - valAt a i2 ∧
+        valAt a o ≥ 1 - valAt a i1 - valAt a i2
+  | .and_all vars result, a =>
+      (vars.map (valAt a)) ≠ [] ∧
+      valAt a result = (vars.map (valAt a)).foldl (fun acc x => if x < acc then x else acc)
+        (vars.map (valAt a)).headI
+  | .or_all vars result, a =>
+      (vars.map (valAt a)) ≠ [] ∧
+      valAt a result = (vars.map (valAt a)).foldl (fun acc x => if x > acc then x else acc)
+        (vars.map (valAt a)).headI
+  | .xor_all vars result, a => (vars.map (valAt a)).sum % 2 = valAt a result
+  | .implies p q, a => valAt a q ≥ valAt a p
+  | .iff v1 v2, a => valAt a v1 = valAt a v2
+  | .if_then v value nv nvalue, a => valAt a v ≠ value ∨ valAt a nv = nvalue
+  | .if_then_or v value nv allowed, a => valAt a v ≠ value ∨ (valAt a nv) ∈ allowed
+  | .at_least_k vars k, a => (vars.map (valAt a)).sum ≥ (k : ℤ)
+  | .at_most_k vars k, a => (vars.map (valAt a)).sum ≤ (k : ℤ)
+  | .exactly_k vars k, a => (vars.map (valAt a)).sum = (k : ℤ)
+  | .sum_rel_var vars op tvar, a => relHolds op (vars.map (valAt a)).sum (valAt a tvar)
+  | .linear_rel_var vars coeffs op tvar, a =>
+      relHolds op (List.zipWith (· * ·) coeffs (vars.map (valAt a))).sum (valAt a tvar)
+  | .product_rel_var vars op tvar, a =>
+      relHolds op ((vars.map (valAt a)).foldl (· * ·) 1) (valAt a tvar)
+  | .value_precedence _colors, a =>
+      ∀ j : Fin n, 1 ≤ a j → ∃ i : Fin n, i.val < j.val ∧ a i = a j - 1
+  | .strictLexRevLeader, a =>
+      -- `x <_lex rev(x)`: at the first index `p` where `x` and its reversal differ,
+      -- `x` is strictly smaller.
+      ∃ p : Fin n, (∀ q : Fin n, q < p → a q = a (Fin.rev q)) ∧ a p < a (Fin.rev p)
+  | .disjunctive _ _, _ => True   -- scheduling: not used by the PB pipeline
+  | .unknown _ _, _ => True       -- fallback: no semantics
 
-/--
-Unified Homogeneous CSP structure combining integer domains with tagged constraints.
+/-- `relHolds op` is decidable on `ℤ`. -/
+instance (op : RelOp) (x y : ℤ) : Decidable (relHolds op x y) := by
+  cases op <;> unfold relHolds <;> infer_instance
 
-This single structure eliminates the two-layer approach:
-- No separate "base" CSP and "tagged" wrapper
-- Directly translatable to MiniZinc
-- Directly usable in proofs
+/-- A constraint pattern's meaning is decidable (a finite check over the assignment). -/
+instance instDecidablePatternHolds {n : ℕ} (c : IntConstraint n) (a : IntAssignment n) :
+    Decidable (patternHolds c a) := by
+  cases c <;> unfold patternHolds <;> infer_instance
 
-All variables have integer domain `ℤ` with bounds specified via bound constraint patterns.
--/
-structure HomogeneousCSP where
+/-- Map an `IntConstraint` (one of the finite, available constraints) to its *real*
+    underlying general `DynamicConstraint`: the full-variable scope with the decidable
+    `patternHolds` check.  This keeps the general CSP framework while the front-end is a
+    finite inductive. -/
+def toDynamic {n : ℕ} (c : IntConstraint n) : IntDynConstraint n :=
+  DynamicConstraint.mk n
+    { scope := _root_.Vector.ofFn id
+      check := fun vals => decide (patternHolds c (fun i => vals i)) }
+
+/-! ### Unified IntCSP Structure -/
+
+/-- An integer CSP: a variable count plus a list of `IntConstraint`s.  A constraint's
+    meaning is given by `patternHolds`; `toDynamic` (see `Embedding`) maps it to the
+    underlying general `DynamicConstraint`, keeping the general framework while the
+    front-end stays a finite inductive. -/
+structure IntCSP where
   /-- Number of variables in the CSP -/
   num_vars : ℕ
-  /-- List of tagged constraints (pattern + checker) -/
-  constraints : List (TaggedConstraint num_vars)
+  /-- List of constraints (each one of the finite available `IntConstraint`s) -/
+  constraints : List (IntConstraint num_vars)
 
-namespace HomogeneousCSP
+namespace IntCSP
 
--- ============================================================================
--- Solution Checking
--- ============================================================================
+/-! ### Solution Checking -/
 
-/-- Check if a constraint is satisfied by an assignment -/
-def satisfiesConstraint (c : TaggedConstraint n) (assignment : HomogeneousAssignment n) : Prop :=
-  satisfies_dynamic_constraint c.dynamic assignment
+/-- A constraint is satisfied by an assignment iff its pattern's meaning holds
+    (`patternHolds`).  Equivalent to satisfying its real underlying general constraint
+    `toDynamic c` (see `Embedding.satisfiesConstraintInt_iff_toDynamic`). -/
+def satisfiesConstraintInt (c : IntConstraint n) (assignment : IntAssignment n) : Prop :=
+  patternHolds c assignment
+
+/-- Satisfaction is exactly satisfaction of the real underlying general constraint. -/
+theorem satisfiesConstraintInt_iff_toDynamic {n : ℕ} (c : IntConstraint n)
+    (a : IntAssignment n) :
+    satisfiesConstraintInt c a ↔ satisfies_dynamic_constraint (toDynamic c) a := by
+  have hfun : (fun i => a ((_root_.Vector.ofFn (id : Fin n → Fin n)).get i)) = a := by
+    funext i; congr 1; simp [_root_.Vector.get]
+  unfold satisfiesConstraintInt toDynamic satisfies_dynamic_constraint satisfies_constraint
+  simp only [CSP.sat, map_assignment, hfun, decide_eq_true_eq]
 
 /-- Check if an assignment is a solution to the CSP -/
-def isSolution (csp : HomogeneousCSP) (assignment : HomogeneousAssignment csp.num_vars) : Prop :=
-  ∀ c ∈ csp.constraints, satisfiesConstraint c assignment
+def isSolutionInt (csp : IntCSP) (assignment : IntAssignment csp.num_vars) : Prop :=
+  ∀ c ∈ csp.constraints, satisfiesConstraintInt c assignment
 
 /-- Check if a CSP is satisfiable (has at least one solution) -/
-def isSatisfiable (csp : HomogeneousCSP) : Prop :=
-  ∃ assignment, isSolution csp assignment
+def isSatisfiableInt (csp : IntCSP) : Prop :=
+  ∃ assignment, isSolutionInt csp assignment
 
--- ============================================================================
--- Bound Extraction (for MiniZinc Variable Declarations)
--- ============================================================================
+/-! ### Bound Extraction (for MiniZinc Variable Declarations) -/
 
 /-- Extract bounds for a variable from bound constraint patterns -/
-def extractVariableBounds (csp : HomogeneousCSP)
-    (var : HomogeneousVarIndex csp.num_vars) : ℤ × ℤ :=
+def extractVariableBounds (csp : IntCSP)
+    (var : VarType csp.num_vars) : ℤ × ℤ :=
   -- Scan through constraints looking for bound patterns for this variable
   let bounds := csp.constraints.filterMap fun tc =>
-    match tc.pattern with
-    | ConstraintPattern.bound v lb ub => if v = var.val then some (lb, ub) else none
+    match tc with
+    | IntConstraint.bound v lb ub => if v = var.val then some (lb, ub) else none
     | _ => none
 
   -- If we found bounds, use them; otherwise default to reasonable range
@@ -223,41 +318,163 @@ def extractVariableBounds (csp : HomogeneousCSP)
   | (lb, ub) :: _ => (lb, ub)  -- Use first bound found
 
 /-- Extract bounds for all variables -/
-def extractAllBounds (csp : HomogeneousCSP) :
-    HomogeneousVarIndex csp.num_vars → (ℤ × ℤ) :=
+def extractAllBounds (csp : IntCSP) :
+    VarType csp.num_vars → (ℤ × ℤ) :=
   fun var => extractVariableBounds csp var
 
--- ============================================================================
--- CSP Construction
--- ============================================================================
+/-! ### The `bound`-prefix shape -/
+
+/-!
+A CSP shaped `⟨n, (List.range n).map (fun x => bound x (lo x) (hi x)) ++ rest⟩` reads its
+own bounds back, satisfying the `hbound` side-goal of `CSP.L2S.PB.csp_unsat` for every `n`
+at once.
+
+Pass `hbound_of_range_prefix` rather than letting `csp_unsat`'s `by decide` default
+re-derive it per instance: deciding it makes the elaborator reduce the generator
+symbolically, costing minutes and gigabytes on large instances.  CSPs given as literal
+data decide cheaply and need neither.
+-/
+
+/-- `List.range n` hits `i < n` exactly once, so a single-point `filterMap` over it is a singleton. -/
+theorem filterMap_range_single {α : Type} (n i : ℕ) (hi : i < n) (g : ℕ → α) :
+    (List.range n).filterMap (fun x => if x = i then some (g x) else none) = [g i] := by
+  induction n with
+  | zero => omega
+  | succ m ih =>
+    rw [List.range_succ, List.filterMap_append]
+    rcases Nat.lt_succ_iff_lt_or_eq.mp hi with h | h
+    · rw [ih h]; simp [Nat.ne_of_gt h]
+    · subst h
+      have : ∀ x ∈ List.range i, (if x = i then some (g x) else none) = none := by
+        intro x hx; simp [Nat.ne_of_lt (List.mem_range.mp hx)]
+      rw [List.filterMap_eq_nil_iff.mpr this]; simp
+
+/-- A `bound`-prefixed CSP reads its own bounds back: the prefix supplies the first (hence chosen)
+    match for every variable, whatever `rest` contains. -/
+theorem extractVariableBounds_of_range_prefix {n : ℕ} (lo hi : ℕ → ℤ)
+    (rest : List (IntConstraint n)) (i : Fin n) :
+    (IntCSP.mk n ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+        ++ rest)).extractVariableBounds i = (lo i.val, hi i.val) := by
+  show (match ((((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+          ++ rest)).filterMap _) with
+        | [] => ((-1000 : ℤ), (1000 : ℤ)) | (lb, ub) :: _ => (lb, ub)) = _
+  rw [List.filterMap_append, List.filterMap_map, Function.comp_def]
+  rw [filterMap_range_single n i.val i.isLt (fun x => (lo x, hi x))]
+  rfl
+
+/-- `csp_unsat`'s `hbound`, once and for all `n`, for any `bound`-prefixed CSP. -/
+theorem hbound_of_range_prefix {n : ℕ} (lo hi : ℕ → ℤ) (rest : List (IntConstraint n)) :
+    ∀ i : Fin (IntCSP.mk n ((List.range n).map
+        (fun x => IntConstraint.bound x (lo x) (hi x)) ++ rest)).num_vars,
+      IntConstraint.bound i.val
+          ((IntCSP.mk n ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ rest)).extractVariableBounds i).1
+          ((IntCSP.mk n ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ rest)).extractVariableBounds i).2
+        ∈ (IntCSP.mk n ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+            ++ rest)).constraints := by
+  intro i
+  rw [extractVariableBounds_of_range_prefix]
+  exact List.mem_append_left _ (List.mem_map_of_mem (List.mem_range.mpr i.isLt))
+
+/-- `c` is not a `bound` constraint.  Only the head constructor is inspected, so `trivial` settles
+    it for any concrete constraint without touching its payload. -/
+def NotBound {n : ℕ} (c : IntConstraint n) : Prop :=
+  match c with | IntConstraint.bound _ _ _ => False | _ => True
+
+/-- Same, for a generator ending `bounds ++ r₁ ++ r₂`. `++` is `infixl`, so that parses as
+    `(bounds ++ r₁) ++ r₂`, whose head is an append rather than the `map`. -/
+theorem hbound_of_range_prefix₂ {n : ℕ} (lo hi : ℕ → ℤ) (r₁ r₂ : List (IntConstraint n)) :
+    ∀ i : Fin (IntCSP.mk n ((List.range n).map
+        (fun x => IntConstraint.bound x (lo x) (hi x)) ++ r₁ ++ r₂)).num_vars,
+      IntConstraint.bound i.val
+          ((IntCSP.mk n ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ r₁ ++ r₂)).extractVariableBounds i).1
+          ((IntCSP.mk n ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ r₁ ++ r₂)).extractVariableBounds i).2
+        ∈ (IntCSP.mk n ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+            ++ r₁ ++ r₂)).constraints := by
+  rw [List.append_assoc]
+  exact hbound_of_range_prefix lo hi (r₁ ++ r₂)
+
+/-- `addConstraint` prepends, so a symmetry-broken CSP reads `c :: (bounds ++ rest)`: the bounds are
+    no longer the prefix.  A non-`bound` `c` is skipped by the scan, so the bounds still read back. -/
+theorem extractVariableBounds_of_cons_range_prefix {n : ℕ} (c : IntConstraint n) (hc : NotBound c)
+    (lo hi : ℕ → ℤ) (rest : List (IntConstraint n)) (i : Fin n) :
+    (IntCSP.mk n (c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+        ++ rest))).extractVariableBounds i = (lo i.val, hi i.val) := by
+  show (match ((c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+          ++ rest)).filterMap _) with
+        | [] => ((-1000 : ℤ), (1000 : ℤ)) | (lb, ub) :: _ => (lb, ub)) = _
+  -- `List.filterMap_cons` is stated for an arbitrary `f`, so it applies to the goal's own matcher;
+  -- rewriting with a locally-stated copy would not, as that elaborates to a *different* matcher.
+  rw [List.filterMap_cons]
+  cases c <;> first
+    | exact hc.elim
+    | (dsimp only
+       rw [List.filterMap_append, List.filterMap_map, Function.comp_def,
+           filterMap_range_single n i.val i.isLt (fun x => (lo x, hi x))]
+       rfl)
+
+/-- `hbound` for a symmetry-broken `bound`-prefixed CSP (`addConstraint` applied once). -/
+theorem hbound_of_cons_range_prefix {n : ℕ} (c : IntConstraint n) (hc : NotBound c)
+    (lo hi : ℕ → ℤ) (rest : List (IntConstraint n)) :
+    ∀ i : Fin (IntCSP.mk n (c :: ((List.range n).map
+        (fun x => IntConstraint.bound x (lo x) (hi x)) ++ rest))).num_vars,
+      IntConstraint.bound i.val
+          ((IntCSP.mk n (c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ rest))).extractVariableBounds i).1
+          ((IntCSP.mk n (c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ rest))).extractVariableBounds i).2
+        ∈ (IntCSP.mk n (c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+            ++ rest))).constraints := by
+  intro i
+  rw [extractVariableBounds_of_cons_range_prefix c hc lo hi rest i]
+  exact List.mem_cons_of_mem c
+    (List.mem_append_left _ (List.mem_map_of_mem (List.mem_range.mpr i.isLt)))
+
+/-- Same, for a symmetry-broken generator ending `bounds ++ r₁ ++ r₂`. -/
+theorem hbound_of_cons_range_prefix₂ {n : ℕ} (c : IntConstraint n) (hc : NotBound c)
+    (lo hi : ℕ → ℤ) (r₁ r₂ : List (IntConstraint n)) :
+    ∀ i : Fin (IntCSP.mk n (c :: ((List.range n).map
+        (fun x => IntConstraint.bound x (lo x) (hi x)) ++ r₁ ++ r₂))).num_vars,
+      IntConstraint.bound i.val
+          ((IntCSP.mk n (c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ r₁ ++ r₂))).extractVariableBounds i).1
+          ((IntCSP.mk n (c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+              ++ r₁ ++ r₂))).extractVariableBounds i).2
+        ∈ (IntCSP.mk n (c :: ((List.range n).map (fun x => IntConstraint.bound x (lo x) (hi x))
+            ++ r₁ ++ r₂))).constraints := by
+  rw [List.append_assoc]
+  exact hbound_of_cons_range_prefix c hc lo hi (r₁ ++ r₂)
+
+/-! ### CSP Construction -/
 
 /-- Create empty CSP with specified number of variables -/
-def mkEmpty (num_vars : ℕ) : HomogeneousCSP where
+def mkEmpty (num_vars : ℕ) : IntCSP where
   num_vars := num_vars
   constraints := []
 
 /-- Add a constraint to an existing CSP -/
-def addConstraint (csp : HomogeneousCSP)
-    (constraint : TaggedConstraint csp.num_vars) : HomogeneousCSP :=
+def addConstraint (csp : IntCSP)
+    (constraint : IntConstraint csp.num_vars) : IntCSP :=
   { csp with constraints := constraint :: csp.constraints }
 
 /-- Add multiple constraints -/
-def addConstraints (csp : HomogeneousCSP)
-    (new_constraints : List (TaggedConstraint csp.num_vars)) : HomogeneousCSP :=
+def addConstraints (csp : IntCSP)
+    (new_constraints : List (IntConstraint csp.num_vars)) : IntCSP :=
   { csp with constraints := new_constraints ++ csp.constraints }
 
 
 
--- ============================================================================
--- Utility Functions
--- ============================================================================
+/-! ### Utility Functions -/
 
 /-- Count constraints in a CSP -/
-def constraintCount (csp : HomogeneousCSP) : ℕ :=
+def constraintCount (csp : IntCSP) : ℕ :=
   csp.constraints.length
 
 /-- Get all variable indices -/
-def allVars (csp : HomogeneousCSP) : List (HomogeneousVarIndex csp.num_vars) :=
+def allVars (csp : IntCSP) : List (VarType csp.num_vars) :=
   List.ofFn id
 
 /-- Helper function to convert a list of natural numbers to a vector of Fin with bounds checking.
@@ -276,51 +493,43 @@ def listToFinVector (inputs : List ℕ) (num_nodes : ℕ) :
   else
     none
 
-end HomogeneousCSP
+end IntCSP
 
--- ============================================================================
--- Extracting Constraints from Built CSPs
--- ============================================================================
+/-! ### Extracting Constraints from Built CSPs -/
 
 /-- Get all constraints from a CSP -/
-def getConstraints (csp : HomogeneousCSP) : List (TaggedConstraint csp.num_vars) :=
+def getConstraints (csp : IntCSP) : List (IntConstraint csp.num_vars) :=
   csp.constraints
 
-/-- Extract all constraint patterns (semantic representation) -/
-def getPatterns (csp : HomogeneousCSP) : List (ConstraintPattern csp.num_vars) :=
-  csp.constraints.map (·.pattern)
-
 /-- Count total number of constraints -/
-def countConstraints (csp : HomogeneousCSP) : ℕ :=
+def countConstraints (csp : IntCSP) : ℕ :=
   csp.constraints.length
 
 /-- Count constraints of a specific type -/
-def countConstraintsByPattern (csp : HomogeneousCSP)
-    (pred : ConstraintPattern csp.num_vars → Bool) : ℕ :=
-  (getPatterns csp).filter pred |>.length
+def countConstraintsByPattern (csp : IntCSP)
+    (pred : IntConstraint csp.num_vars → Bool) : ℕ :=
+  csp.constraints.filter pred |>.length
 
 /-- Count bound constraints -/
-def countBoundConstraints (csp : HomogeneousCSP) : ℕ :=
+def countBoundConstraints (csp : IntCSP) : ℕ :=
   countConstraintsByPattern csp fun p =>
     match p with
-    | ConstraintPattern.bound _ _ _ => true
+    | IntConstraint.bound _ _ _ => true
     | _ => false
 
 
 
--- ============================================================================
--- Basic Examples
--- ============================================================================
+/-! ### Basic Examples -/
 
 section Examples
 
 /-- Example: Simple 2-variable CSP with no constraints -/
-def example_2var : HomogeneousCSP :=
-  HomogeneousCSP.mkEmpty 2
+def example_2var : IntCSP :=
+  IntCSP.mkEmpty 2
 
 /-- Example: CSP with bound constraints -/
-def example_with_bounds : HomogeneousCSP :=
-  let csp := HomogeneousCSP.mkEmpty 3
+def example_with_bounds : IntCSP :=
+  let csp := IntCSP.mkEmpty 3
   -- Note: In practice, bounds are added via Builder API
   -- This is just for illustration
   csp

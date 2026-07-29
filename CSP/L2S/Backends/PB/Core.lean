@@ -1,0 +1,30 @@
+import CSP.L2S.Core
+import VeriPB.Tactic.Sat.Reflect
+
+namespace CSP.L2S.PB
+
+open Sat.PB (Constr Literal)
+
+/-!
+# PB backend — the PBLean bridge API
+
+Pins down the PBLean symbols the UNSAT bridge composes with:
+
+  * `Sat.PB.Constr` — a pseudo-Boolean constraint `Σ aᵢ·lᵢ ≥ degree`.
+  * `VeriPB.Reflect.checkProofBool : Array Constr → Nat → String → Bool`.
+  * `VeriPB.Reflect.checkProof_sound` — a `true` check yields `formulaUnsat` of
+    the Lean-side constraint array.  The certificate is consumed as a raw
+    `String` and stays outside the trust base.
+-/
+
+/-- The bridge contract we build on: a verified VeriPB proof string makes the
+    Lean-side PB constraint array unsatisfiable. -/
+example (cs : Array Constr) (numVars : Nat) (proof : String)
+    (h : VeriPB.Reflect.checkProofBool cs numVars proof = true) :
+    VeriPB.Reflect.formulaUnsat cs :=
+  VeriPB.Reflect.checkProof_sound cs numVars proof h
+
+/-- Smoke check: both type families are usable together in one module. -/
+example (_csp : IntCSP) (c : Constr) : Nat := c.degree
+
+end CSP.L2S.PB

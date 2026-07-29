@@ -2,10 +2,8 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
 # Australia Map Coloring
@@ -13,18 +11,18 @@ open CSP.L2S.Tests.Timed
 Classic graph coloring: color 7 Australian regions with 4 colors so adjacent regions differ.
 -/
 
-def bound_constraints (nodes : ℕ) (colors : ℕ) : List (TaggedConstraint nodes) :=
+def bound_constraints (nodes : ℕ) (colors : ℕ) : List (IntConstraint nodes) :=
   (List.finRange nodes).map (fun v => bound v 1 colors)
 
-def edge_constraints (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) : List (TaggedConstraint nodes) :=
+def edge_constraints (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) : List (IntConstraint nodes) :=
   edges.map (fun (u,v) => not_equal u v)
 
-def graph_coloring_csp (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) (colors : ℕ) : HomogeneousCSP :=
+def graph_coloring_csp (nodes : ℕ) (edges : List (Fin nodes × Fin nodes)) (colors : ℕ) : IntCSP :=
   ⟨ nodes ,
     bound_constraints nodes colors ++ edge_constraints nodes edges ⟩
 
 
-def australia : HomogeneousCSP :=
+def australia : IntCSP :=
   let nodes := 7
   let edges := [
     (0,1),  -- wa != nt
@@ -39,6 +37,3 @@ def australia : HomogeneousCSP :=
   ]
   let colors := 4
   graph_coloring_csp nodes edges colors
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed australia

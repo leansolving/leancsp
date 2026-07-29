@@ -1,0 +1,7 @@
+c,n,bound,instance,solve_tool,solve_wall_s,rsat_det_time,rsat_conflicts,veripb_wall_s,cert_or_witness_bytes,lean_check_wall_s,lean_check_kind,status
+2,4,lower,schur_2_4,minizinc-gecode,0.9380,,,,8,0.1347,kernel-decide,SAT/CHECKED
+2,5,upper,schur_2_5,roundingsat,0.0026,10,0,0.0021,277,0.1866,native_decide,UNSAT/CHECKED
+3,13,lower,schur_3_13,minizinc-gecode,0.1686,,,,26,0.3517,kernel-decide,SAT/CHECKED
+3,14,upper,schur_3_14,roundingsat,0.0075,3389,31,0.0040,55943,0.2888,native_decide,UNSAT/CHECKED
+4,44,lower,schur_4_44,minizinc-chuffed,6.5151,,,,88,1.9108,kernel-decide,SAT/CHECKED
+4,45,upper,schur_4_45,roundingsat,42.9416,1004177586,535109,2.6783,101946721,74.3000,ofReduceBool,UNSAT/CHECKED

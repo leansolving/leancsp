@@ -2,31 +2,17 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
-# Latin Squares with Binary Encoding
+# Latin squares, binary encoding
 
-A Latin square of size n is an n×n grid where each row and column
-contains each value from 1..n exactly once (a permutation).
+An `n×n` Latin square encoded with `n³` binary variables `x[i,j,k] ∈ {0,1}`, where
+`x[i,j,k] = 1` iff cell `(i,j)` holds value `k`.  Three families of exactly-one
+constraints: one value per cell, each value once per row, each value once per column.
 
-## Binary Encoding Strategy
-Instead of n² variables with domain 1..n, we use:
-- n³ binary variables: x[i,j,k] ∈ {0,1}
-- x[i,j,k] = 1 iff cell (i,j) has value k
-- 3n² constraints:
-  1. Each cell has exactly one value: ∀i,j: Σₖ x[i,j,k] = 1
-  2. Each value once per row: ∀i,k: Σⱼ x[i,j,k] = 1
-  3. Each value once per column: ∀j,k: Σᵢ x[i,j,k] = 1
-
-## Problem Size (n=5)
-- Variables: 5³ = 125 binary variables
-- Constraints: 125 bounds + 3×5² = 125 + 75 = 200 constraints
-
-This is a stress test for L2M's scalability!
+At `n = 5` that is 125 variables and 200 constraints — a scalability stress test.
 -/
 
 -- Helper: Compute linear index for 3D position (i,j,k) in flattened array
@@ -50,7 +36,7 @@ def indices_to_vector (num_vars : ℕ) (indices : List ℕ)
   ⟨(indices.attach.map fun ⟨i, hi⟩ => ⟨i, h i hi⟩).toArray, by simp [List.length_attach]⟩
 
 -- General Latin square CSP with binary encoding - parametrized for any size
-def latin_square_csp (n : ℕ) : HomogeneousCSP :=
+def latin_square_csp (n : ℕ) : IntCSP :=
   let num_vars := n * n * n
 
   -- All variables are binary
@@ -161,8 +147,5 @@ def latin_square_csp (n : ℕ) : HomogeneousCSP :=
   ⟨num_vars, bounds ++ cell_constraints ++ row_constraints ++ col_constraints⟩
 
 -- Specific instance
-def latin_square_inst : HomogeneousCSP :=
+def latin_square_inst : IntCSP :=
   latin_square_csp 8
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed latin_square_inst

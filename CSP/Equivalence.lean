@@ -3,18 +3,14 @@ import Mathlib.Logic.Function.Basic
 
 namespace CSP
 
--- ============================================================================
--- Solution Sets and Equivalence Relations for Heterogeneous Domain CSPs
--- ============================================================================
+/-! ### Solution Sets and Equivalence Relations for Heterogeneous Domain CSPs -/
 
 /-- Set of solutions of a CSP with heterogeneous domains -/
 def sol_set {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarIndex] 
     (csp : CSP VarIndex DomainType) : Set (Assignment VarIndex DomainType) :=
   { assignment | is_solution csp assignment }
 
--- ============================================================================
--- Equivalence Relations between CSPs
--- ============================================================================
+/-! ### Equivalence Relations between CSPs -/
 
 /-- Two CSPs are equivalent if there exists a bijection between their solution sets.
     This generalizes to heterogeneous domains where CSPs can have different variable 
@@ -22,7 +18,7 @@ def sol_set {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarI
 def equivalent {VarIndex₁ VarIndex₂ : Type} {DomainType₁ : VarIndex₁ → Type} {DomainType₂ : VarIndex₂ → Type}
     [DecidableEq VarIndex₁] [DecidableEq VarIndex₂] 
     (csp₁ : CSP VarIndex₁ DomainType₁) (csp₂ : CSP VarIndex₂ DomainType₂) : Prop :=
-  ∃ f : {x // x ∈ sol_set csp₁} → {x // x ∈ sol_set csp₂}, Function.Bijective f
+  ∃ f : sol_set csp₁ → sol_set csp₂, Function.Bijective f
 
 /-- Two CSPs are equisatisfiable if one is satisfiable iff the other is.
     This is a weaker notion than equivalence that only preserves satisfiability.
@@ -33,9 +29,7 @@ def equisatisfiable {VarIndex₁ VarIndex₂ : Type} {DomainType₁ : VarIndex�
     (csp₁ : CSP VarIndex₁ DomainType₁) (csp₂ : CSP VarIndex₂ DomainType₂) : Prop :=
   is_satisfiable csp₁ ↔ is_satisfiable csp₂
 
--- ============================================================================
--- Projection-based Equivalence (useful for heterogeneous domains)
--- ============================================================================
+/-! ### Projection-based Equivalence (useful for heterogeneous domains) -/
 
 /-- π-equivalence: CSP₂ is π-equivalent to CSP₁ if there exists a projection π
     that maps solutions of CSP₂ bijectively to solutions of CSP₁.
@@ -51,9 +45,7 @@ def pi_equivalent {VarIndex₁ VarIndex₂ : Type} {DomainType₁ : VarIndex₁ 
   (∀ sol₂ sol₂' : Assignment VarIndex₂ DomainType₂, is_solution csp₂ sol₂ → is_solution csp₂ sol₂' → 
     π sol₂ = π sol₂' → sol₂ = sol₂')
 
--- ============================================================================
--- Theorems about Equivalence Relations
--- ============================================================================
+/-! ### Theorems about Equivalence Relations -/
 
 /-- Equivalence implies equisatisfiability -/
 theorem equivalent_implies_equisatisfiable {VarIndex₁ VarIndex₂ : Type} {DomainType₁ : VarIndex₁ → Type} {DomainType₂ : VarIndex₂ → Type}
@@ -124,9 +116,53 @@ theorem pi_equivalent_implies_equivalent {VarIndex₁ VarIndex₂ : Type} {Domai
     simp only [f]
     exact Subtype.ext h_proj
 
--- ============================================================================
--- Equivalence Relations are Reflexive, Symmetric, and Transitive
--- ============================================================================
+/-- Converse of `pi_equivalent_implies_equivalent`, under the assumption that the
+    assignment type is nonempty: the projection is built from the bijection, sending
+    non-solutions to an arbitrary default. -/
+theorem equivalent_implies_pi_equivalent {VarIndex₁ VarIndex₂ : Type}
+    {DomainType₁ : VarIndex₁ → Type} {DomainType₂ : VarIndex₂ → Type}
+    [DecidableEq VarIndex₁] [DecidableEq VarIndex₂]
+    (csp₁ : CSP VarIndex₁ DomainType₁) (csp₂ : CSP VarIndex₂ DomainType₂)
+    [Nonempty (Assignment VarIndex₁ DomainType₁)] :
+    equivalent csp₂ csp₁ → ∃ π, pi_equivalent csp₁ csp₂ π := by
+  classical
+  intro h
+  obtain ⟨f, hf_bij⟩ := h
+  let default₁ : Assignment VarIndex₁ DomainType₁ := Classical.arbitrary _
+  let π : Assignment VarIndex₂ DomainType₂ → Assignment VarIndex₁ DomainType₁ :=
+    fun a₂ => if h : is_solution csp₂ a₂ then (f ⟨a₂, h⟩).val else default₁
+  use π
+  refine ⟨?_, ?_, ?_⟩
+  · intro sol₂ h_sol₂
+    have h_unfold : π sol₂ = (f ⟨sol₂, h_sol₂⟩).val := dif_pos h_sol₂
+    rw [h_unfold]
+    exact (f ⟨sol₂, h_sol₂⟩).property
+  · intro sol₁ h_sol₁
+    obtain ⟨⟨sol₂, h_sol₂⟩, h_eq⟩ := hf_bij.2 ⟨sol₁, h_sol₁⟩
+    use sol₂, h_sol₂
+    have h_unfold : π sol₂ = (f ⟨sol₂, h_sol₂⟩).val := dif_pos h_sol₂
+    rw [h_unfold]
+    exact Subtype.mk_eq_mk.mp h_eq
+  · intro sol₂ sol₂' h_sol₂ h_sol₂' h_proj_eq
+    have h1 : π sol₂ = (f ⟨sol₂, h_sol₂⟩).val := dif_pos h_sol₂
+    have h2 : π sol₂' = (f ⟨sol₂', h_sol₂'⟩).val := dif_pos h_sol₂'
+    have h_val_eq : (f ⟨sol₂, h_sol₂⟩).val = (f ⟨sol₂', h_sol₂'⟩).val := by
+      rw [← h1, ← h2]; exact h_proj_eq
+    exact Subtype.mk_eq_mk.mp (hf_bij.1 (Subtype.ext h_val_eq))
+
+/-- Equivalence is exactly the existence of a π-equivalence -/
+theorem equivalent_iff_pi_equivalent {VarIndex₁ VarIndex₂ : Type}
+    {DomainType₁ : VarIndex₁ → Type} {DomainType₂ : VarIndex₂ → Type}
+    [DecidableEq VarIndex₁] [DecidableEq VarIndex₂]
+    (csp₁ : CSP VarIndex₁ DomainType₁) (csp₂ : CSP VarIndex₂ DomainType₂)
+    [Nonempty (Assignment VarIndex₁ DomainType₁)] :
+    equivalent csp₂ csp₁ ↔ ∃ π, pi_equivalent csp₁ csp₂ π := by
+  constructor
+  · exact equivalent_implies_pi_equivalent csp₁ csp₂
+  · intro ⟨π, hπ⟩
+    exact pi_equivalent_implies_equivalent csp₁ csp₂ π hπ
+
+/-! ### Equivalence Relations are Reflexive, Symmetric, and Transitive -/
 
 /-- Equivalence is reflexive -/
 theorem equivalent_refl {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarIndex]
@@ -187,9 +223,7 @@ theorem equisatisfiable_trans {VarIndex₁ VarIndex₂ VarIndex₃ : Type}
   intro h₁₂ h₂₃
   exact h₁₂.trans h₂₃
 
--- ============================================================================
--- Homogeneous Domain Equivalence (special case)
--- ============================================================================
+/-! ### Homogeneous Domain Equivalence (special case) -/
 
 /-- For CSPs with the same variable and domain types, we can define a simpler
     equivalence relation that directly compares solution sets -/
@@ -218,9 +252,7 @@ theorem homogeneous_equivalent_implies_equivalent {VarIndex : Type} {DomainType 
   · intro ⟨b, hb⟩
     use ⟨b, (h b).2 hb⟩
 
--- ============================================================================
--- Utility Lemmas
--- ============================================================================
+/-! ### Utility Lemmas -/
 
 /-- If two CSPs have the same solution set, they are equivalent -/
 theorem sol_set_eq_implies_equivalent {VarIndex : Type} {DomainType : VarIndex → Type} [DecidableEq VarIndex]

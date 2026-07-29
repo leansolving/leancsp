@@ -4,4 +4,25 @@ build/
 
 .claude/
 .mcp.json
-CLAUDE.md
+
+.vscode/
+__pycache__/
+
+CSP/L2S/Backends/PB/Problems/_dump.lean
+CSP/L2S/Backends/PB/Bench/*
+!CSP/L2S/Backends/PB/Bench/Generators.lean
+
+# Experiment scratch / generated certificates — data lives in */results/, artifacts stay local.
+experiments/*/artifacts/
+experiments/lib/__pycache__/
+experiments/lib/.venv/
+# Smoke-test output (--smoke) never counts as a committed result.
+experiments/*/results/*.smoke.*
+
+# Local-only working directories (not part of the repo).
+/docs/
+/results/
+/scripts/
+
+# Python virtualenv for the experiments (see experiments/README.md).
+/.venv/

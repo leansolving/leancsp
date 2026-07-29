@@ -2,31 +2,19 @@ import CSP.L2S.Core
 import CSP.L2S.Constraints
 import CSP.L2S.Equivalence
 import CSP.L2S.Symmetry
-import CSP.L2S.Tests.TestHelpersTimed
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
 
 /-!
-# Alphabet Music Puzzle
+# Alphabet music puzzle
 
-A cryptarithmetic puzzle where letters a-z are assigned numbers 1-26
-such that musical words sum to specific target values.
-
-## Problem Description
-- 26 variables (a through z), each assigned a unique number from 1 to 26
-- 20 equations like "ballet = b+a+l+l+e+t = 45"
-- All letters must have different values
-
-## General Pattern
-This generalizes to any alphametic/word puzzle where:
-- Letters are mapped to a range of numbers
-- Words (letter combinations) must sum to target values
-- All letters have distinct values
+Assign the 26 letters `a`–`z` distinct values in `1..26` so that 20 word equations
+(e.g. `ballet = b+a+l+l+e+t = 45`) all hold.  The generic alphametic pattern: letters
+map injectively into a value range, and words must sum to given targets.
 -/
 
 -- Helper to create uniform bounds for all letters
-def letter_bounds (n_letters : ℕ) (lb ub : ℤ) : List (TaggedConstraint n_letters) :=
+def letter_bounds (n_letters : ℕ) (lb ub : ℤ) : List (IntConstraint n_letters) :=
   (List.finRange n_letters).map fun i => bound i lb ub
 
 -- Helper to convert list of nat indices to vector of Fin, with explicit proofs
@@ -37,7 +25,7 @@ def make_fin_vector (n : ℕ) (indices : List ℕ) :
 
 -- General word puzzle CSP - parametrized
 def word_puzzle_csp (n_letters : ℕ) (lb ub : ℤ) (word_sums : List (List ℕ × ℤ))
-    (h : ∀ pair ∈ word_sums, ∀ i ∈ pair.1, i < n_letters) : HomogeneousCSP :=
+    (h : ∀ pair ∈ word_sums, ∀ i ∈ pair.1, i < n_letters) : IntCSP :=
   let bounds_list := letter_bounds n_letters lb ub
   let alldiff := alldifferent (_root_.Vector.ofFn id)
   let sum_constraints := word_sums.attach.map fun ⟨(letters, target), hw⟩ =>
@@ -45,7 +33,7 @@ def word_puzzle_csp (n_letters : ℕ) (lb ub : ℤ) (word_sums : List (List ℕ 
   ⟨n_letters, bounds_list ++ [alldiff] ++ sum_constraints⟩
 
 -- Specific instance: Alpha puzzle with musical words
-def alpha_puzzle : HomogeneousCSP :=
+def alpha_puzzle : IntCSP :=
   let n := 26
   -- Letter mapping: a=0, b=1, c=2, d=3, e=4, f=5, g=6, h=7, i=8, j=9,
   --                k=10, l=11, m=12, n=13, o=14, p=15, q=16, r=17,
@@ -81,6 +69,3 @@ def alpha_puzzle : HomogeneousCSP :=
     simp at hi
     repeat (cases hi <;> try omega)
   )
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed alpha_puzzle

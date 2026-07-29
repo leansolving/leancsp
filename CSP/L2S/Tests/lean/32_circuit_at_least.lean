@@ -1,36 +1,21 @@
 import CSP.L2S.Core
 import CSP.L2S.Constraints
-import CSP.L2S.Tests.TestHelpersTimed
 import Mathlib.Tactic.Linarith
 
 open CSP.L2S
-open CSP.L2S.Tests.Timed
-open CSP.L2S.HomogeneousCSP
+open CSP.L2S.IntCSP
 
 
 /-!
-# Circuit Satisfiability with at least k inputs
+# Circuit satisfiability with at least `k` inputs
 
-We assume that the number of outputs of the circuit is 1.
-
-Problem: given a circuit, is it satisfiable whenever we set at least k inputs
-to true?
-
-CSP formulation:
-  - Constraints encoding the circuit
-  - Cardinality constraint
-  - Negation of circuit satisfiability (what we want to prove)
-
-If the CSP has a solution, it is a counter-example.
-If the CSP is unsatisfiable, then for all inputs with at least 2 ones, the circuit
-outputs true (what we want to prove).
-
+For a single-output circuit: does it still output true whenever at least `k` inputs
+are set?  The CSP combines the gate constraints, the cardinality constraint, and the
+negation of the property.  A solution is a counterexample; UNSAT proves the property.
 -/
 
 
--- ============================================================================
--- Circuit Data Structure
--- ============================================================================
+/-! ### Circuit Data Structure -/
 
 /-- Types of logic gates in a circuit -/
 inductive GateType
@@ -55,12 +40,10 @@ structure Circuit where
   deriving Repr
 
 
--- ============================================================================
--- Constraint Generation from Circuit
--- ============================================================================
+/-! ### Constraint Generation from Circuit -/
 
 /-- Generate CSP constraints for a list of gates -/
-def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (TaggedConstraint num_nodes) :=
+def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (IntConstraint num_nodes) :=
   gates.filterMap fun g =>
     match g.gate_type with
     | GateType.AND =>
@@ -98,23 +81,19 @@ def make_gate_constraints (num_nodes : ℕ) (gates : List Gate) : List (TaggedCo
             else none
         | _ => none
 
--- ============================================================================
--- Single Circuit to constraints
--- ============================================================================
+/-! ### Single Circuit to constraints -/
 
 /--
 Convert a single circuit to a CSP.
 All nodes have domain [0, 1] (Boolean values).
 -/
-def circuit_to_constraints (circuit : Circuit) (total_nodes : ℕ) : List (TaggedConstraint total_nodes) :=
+def circuit_to_constraints (circuit : Circuit) (total_nodes : ℕ) : List (IntConstraint total_nodes) :=
   make_gate_constraints total_nodes circuit.gates
 
 
--- ============================================================================
--- CSP definition
--- ============================================================================
+/-! ### CSP definition -/
 
-def at_least_k_satisfies_circuit_csp (circuit : Circuit) (k : ℕ) : HomogeneousCSP :=
+def at_least_k_satisfies_circuit_csp (circuit : Circuit) (k : ℕ) : IntCSP :=
   -- Compute the number of variables (must account for all gates' outputs)
   let total_nodes := circuit.gates.foldl (fun acc g => max acc g.output) circuit.num_inputs + 1
 
@@ -139,9 +118,7 @@ def at_least_k_satisfies_circuit_csp (circuit : Circuit) (k : ℕ) : Homogeneous
   ⟨total_nodes, bounds ++ circuit_constrs ++ at_least_k_constr ++ output_constr⟩
 
 
--- ============================================================================
--- Example: 3-input Majority Circuit (Full Adder Carry)
--- ============================================================================
+/-! ### Example: 3-input Majority Circuit (Full Adder Carry) -/
 
 /-!
 3-input MAJORITY circuit (Full Adder CARRY output)
@@ -173,10 +150,3 @@ def majority3_circuit : Circuit := {
     ⟨[3, 4, 5], GateType.OR, 6⟩    -- CARRY = G1 OR G2 OR G3
   ]
 }
-
--- ============================================================================
--- CSP translation to MiniZinc
--- ============================================================================
-
-def main : IO Unit := do
-  saveAllBackendsAutoTimed (at_least_k_satisfies_circuit_csp majority3_circuit 2)

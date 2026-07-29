@@ -1,0 +1,8 @@
+family,size_param,pb_vars,pb_constraints,opb_bytes,roundingsat_time_s,roundingsat_status,rsat_log_lines,rsat_log_bytes,veripb_proof_lines,veripb_proof_bytes,veripb_elaborate_time_s,kernel_cert_chars,native_decide_time_s,module_build_time_s,cnf_clauses,sat_solver,sat_time_s,sat_status,drat_lines,drat_bytes,drat_trim_time_s,drat_trim_status
+mutilated,2,20,28,813,0.0037,UNSAT,7,445,7,456,0.0022,456,,,56,cadical,0.0024,UNSAT,16,79,0.0454,VERIFIED
+mutilated,3,56,68,2173,0.0041,UNSAT,7,926,7,937,0.0022,937,,,172,cadical,0.0025,UNSAT,68,704,0.0528,VERIFIED
+mutilated,4,108,124,4163,0.0055,UNSAT,7,1613,7,1624,0.0024,1624,,,344,cadical,0.0050,UNSAT,835,16404,0.0569,VERIFIED
+mutilated,5,176,196,6979,0.0075,UNSAT,7,2514,7,2525,0.0024,2525,,,572,cadical,0.0544,UNSAT,14847,479107,0.0822,VERIFIED
+mutilated,6,260,284,10451,0.0093,UNSAT,7,3613,7,3624,0.0024,3624,,,856,cadical,0.5060,UNSAT,109813,5009138,0.4672,VERIFIED
+mutilated,7,360,388,14579,0.0112,UNSAT,8,4980,8,4986,0.0030,4986,,,1196,cadical,24.1980,UNSAT,2811941,173679898,29.5058,VERIFIED
+mutilated,8,476,508,19363,0.0131,UNSAT,7,6414,7,6425,0.0030,6425,,,,,,,,,,
