@@ -235,6 +235,15 @@ transports both solutions and unsatisfiability across the reformulation.
 | `ParityPathTheorem.lean` | Inputs with uniform parity to all outputs can be optimally fixed |
 | `CircuitInputSymmetryBreaking.lean` | Inputs with identical fanout can be ordered |
 
+## Citing
+
+If you use LeanCSP in your research, please cite the accompanying paper:
+
+> Pablo Manrique and Stefan Szeider. *LeanCSP: A Framework for Certifying Constraint
+> Reformulation and Solving in Lean.* arXiv preprint, 2026.
+
+(A BibTeX entry with the arXiv identifier will be added once the preprint is announced.)
+
 ## License
 
 Apache 2.0, see [LICENSE](LICENSE).

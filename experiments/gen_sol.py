@@ -3,7 +3,7 @@
 `(Schur.schur_csp n c).addConstraint (value_precedence c)`, and commit it under
 CSP/L2S/EndToEnd/sols/<out>.sol as a space-separated list of n colours.
 
-SAT-direction analog of experiments/gen_cert.py (Python port of scripts/gen_sol.sh).  The
+SAT-direction analog of experiments/gen_cert.py.  The
 MiniZinc model mirrors the value-precedence-extended CSP (0-indexed: variable i is the integer
 i+1; triples are i ≤ j with k = i+j+1 < n; "not all equal"; plus the full Law–Lee value
 precedence SBC matching `patternHolds`, which implies x[0] = 0).  The witness is untrusted:

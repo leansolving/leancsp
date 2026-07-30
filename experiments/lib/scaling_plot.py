@@ -5,9 +5,12 @@ import csv
 import sys
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+try:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+except ImportError:        # .dat files are still written; only the figures need matplotlib
+    plt = None
 
 REPO = Path(__file__).resolve().parent.parent.parent
 RES = REPO / "experiments" / "scaling" / "results"
@@ -79,14 +82,24 @@ def main():
     rows = list(csv.DictReader(open(RES / f"scaling{suffix}.csv")))
     fams = [f for f in PROBLEMS if any(r["family"] == f for r in rows)]
 
+    # the .dat files (pgfplots input) are written unconditionally
+    data = {}
+    for fam in fams:
+        pb, drat = series(rows, fam)
+        data[fam] = (pb, drat)
+        write_dat(fam, pb, drat, suffix)
+        print(f"wrote {RES / f'scaling_{fam}{suffix}.dat'}")
+    if plt is None:
+        print("matplotlib not installed — .dat files written, figures skipped")
+        return
+
     # combined figure, one panel per family
     fig, axs = plt.subplots(1, len(fams), figsize=(4.6 * len(fams), 3.6))
     if len(fams) == 1:
         axs = [axs]
     for ax, fam in zip(axs, fams):
-        pb, drat = series(rows, fam)
+        pb, drat = data[fam]
         _draw(ax, fam, pb, drat)
-        write_dat(fam, pb, drat, suffix)
         # per-problem figure
         f1, a1 = plt.subplots(figsize=(4.8, 3.6))
         _draw(a1, fam, pb, drat)

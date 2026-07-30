@@ -14,7 +14,7 @@ def tokenize (s : String) : Array String := Id.run do
   if cur ≠ "" then out := out.push cur
   return out
 
-/-- Parse the serialized constraint file written by check_largest.py:
+/-- Parse the serialized constraint file written by lib/lean_dump.py:
     token 0 = number of constraints N; then, per constraint,
     `degree numTerms (coeff sign var)*` with sign 0 = positive literal, 1 = negated. -/
 def parseConstrs (s : String) : Array Constr := Id.run do

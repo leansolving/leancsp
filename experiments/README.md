@@ -28,7 +28,19 @@ Then put the solvers on `PATH`. RoundingSat may instead be given as `$ROUNDINGSA
 | `minizinc` | schur, SAT witnesses | optional |
 
 Python 3.9+ as `python3`. `matplotlib` is needed only for the scaling figures; without it the
-CSVs are still written and the figure step is skipped.
+CSVs and pgfplots `.dat` files are still written and only the figure rendering is skipped.
+
+### Versions used for the paper's experiments
+
+| Tool | Version |
+|------|---------|
+| RoundingSat | commit `d4edbf7` |
+| VeriPB | 3.0.2 |
+| CaDiCaL | 1.7.3 |
+| MiniZinc | solvers: Gecode for S(2)/S(3), Chuffed for S(4) |
+
+Hardware: AMD Ryzen 5 PRO 8540U, 32 GB RAM; timeout 600 s per solver/checker invocation
+(`lib/harness.py`, `lib/scaling_sweep.py`).
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate && pip install matplotlib
