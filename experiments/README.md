@@ -42,6 +42,10 @@ CSVs and pgfplots `.dat` files are still written and only the figure rendering i
 Hardware: AMD Ryzen 5 PRO 8540U, 32 GB RAM; timeout 600 s per solver/checker invocation
 (`lib/harness.py`, `lib/scaling_sweep.py`).
 
+Note: PB solving times vary strongly across RoundingSat builds and machines; in particular the
+S(4) upper-bound instance (n = 45, solved in ~43 s on the machine above) can exceed the default
+600 s timeout elsewhere — raise `TIMEOUT` in `lib/harness.py` if the schur run reports TIMEOUT.
+
 ```bash
 python3 -m venv .venv && source .venv/bin/activate && pip install matplotlib
 ```
