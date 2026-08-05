@@ -240,9 +240,22 @@ transports both solutions and unsatisfiability across the reformulation.
 If you use LeanCSP in your research, please cite the accompanying paper:
 
 > Pablo Manrique and Stefan Szeider. *LeanCSP: A Framework for Certifying Constraint
-> Reformulation and Solving in Lean.* arXiv preprint, 2026.
+> Reformulation and Solving in Lean.* arXiv:2607.28459, 2026.
+> <https://arxiv.org/abs/2607.28459>
 
-(A BibTeX entry with the arXiv identifier will be added once the preprint is announced.)
+BibTeX citation:
+
+```bibtex
+@misc{manrique2026leancspframeworkcertifyingconstraint,
+      title={LeanCSP: A Framework for Certifying Constraint Reformulation and Solving in Lean}, 
+      author={Pablo Manrique and Stefan Szeider},
+      year={2026},
+      eprint={2607.28459},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2607.28459}, 
+}
+```
 
 ## License
 
